@@ -149,7 +149,7 @@ class AssetDaoTest {
         assertTrue(repo.restore(a.id) is AppResult.Failure) // sudah aktif
     }
 
-    @Test fun `field pengadaan, memo, dan kode QR tersimpan; scan cocok dengan kode QR`() = runTest {
+    @Test fun `field pengadaan, memo, dan kode QR tersimpan dan scan cocok dengan kode QR`() = runTest {
         val a = (
             repo.save(
                 input("Laptop").copy(
