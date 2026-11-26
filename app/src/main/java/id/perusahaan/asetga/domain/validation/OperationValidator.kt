@@ -1,0 +1,82 @@
+package id.perusahaan.asetga.domain.validation
+
+import id.perusahaan.asetga.domain.model.ItemInput
+import id.perusahaan.asetga.domain.model.MutationInput
+import id.perusahaan.asetga.domain.model.ServiceInput
+import id.perusahaan.asetga.domain.model.StockTxnInput
+import id.perusahaan.asetga.util.Fmt
+import java.time.LocalDate
+
+object OperationValidator {
+    const val FIELD_DATE = "date"
+    const val FIELD_TARGET = "target"
+    const val FIELD_REASON = "reason"
+    const val FIELD_DESCRIPTION = "description"
+    const val FIELD_COST = "cost"
+    const val FIELD_NEXT = "nextServiceDate"
+    const val FIELD_CODE = "code"
+    const val FIELD_NAME = "name"
+    const val FIELD_UNIT = "unit"
+    const val FIELD_INITIAL = "initialStock"
+    const val FIELD_MIN = "minStock"
+    const val FIELD_QTY = "qty"
+
+    /**
+     * Mutasi valid bila minimal satu dari lokasi/departemen/PIC berubah dan alasan diisi.
+     * [currentLocationId] dll. adalah nilai aset saat ini.
+     */
+    fun validateMutation(
+        input: MutationInput,
+        currentLocationId: String,
+        currentDepartmentId: String?,
+        currentPic: String?,
+        acquisitionDate: LocalDate,
+        today: LocalDate,
+    ): Map<String, String> = buildMap {
+        when {
+            input.date == null -> put(FIELD_DATE, "Tanggal wajib diisi")
+            input.date.isAfter(today) -> put(FIELD_DATE, "Tanggal tidak boleh di masa depan")
+            input.date.isBefore(acquisitionDate) -> put(FIELD_DATE, "Tanggal sebelum tanggal perolehan aset")
+        }
+        val locChanged = input.toLocationId != null && input.toLocationId != currentLocationId
+        val deptChanged = input.toDepartmentId != currentDepartmentId
+        val picChanged = input.toPic.trim().ifEmpty { null } != currentPic
+        if (!locChanged && !deptChanged && !picChanged) put(FIELD_TARGET, "Ubah minimal lokasi, departemen, atau PIC tujuan")
+        if (input.reason.isBlank()) put(FIELD_REASON, "Alasan mutasi wajib diisi")
+    }
+
+    fun validateService(input: ServiceInput, today: LocalDate): Map<String, String> = buildMap {
+        when {
+            input.serviceDate == null -> put(FIELD_DATE, "Tanggal servis wajib diisi")
+            input.serviceDate.isAfter(today) -> put(FIELD_DATE, "Tanggal servis tidak boleh di masa depan")
+        }
+        if (input.description.isBlank()) put(FIELD_DESCRIPTION, "Deskripsi pekerjaan wajib diisi")
+        if (input.cost == null || input.cost < 0) put(FIELD_COST, "Biaya tidak valid")
+        if (input.nextServiceDate != null && input.serviceDate != null && !input.nextServiceDate.isAfter(input.serviceDate)) {
+            put(FIELD_NEXT, "Jadwal berikutnya harus setelah tanggal servis")
+        }
+    }
+
+    private val itemCodeRegex = Regex("^[A-Z0-9][A-Z0-9./-]{1,29}$")
+
+    fun validateItem(input: ItemInput): Map<String, String> = buildMap {
+        val code = input.code.trim().uppercase()
+        if (code.isEmpty()) put(FIELD_CODE, "Kode barang wajib diisi")
+        else if (!itemCodeRegex.matches(code)) put(FIELD_CODE, "Gunakan huruf, angka, titik, garis miring, atau tanda hubung")
+        if (input.name.isBlank()) put(FIELD_NAME, "Nama barang wajib diisi")
+        if (input.unitId == null) put(FIELD_UNIT, "Pilih satuan")
+        val initial = Fmt.parseDecimal(input.initialStock.ifBlank { "0" })
+        if (initial == null || initial < 0) put(FIELD_INITIAL, "Stok awal tidak valid")
+        val min = Fmt.parseDecimal(input.minStock.ifBlank { "0" })
+        if (min == null || min < 0) put(FIELD_MIN, "Minimum stok tidak valid")
+    }
+
+    fun validateTxn(input: StockTxnInput, today: LocalDate): Map<String, String> = buildMap {
+        val qty = Fmt.parseDecimal(input.qty)
+        if (qty == null || qty <= 0) put(FIELD_QTY, "Jumlah harus lebih dari 0")
+        when {
+            input.date == null -> put(FIELD_DATE, "Tanggal wajib diisi")
+            input.date.isAfter(today) -> put(FIELD_DATE, "Tanggal tidak boleh di masa depan")
+        }
+    }
+}

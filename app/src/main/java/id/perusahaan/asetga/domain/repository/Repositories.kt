@@ -11,6 +11,15 @@ import id.perusahaan.asetga.domain.model.AuditAction
 import id.perusahaan.asetga.domain.model.AuditEntityType
 import id.perusahaan.asetga.domain.model.AuditLogEntry
 import id.perusahaan.asetga.domain.model.Category
+import id.perusahaan.asetga.domain.model.AssetMutation
+import id.perusahaan.asetga.domain.model.ItemInput
+import id.perusahaan.asetga.domain.model.MutationInput
+import id.perusahaan.asetga.domain.model.ServiceInput
+import id.perusahaan.asetga.domain.model.ServiceRecord
+import id.perusahaan.asetga.domain.model.ServiceSchedule
+import id.perusahaan.asetga.domain.model.StockItem
+import id.perusahaan.asetga.domain.model.StockTxn
+import id.perusahaan.asetga.domain.model.StockTxnInput
 import id.perusahaan.asetga.domain.model.Department
 import id.perusahaan.asetga.domain.model.Location
 import id.perusahaan.asetga.domain.model.MasterType
@@ -102,4 +111,26 @@ interface AssetRepository {
     /** Usulan kode otomatis PREFIX-TAHUN-NNN berdasarkan kategori & tahun perolehan. */
     suspend fun suggestCode(categoryId: String, year: Int): String
     suspend fun save(input: AssetInput): AppResult<Asset>
+}
+
+interface OperationRepository {
+    fun observeMutations(assetId: String): Flow<List<AssetMutation>>
+    suspend fun recordMutation(input: MutationInput): AppResult<Unit>
+
+    fun observeServices(assetId: String): Flow<List<ServiceRecord>>
+    fun pagingServices(query: String): Flow<PagingData<ServiceRecord>>
+    fun observeSchedules(): Flow<List<ServiceSchedule>>
+    suspend fun getService(id: String): ServiceRecord?
+    suspend fun saveService(input: ServiceInput): AppResult<Unit>
+}
+
+interface StockRepository {
+    fun observeItems(query: String, reorderOnly: Boolean, includeInactive: Boolean = false): Flow<List<StockItem>>
+    fun observeItem(id: String): Flow<StockItem?>
+    fun observeTxns(itemId: String): Flow<List<StockTxn>>
+    fun observeReorderCount(): Flow<Int>
+    suspend fun findByCodeOrBarcode(code: String): StockItem?
+    suspend fun saveItem(input: ItemInput): AppResult<String>
+    suspend fun setItemActive(id: String, active: Boolean): AppResult<Unit>
+    suspend fun recordTxn(input: StockTxnInput): AppResult<Unit>
 }

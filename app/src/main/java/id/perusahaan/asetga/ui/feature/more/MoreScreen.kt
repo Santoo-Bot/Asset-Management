@@ -8,6 +8,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Column
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.outlined.Build
 import androidx.compose.material.icons.outlined.Category
 import androidx.compose.material.icons.outlined.Group
 import androidx.compose.material.icons.outlined.Info
@@ -29,6 +30,7 @@ import id.perusahaan.asetga.ui.components.SectionHeader
 fun MoreScreen(
     user: User,
     onOpenMaster: () -> Unit,
+    onOpenServices: () -> Unit,
     onOpenUsers: () -> Unit,
     onOpenSettings: () -> Unit,
 ) {
@@ -40,6 +42,7 @@ fun MoreScreen(
             )
             HorizontalDivider()
             SectionHeader("Data")
+            MenuRow(Icons.Outlined.Build, "Servis & perawatan", "Jadwal servis, terlambat, jatuh tempo, riwayat", onOpenServices)
             MenuRow(Icons.Outlined.Category, "Master data", "Kategori, lokasi, departemen, vendor, satuan", onOpenMaster)
             SectionHeader("Sistem")
             if (user.role.canManageUsers) {

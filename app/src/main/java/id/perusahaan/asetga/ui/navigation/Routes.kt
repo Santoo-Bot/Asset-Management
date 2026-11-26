@@ -19,3 +19,16 @@ import kotlinx.serialization.Serializable
 /** [id] null = tambah aset baru. */
 @Serializable data class AssetFormRoute(val id: String? = null)
 @Serializable data object LabelRoute
+
+@Serializable data class MutationFormRoute(val assetId: String)
+/** [serviceId] null = catatan servis baru. */
+@Serializable data class ServiceFormRoute(val assetId: String, val serviceId: String? = null)
+@Serializable data object ServiceListRoute
+
+@Serializable data class ItemDetailRoute(val id: String)
+/** [barcode] diisi bila berasal dari hasil scan yang belum terdaftar. */
+@Serializable data class ItemFormRoute(val id: String? = null, val barcode: String? = null)
+/** Scan sekali lalu kembalikan kode ke layar sebelumnya lewat SavedStateHandle [SCAN_RESULT_KEY]. */
+@Serializable data class ScanPickRoute(val title: String)
+
+const val SCAN_RESULT_KEY = "scan_result"

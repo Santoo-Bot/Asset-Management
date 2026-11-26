@@ -13,11 +13,15 @@ import id.perusahaan.asetga.data.local.DefaultData
 import id.perusahaan.asetga.data.repository.AssetRepositoryImpl
 import id.perusahaan.asetga.data.repository.AuditLogRepositoryImpl
 import id.perusahaan.asetga.data.repository.MasterDataRepositoryImpl
+import id.perusahaan.asetga.data.repository.OperationRepositoryImpl
+import id.perusahaan.asetga.data.repository.StockRepositoryImpl
 import id.perusahaan.asetga.data.repository.SettingsRepositoryImpl
 import id.perusahaan.asetga.data.repository.UserRepositoryImpl
 import id.perusahaan.asetga.domain.repository.AssetRepository
 import id.perusahaan.asetga.domain.repository.AuditLogRepository
 import id.perusahaan.asetga.domain.repository.MasterDataRepository
+import id.perusahaan.asetga.domain.repository.OperationRepository
+import id.perusahaan.asetga.domain.repository.StockRepository
 import id.perusahaan.asetga.domain.repository.SettingsRepository
 import id.perusahaan.asetga.domain.repository.UserRepository
 import id.perusahaan.asetga.domain.security.PasswordHasher
@@ -44,6 +48,9 @@ object AppModule {
     @Provides fun settingsDao(db: AppDatabase) = db.settingsDao()
     @Provides fun auditLogDao(db: AppDatabase) = db.auditLogDao()
     @Provides fun assetDao(db: AppDatabase) = db.assetDao()
+    @Provides fun mutationDao(db: AppDatabase) = db.mutationDao()
+    @Provides fun serviceDao(db: AppDatabase) = db.serviceDao()
+    @Provides fun stockDao(db: AppDatabase) = db.stockDao()
 
     @Provides
     @Singleton
@@ -62,4 +69,6 @@ abstract class RepositoryModule {
     @Binds abstract fun settings(impl: SettingsRepositoryImpl): SettingsRepository
     @Binds abstract fun auditLog(impl: AuditLogRepositoryImpl): AuditLogRepository
     @Binds abstract fun assets(impl: AssetRepositoryImpl): AssetRepository
+    @Binds abstract fun operations(impl: OperationRepositoryImpl): OperationRepository
+    @Binds abstract fun stock(impl: StockRepositoryImpl): StockRepository
 }

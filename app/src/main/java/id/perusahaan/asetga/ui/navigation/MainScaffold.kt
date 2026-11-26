@@ -38,6 +38,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.toRoute
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import id.perusahaan.asetga.domain.model.MasterType
 import id.perusahaan.asetga.domain.model.User
 import id.perusahaan.asetga.ui.feature.asset.AssetDetailScreen
@@ -49,6 +50,15 @@ import id.perusahaan.asetga.ui.feature.scan.ScanScreen
 import id.perusahaan.asetga.ui.feature.master.MasterListScreen
 import id.perusahaan.asetga.ui.feature.master.MasterMenuScreen
 import id.perusahaan.asetga.ui.feature.more.MoreScreen
+import id.perusahaan.asetga.ui.feature.operation.AssetOperationActions
+import id.perusahaan.asetga.ui.feature.operation.AssetOperationsSection
+import id.perusahaan.asetga.ui.feature.operation.MutationFormScreen
+import id.perusahaan.asetga.ui.feature.operation.ServiceFormScreen
+import id.perusahaan.asetga.ui.feature.operation.ServiceListScreen
+import id.perusahaan.asetga.ui.feature.scan.ScanPickScreen
+import id.perusahaan.asetga.ui.feature.stock.ItemDetailScreen
+import id.perusahaan.asetga.ui.feature.stock.ItemFormScreen
+import id.perusahaan.asetga.ui.feature.stock.StockListScreen
 import id.perusahaan.asetga.ui.feature.settings.SettingsScreen
 import id.perusahaan.asetga.ui.feature.users.UsersScreen
 import kotlin.reflect.KClass
@@ -104,6 +114,19 @@ fun MainScaffold(user: User) {
                     onBack = nav::navigateUp,
                     onEdit = { nav.navigate(AssetFormRoute(it)) },
                     onPrintLabel = { nav.navigate(LabelRoute) },
+                    extraActions = { assetId, canEdit ->
+                        AssetOperationActions(
+                            canEdit = canEdit,
+                            onMutation = { nav.navigate(MutationFormRoute(assetId)) },
+                            onService = { nav.navigate(ServiceFormRoute(assetId)) },
+                        )
+                    },
+                    extraSections = { assetId ->
+                        AssetOperationsSection(
+                            canEdit = user.role.canEditData,
+                            onEditService = { serviceId -> nav.navigate(ServiceFormRoute(assetId, serviceId)) },
+                        )
+                    },
                 )
             }
             composable<AssetFormRoute> { entry ->
@@ -120,13 +143,51 @@ fun MainScaffold(user: User) {
                 )
             }
             composable<LabelRoute> { LabelScreen(onBack = nav::navigateUp) }
-            composable<StockRoute> {
-                PlaceholderScreen("Stok", "Stok barang habis pakai hadir pada tahap (e).")
+            composable<StockRoute> { entry ->
+                val scanned by entry.savedStateHandle.getStateFlow<String?>(SCAN_RESULT_KEY, null).collectAsStateWithLifecycle()
+                StockListScreen(
+                    scannedCode = scanned,
+                    onScanConsumed = { entry.savedStateHandle[SCAN_RESULT_KEY] = null },
+                    onScan = { nav.navigate(ScanPickRoute("Scan barcode barang")) },
+                    onOpenItem = { nav.navigate(ItemDetailRoute(it)) },
+                    onAddItem = { barcode -> nav.navigate(ItemFormRoute(barcode = barcode)) },
+                )
+            }
+            composable<ScanPickRoute> { entry ->
+                ScanPickScreen(
+                    title = entry.toRoute<ScanPickRoute>().title,
+                    onBack = nav::navigateUp,
+                    onCode = { code ->
+                        nav.previousBackStackEntry?.savedStateHandle?.set(SCAN_RESULT_KEY, code)
+                        nav.popBackStack()
+                    },
+                )
+            }
+            composable<ItemDetailRoute> {
+                ItemDetailScreen(onBack = nav::navigateUp, onEdit = { nav.navigate(ItemFormRoute(id = it)) })
+            }
+            composable<ItemFormRoute> {
+                ItemFormScreen(
+                    onBack = nav::navigateUp,
+                    onSaved = { id, isNew ->
+                        if (isNew) {
+                            nav.navigate(ItemDetailRoute(id)) { popUpTo<ItemFormRoute> { inclusive = true } }
+                        } else {
+                            nav.popBackStack()
+                        }
+                    },
+                )
+            }
+            composable<MutationFormRoute> { MutationFormScreen(onBack = nav::navigateUp, onSaved = { nav.popBackStack() }) }
+            composable<ServiceFormRoute> { ServiceFormScreen(onBack = nav::navigateUp, onSaved = { nav.popBackStack() }) }
+            composable<ServiceListRoute> {
+                ServiceListScreen(onBack = nav::navigateUp, onOpenAsset = { nav.navigate(AssetDetailRoute(it)) })
             }
             composable<MoreRoute> {
                 MoreScreen(
                     user = user,
                     onOpenMaster = { nav.navigate(MasterMenuRoute) },
+                    onOpenServices = { nav.navigate(ServiceListRoute) },
                     onOpenUsers = { nav.navigate(UsersRoute) },
                     onOpenSettings = { nav.navigate(SettingsRoute) },
                 )
