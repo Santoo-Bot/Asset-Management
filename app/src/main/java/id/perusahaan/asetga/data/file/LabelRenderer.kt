@@ -79,20 +79,21 @@ object LabelRenderer {
         val textLeft = left + pad + qrSize + 1.5f * MM
         val textWidth = (left + CELL_W - pad - textLeft).toInt().coerceAtLeast(20)
 
-        // Kode QR: tebal, diperkecil bila terlalu panjang agar tetap terbaca utuh (maks. 2 baris).
-        val codePaint = TextPaint(Paint.ANTI_ALIAS_FLAG).apply { typeface = Typeface.DEFAULT_BOLD; color = Color.BLACK }
-        var size = 9f
-        codePaint.textSize = size
-        while (size > 6f && codePaint.measureText(label.qr) > textWidth * 2) { size -= 0.5f; codePaint.textSize = size }
-        val code = layout(label.qr, codePaint, textWidth, 2)
-        val catPaint = TextPaint(Paint.ANTI_ALIAS_FLAG).apply { textSize = 7f; color = Color.rgb(60, 60, 60) }
+        // Kode QR: tebal, selalu 1 baris; ukuran huruf dikecilkan sampai muat lebar label.
+        val codePaint = TextPaint(Paint.ANTI_ALIAS_FLAG).apply { typeface = Typeface.DEFAULT_BOLD; color = Color.BLACK; textSize = 8f }
+        while (codePaint.textSize > 4f && codePaint.measureText(label.qr) > textWidth) codePaint.textSize -= 0.25f
+        val codeText = TextUtils.ellipsize(label.qr, codePaint, textWidth.toFloat(), TextUtils.TruncateAt.END).toString()
+        val codeMetrics = codePaint.fontMetrics
+        val codeH = codeMetrics.descent - codeMetrics.ascent
+
+        val catPaint = TextPaint(Paint.ANTI_ALIAS_FLAG).apply { textSize = 6.5f; color = Color.rgb(60, 60, 60) }
         val cat = layout(label.category, catPaint, textWidth, 2)
 
         val gap = 1.5f
-        val blockH = code.height + gap + cat.height
+        val blockH = codeH + gap + cat.height
         var y = top + (CELL_H - blockH) / 2
-        canvas.save(); canvas.translate(textLeft, y); code.draw(canvas); canvas.restore()
-        y += code.height + gap
+        canvas.drawText(codeText, textLeft, y - codeMetrics.ascent, codePaint)
+        y += codeH + gap
         canvas.save(); canvas.translate(textLeft, y); cat.draw(canvas); canvas.restore()
     }
 
