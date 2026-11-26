@@ -137,6 +137,7 @@ class ExportImportService @Inject constructor(
             ImportColumn.MEMO_DATE to text(a.memoDate?.let(Fmt::dateNumeric)),
             ImportColumn.FOLLOW_UP to text(a.followUp),
             ImportColumn.HANDOVER to text(a.handoverDoc),
+            ImportColumn.ACCESSORIES to text(a.accessories),
         )
     }
 
@@ -241,6 +242,7 @@ class ExportImportService @Inject constructor(
             ImportColumn.MEMO_DATE to text("10/01/2024"),
             ImportColumn.FOLLOW_UP to text("Diserahkan ke pengguna"),
             ImportColumn.HANDOVER to text("BAST/GA/2024/015"),
+            ImportColumn.ACCESSORIES to text("Charger, Tas laptop"),
         )
         val example = ImportColumn.entries.map { sample[it] ?: text("") }
         val maxLen = maxOf(cats.size, locs.size, deps.size, divs.size, AssetCondition.entries.size, AssetStatus.entries.size)

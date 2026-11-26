@@ -18,6 +18,7 @@ import id.perusahaan.asetga.domain.calc.AssetAgeCalc
 import id.perusahaan.asetga.domain.calc.AssetCodeGenerator
 import id.perusahaan.asetga.domain.calc.Depreciation
 import id.perusahaan.asetga.domain.calc.WarrantyCalc
+import id.perusahaan.asetga.domain.model.Accessories
 import id.perusahaan.asetga.domain.model.AppResult
 import id.perusahaan.asetga.domain.model.Asset
 import id.perusahaan.asetga.domain.model.AssetDetail
@@ -48,6 +49,7 @@ internal fun AssetEntity.toDomain() = Asset(
     id, code, name, categoryId, brandModel, serialNumber, acquisitionDate, acquisitionCost, locationId, departmentId,
     picName, condition, status, warrantyUntil, notes, photoPath, disposalDate, disposalValue,
     qrCode, userLocationDetail, divisionId, prNumber, poNumber, grNumber, requester, memoNumber, memoDate, followUp, handoverDoc,
+    accessories,
 )
 
 internal fun AssetListRow.toDomain() = AssetListItem(
@@ -184,6 +186,7 @@ class AssetRepositoryImpl @Inject constructor(
                 memoDate = input.memoDate,
                 followUp = input.followUp.trimToNull(),
                 handoverDoc = input.handoverDoc.trimToNull(),
+                accessories = Accessories.normalize(input.accessories),
                 createdAt = old?.createdAt ?: now,
                 updatedAt = now,
                 syncState = SyncState.PENDING,
@@ -219,6 +222,7 @@ class AssetRepositoryImpl @Inject constructor(
                     field("Tanggal memo", old.memoDate?.let(Fmt::date), entity.memoDate?.let(Fmt::date))
                     field("Tindak lanjut", old.followUp, entity.followUp)
                     field("Berita acara serah terima", old.handoverDoc, entity.handoverDoc)
+                    field("Kelengkapan", old.accessories, entity.accessories)
                     field("Foto", old.photoPath?.let { "ada" }, entity.photoPath?.let { if (it == old.photoPath) "ada" else "diganti" })
                 }
                 if (!changes.isEmpty()) {

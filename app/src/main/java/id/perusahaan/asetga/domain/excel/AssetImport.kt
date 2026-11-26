@@ -33,7 +33,8 @@ enum class ImportColumn(val templateHeader: String, val required: Boolean = fals
     MEMO_NO("Nomor Memo"),
     MEMO_DATE("Tanggal Memo (dd/mm/yyyy)"),
     FOLLOW_UP("Tindak Lanjut"),
-    HANDOVER("Berita Acara Serah Terima");
+    HANDOVER("Berita Acara Serah Terima"),
+    ACCESSORIES("Kelengkapan (pisahkan dengan koma)");
 
     /** Nama kolom tanpa tanda wajib & keterangan, mis. "Kondisi". */
     val header: String get() = templateHeader.replace("*", "").substringBefore("(").trim()
@@ -185,6 +186,7 @@ object AssetImportParser {
                 prNumber = cell(ImportColumn.PR), poNumber = cell(ImportColumn.PO), grNumber = cell(ImportColumn.GR),
                 requester = cell(ImportColumn.REQUESTER), memoNumber = cell(ImportColumn.MEMO_NO), memoDate = memoDate,
                 followUp = cell(ImportColumn.FOLLOW_UP), handoverDoc = cell(ImportColumn.HANDOVER),
+                accessories = cell(ImportColumn.ACCESSORIES),
             )
             // Pesan validasi umum (wajib isi, tanggal masa depan, dll.) yang belum tercakup di atas.
             AssetValidator.validate(input, today).forEach { (field, msg) ->

@@ -70,6 +70,8 @@ data class AssetEntity(
     val followUp: String? = null,
     /** Nomor / keterangan Berita Acara Serah Terima. */
     val handoverDoc: String? = null,
+    /** Kelengkapan aset, dipisah koma (mis. "Charger, Casing"). (skema v12) */
+    val accessories: String? = null,
     val createdAt: Long,
     val updatedAt: Long,
     val deletedAt: Long? = null,

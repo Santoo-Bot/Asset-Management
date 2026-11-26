@@ -139,6 +139,10 @@ fun AssetFormScreen(
                 input.userLocationDetail, { v -> vm.update { it.copy(userLocationDetail = v) } }, "Pengguna / detail lokasi",
                 supporting = "Mis. Budi · Ruang 301, meja 4",
             )
+            FormTextField(
+                input.accessories, { v -> vm.update { it.copy(accessories = v) } }, "Kelengkapan",
+                supporting = "Pisahkan dengan koma, mis. Charger, Casing", singleLine = false,
+            )
 
             SectionHeader("Pengadaan", Modifier.padding(start = 0.dp))
             FormTextField(input.prNumber, { v -> vm.update { it.copy(prNumber = v) } }, "Nomor PR")

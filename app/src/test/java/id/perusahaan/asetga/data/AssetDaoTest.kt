@@ -156,6 +156,7 @@ class AssetDaoTest {
                     qrCode = "QR-LAMA-0001", userLocationDetail = "Budi · Ruang 301",
                     prNumber = "PR-1", poNumber = "PO-2", grNumber = "GR-3", requester = "Citra",
                     memoNumber = "MEMO/7", memoDate = LocalDate.of(2024, 1, 10), followUp = "Diserahkan", handoverDoc = "BAST/15",
+                    accessories = " charger,Casing , charger;  ",
                 ),
             ) as AppResult.Success
             ).value
@@ -164,6 +165,9 @@ class AssetDaoTest {
         assertEquals("PO-2", saved.poNumber)
         assertEquals(LocalDate.of(2024, 1, 10), saved.memoDate)
         assertEquals("BAST/15", saved.handoverDoc)
+        assertEquals("charger, Casing", saved.accessories) // dirapikan, duplikat dibuang
+        assertEquals(listOf("charger", "Casing"), saved.accessoryList)
+        assertEquals(1, db.assetDao().count("casing", null, null, null, null, null, null, false).first())
         assertEquals(a.id, repo.findByCode("QR-LAMA-0001")?.id)
         assertEquals(a.id, repo.findByCode(a.code)?.id)
         assertEquals(1, db.assetDao().count("PO-2", null, null, null, null, null, null, false).first())

@@ -35,7 +35,11 @@ data class Asset(
     val memoDate: LocalDate? = null,
     val followUp: String? = null,
     val handoverDoc: String? = null,
+    /** Kelengkapan, dipisah koma. */
+    val accessories: String? = null,
 ) {
+    val accessoryList: List<String> get() = Accessories.parse(accessories)
+
     /** Isi yang dicetak di label QR. */
     val qrContent: String get() = qrCode ?: code
 }
@@ -71,7 +75,21 @@ data class AssetInput(
     val memoDate: LocalDate? = null,
     val followUp: String = "",
     val handoverDoc: String = "",
+    /** Kelengkapan, dipisah koma, mis. "Charger, Casing". */
+    val accessories: String = "",
 )
+
+/** Kelengkapan aset (charger, casing, dll.) disimpan sebagai teks dipisah koma. */
+object Accessories {
+    fun parse(text: String?): List<String> = text.orEmpty()
+        .split(',', ';', '\n')
+        .map { it.trim() }
+        .filter { it.isNotEmpty() }
+        .distinctBy { it.lowercase() }
+
+    /** Bentuk baku untuk disimpan: "Charger, Casing"; null bila kosong. */
+    fun normalize(text: String?): String? = parse(text).joinToString(", ").ifEmpty { null }
+}
 
 data class AssetListItem(
     val id: String,

@@ -63,7 +63,8 @@ private const val FILTER_WHERE = """
          OR a.serialNumber LIKE '%' || :query || '%' OR a.picName LIKE '%' || :query || '%'
          OR a.brandModel LIKE '%' || :query || '%' OR a.qrCode LIKE '%' || :query || '%'
          OR a.userLocationDetail LIKE '%' || :query || '%' OR a.prNumber LIKE '%' || :query || '%'
-         OR a.poNumber LIKE '%' || :query || '%' OR a.grNumber LIKE '%' || :query || '%')
+         OR a.poNumber LIKE '%' || :query || '%' OR a.grNumber LIKE '%' || :query || '%'
+         OR a.accessories LIKE '%' || :query || '%')
     AND (:categoryId IS NULL OR a.categoryId = :categoryId)
     AND (:locationId IS NULL OR a.locationId = :locationId)
     AND (:divisionId IS NULL OR a.divisionId = :divisionId)

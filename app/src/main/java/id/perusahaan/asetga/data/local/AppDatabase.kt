@@ -68,7 +68,7 @@ import java.util.UUID
         InsurancePolicyEntity::class,
         InsuranceItemEntity::class,
     ],
-    version = 11,
+    version = 12,
     exportSchema = true,
 )
 @TypeConverters(Converters::class)
@@ -324,9 +324,22 @@ object Migrations {
         }
     }
 
+    /** v12: kolom kelengkapan aset. Aman dijalankan ulang bila kolom sudah ada. */
+    val MIGRATION_11_12 = object : Migration(11, 12) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            val exists = db.query("PRAGMA table_info(`assets`)").use { c ->
+                val nameIdx = c.getColumnIndex("name")
+                var found = false
+                while (c.moveToNext()) if (c.getString(nameIdx) == "accessories") found = true
+                found
+            }
+            if (!exists) db.execSQL("ALTER TABLE `assets` ADD COLUMN `accessories` TEXT")
+        }
+    }
+
     val ALL = arrayOf(
         MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10,
-        MIGRATION_10_11,
+        MIGRATION_10_11, MIGRATION_11_12,
     )
 }
 

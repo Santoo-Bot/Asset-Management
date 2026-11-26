@@ -40,6 +40,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
+import androidx.compose.material3.SuggestionChip
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -257,6 +258,15 @@ private fun DetailBody(d: AssetDetail, photo: File?) {
         LabeledValue("Divisi", d.divisionName ?: "-")
         LabeledValue("Departemen", d.departmentName ?: "-")
         LabeledValue("Pengguna / detail lokasi", a.userLocationDetail ?: "-")
+        val accessories = a.accessoryList
+        if (accessories.isEmpty()) {
+            LabeledValue("Kelengkapan", "-")
+        } else {
+            Text("Kelengkapan", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                accessories.forEach { item -> SuggestionChip(onClick = {}, label = { Text(item) }) }
+            }
+        }
         // Field lama yang tidak lagi ada di form; tetap ditampilkan bila sempat diisi.
         a.brandModel?.let { LabeledValue("Merk / tipe", it) }
         a.picName?.let { LabeledValue("PIC", it) }

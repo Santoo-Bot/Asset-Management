@@ -113,6 +113,7 @@ class AssetFormViewModel @Inject constructor(
                             divisionId = a.divisionId, prNumber = a.prNumber.orEmpty(), poNumber = a.poNumber.orEmpty(),
                             grNumber = a.grNumber.orEmpty(), requester = a.requester.orEmpty(), memoNumber = a.memoNumber.orEmpty(),
                             memoDate = a.memoDate, followUp = a.followUp.orEmpty(), handoverDoc = a.handoverDoc.orEmpty(),
+                            accessories = a.accessories.orEmpty(),
                         ),
                     )
                 }
