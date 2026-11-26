@@ -166,7 +166,7 @@ class AssetDaoTest {
         assertEquals("BAST/15", saved.handoverDoc)
         assertEquals(a.id, repo.findByCode("QR-LAMA-0001")?.id)
         assertEquals(a.id, repo.findByCode(a.code)?.id)
-        assertEquals(1, db.assetDao().count("PO-2", null, null, null, null, null, null).first())
+        assertEquals(1, db.assetDao().count("PO-2", null, null, null, null, null, null, false).first())
 
         // Kode QR tidak boleh sama dengan kode/QR aset lain.
         val dupQr = repo.save(input("Lain").copy(qrCode = "qr-lama-0001")) as AppResult.Failure
@@ -191,7 +191,7 @@ class AssetDaoTest {
         // Tanpa departemen, divisi pilihan dipakai.
         val b = (repo.save(input("Meja").copy(divisionId = "divB")) as AppResult.Success).value
         assertEquals("divB", b.divisionId)
-        assertEquals(1, db.assetDao().count("", null, null, null, null, "divB", null).first())
+        assertEquals(1, db.assetDao().count("", null, null, null, null, "divB", null, false).first())
 
         // Admin memindah departemen ke divisi lain → aset ikut.
         session.login(User("adm", "admin", "Admin GA", Role.ADMIN, hasPin = false, isActive = true))
