@@ -20,7 +20,7 @@ Versi baru dipasang di atas versi lama tanpa menghapus data. Semua APK debug dit
 ### Pertama kali dibuka
 1. Buat akun **Admin GA** pertama.
 2. (Opsional) **Lainnya → Pengaturan**: isi *Nama perusahaan pada label*, atur PIN, jam pengingat.
-3. **Lainnya → Master data**: tambah lokasi, departemen, vendor. Kategori awal sudah terisi:
+3. **Lainnya → Master data**: tambah lokasi, departemen, vendor, status aset (5 status bawaan: Digunakan, Tersedia, Dalam Perbaikan, Propose To Write Off, Write Off — Write Off adalah status sistem). Kategori awal sudah terisi:
 
    | Kategori | Kode | Umur ekonomis |
    |---|---|---|
