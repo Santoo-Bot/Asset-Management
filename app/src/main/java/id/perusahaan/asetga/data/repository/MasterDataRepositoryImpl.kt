@@ -7,6 +7,7 @@ import id.perusahaan.asetga.data.local.dao.CategoryDao
 import id.perusahaan.asetga.data.local.dao.DepartmentDao
 import id.perusahaan.asetga.data.local.dao.DivisionDao
 import id.perusahaan.asetga.data.local.dao.LocationDao
+import id.perusahaan.asetga.data.local.dao.MasterUsageDao
 import id.perusahaan.asetga.data.local.dao.UnitDao
 import id.perusahaan.asetga.data.local.dao.VendorDao
 import id.perusahaan.asetga.data.local.entity.CategoryEntity
@@ -50,6 +51,7 @@ class MasterDataRepositoryImpl @Inject constructor(
     private val departmentDao: DepartmentDao,
     private val vendorDao: VendorDao,
     private val unitDao: UnitDao,
+    private val usageDao: MasterUsageDao,
     private val session: SessionManager,
     private val audit: AuditLogRepository,
     private val clock: Clock,
@@ -250,6 +252,68 @@ class MasterDataRepositoryImpl @Inject constructor(
             "${type.label} $name ${if (active) "diaktifkan kembali" else "dinonaktifkan"}",
         )
         return AppResult.Success(Unit)
+    }
+
+    override suspend fun delete(type: MasterType, id: String): AppResult<Unit> {
+        session.denyUnless { it.canManageMaster }?.let { return it }
+        val name: String = when (type) {
+            MasterType.CATEGORY -> categoryDao.getById(id)?.name
+            MasterType.LOCATION -> locationDao.getById(id)?.name
+            MasterType.DIVISION -> divisionDao.getById(id)?.name
+            MasterType.DEPARTMENT -> departmentDao.getById(id)?.name
+            MasterType.VENDOR -> vendorDao.getById(id)?.name
+            MasterType.UNIT -> unitDao.getById(id)?.name
+        } ?: return AppResult.Failure("Data tidak ditemukan")
+
+        val usage = usageOf(type, id)
+        if (usage.isNotEmpty()) {
+            val hint = when (type) {
+                MasterType.DIVISION -> "Pindahkan departemen & aset ke divisi lain dulu."
+                MasterType.CATEGORY, MasterType.LOCATION, MasterType.DEPARTMENT -> "Pindahkan dulu ke ${type.singular} lain (ubah aset / mutasi)."
+                MasterType.VENDOR -> "Ubah vendor pada catatan servis tersebut dulu."
+                MasterType.UNIT -> "Ubah satuan barang tersebut dulu."
+            }
+            return AppResult.Failure("$name tidak bisa dihapus karena dipakai ${usage.joinToString(", ")}. $hint")
+        }
+
+        db.withTransaction {
+            when (type) {
+                MasterType.CATEGORY -> usageDao.deleteCategory(id)
+                MasterType.LOCATION -> usageDao.deleteLocation(id)
+                MasterType.DIVISION -> usageDao.deleteDivision(id)
+                MasterType.DEPARTMENT -> usageDao.deleteDepartment(id)
+                MasterType.VENDOR -> usageDao.deleteVendor(id)
+                MasterType.UNIT -> usageDao.deleteUnit(id)
+            }
+            audit.log(AuditEntityType.MASTER, id, AuditAction.DELETE, "${type.label} $name dihapus")
+        }
+        return AppResult.Success(Unit)
+    }
+
+    /** Daftar pemakaian, mis. ["12 aset", "2 riwayat mutasi"]. Kosong = aman dihapus. */
+    private suspend fun usageOf(type: MasterType, id: String): List<String> {
+        fun MutableList<String>.addIfUsed(count: Int, label: String) { if (count > 0) add("$count $label") }
+        return buildList {
+            when (type) {
+                MasterType.CATEGORY -> addIfUsed(usageDao.assetsInCategory(id), "aset")
+                MasterType.LOCATION -> {
+                    addIfUsed(usageDao.assetsInLocation(id), "aset")
+                    addIfUsed(usageDao.itemsInLocation(id), "barang stok")
+                    addIfUsed(usageDao.mutationsWithLocation(id), "riwayat mutasi")
+                    addIfUsed(usageDao.opnameInLocation(id), "sesi stock opname")
+                }
+                MasterType.DIVISION -> {
+                    addIfUsed(usageDao.departmentsInDivision(id), "departemen")
+                    addIfUsed(usageDao.assetsInDivision(id), "aset")
+                }
+                MasterType.DEPARTMENT -> {
+                    addIfUsed(usageDao.assetsInDepartment(id), "aset")
+                    addIfUsed(usageDao.mutationsWithDepartment(id), "riwayat mutasi")
+                }
+                MasterType.VENDOR -> addIfUsed(usageDao.servicesWithVendor(id), "catatan servis")
+                MasterType.UNIT -> addIfUsed(usageDao.itemsWithUnit(id), "barang stok")
+            }
+        }
     }
 
     private fun nameErrors(name: String, duplicates: Int, label: String): AppResult.Failure? {

@@ -19,7 +19,10 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.FilterChip
@@ -38,6 +41,8 @@ import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
@@ -135,6 +140,7 @@ fun MasterListScreen(
             onChange = vm::updateForm,
             onSave = vm::save,
             onToggleActive = vm::toggleActive,
+            onDelete = vm::delete,
             onDismiss = vm::closeEditor,
         )
     }
@@ -150,8 +156,10 @@ private fun MasterEditorSheet(
     onChange: ((MasterForm) -> MasterForm) -> Unit,
     onSave: () -> Unit,
     onToggleActive: (MasterRow) -> Unit,
+    onDelete: (MasterRow) -> Unit,
     onDismiss: () -> Unit,
 ) {
+    var confirmDelete by remember { mutableStateOf(false) }
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val f = state.form
     val e = state.errors
@@ -207,18 +215,37 @@ private fun MasterEditorSheet(
                 Text(if (state.saving) "Menyimpan…" else "Simpan")
             }
             if (activeRow != null) {
-                OutlinedButton(onClick = { onToggleActive(activeRow) }, modifier = Modifier.fillMaxWidth().height(52.dp)) {
-                    Text(if (activeRow.isActive) "Nonaktifkan" else "Aktifkan kembali")
+                if (!activeRow.isActive) {
+                    OutlinedButton(onClick = { onToggleActive(activeRow) }, modifier = Modifier.fillMaxWidth().height(52.dp)) {
+                        Text("Aktifkan kembali")
+                    }
                 }
-                if (activeRow.isActive) {
-                    Text(
-                        "Data tidak dihapus permanen. Data nonaktif tidak muncul di pilihan baru, tetapi riwayat tetap utuh.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
+                OutlinedButton(
+                    onClick = { confirmDelete = true },
+                    modifier = Modifier.fillMaxWidth().height(52.dp),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error),
+                ) { Text("Hapus ${type.singular}") }
+                Text(
+                    "Hanya data yang belum dipakai aset, stok, atau riwayat yang bisa dihapus.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
             }
             Spacer(Modifier.height(16.dp))
         }
+    }
+
+    if (confirmDelete && activeRow != null) {
+        AlertDialog(
+            onDismissRequest = { confirmDelete = false },
+            title = { Text("Hapus ${activeRow.title}?") },
+            text = { Text("${type.label} ini akan dihapus permanen dari daftar. Penghapusan tercatat di audit log.") },
+            confirmButton = {
+                TextButton(onClick = { confirmDelete = false; onDelete(activeRow) }) {
+                    Text("Hapus", color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = { TextButton(onClick = { confirmDelete = false }) { Text("Batal") } },
+        )
     }
 }

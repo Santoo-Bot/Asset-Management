@@ -11,6 +11,7 @@ import id.perusahaan.asetga.data.local.dao.CategoryDao
 import id.perusahaan.asetga.data.local.dao.DepartmentDao
 import id.perusahaan.asetga.data.local.dao.DivisionDao
 import id.perusahaan.asetga.data.local.dao.LocationDao
+import id.perusahaan.asetga.data.local.dao.MasterUsageDao
 import id.perusahaan.asetga.data.local.dao.MutationDao
 import id.perusahaan.asetga.data.local.dao.OpnameDao
 import id.perusahaan.asetga.data.local.dao.ServiceDao
@@ -65,6 +66,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun categoryDao(): CategoryDao
     abstract fun locationDao(): LocationDao
     abstract fun divisionDao(): DivisionDao
+    abstract fun masterUsageDao(): MasterUsageDao
     abstract fun departmentDao(): DepartmentDao
     abstract fun vendorDao(): VendorDao
     abstract fun unitDao(): UnitDao

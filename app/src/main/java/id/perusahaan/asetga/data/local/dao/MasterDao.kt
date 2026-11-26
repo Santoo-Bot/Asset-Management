@@ -144,3 +144,58 @@ interface UnitDao {
     @Query("UPDATE units SET isActive = :active, updatedAt = :now, syncState = 'PENDING' WHERE id = :id")
     suspend fun setActive(id: String, active: Boolean, now: Long)
 }
+
+/** Menghitung pemakaian data master agar data yang masih dipakai tidak terhapus. */
+@Dao
+interface MasterUsageDao {
+    @Query("SELECT COUNT(*) FROM assets WHERE categoryId = :id")
+    suspend fun assetsInCategory(id: String): Int
+
+    @Query("SELECT COUNT(*) FROM assets WHERE locationId = :id")
+    suspend fun assetsInLocation(id: String): Int
+
+    @Query("SELECT COUNT(*) FROM items WHERE storageLocationId = :id")
+    suspend fun itemsInLocation(id: String): Int
+
+    @Query("SELECT COUNT(*) FROM audit_sessions WHERE locationId = :id")
+    suspend fun opnameInLocation(id: String): Int
+
+    @Query("SELECT COUNT(*) FROM asset_mutations WHERE fromLocationId = :id OR toLocationId = :id")
+    suspend fun mutationsWithLocation(id: String): Int
+
+    @Query("SELECT COUNT(*) FROM departments WHERE divisionId = :id")
+    suspend fun departmentsInDivision(id: String): Int
+
+    @Query("SELECT COUNT(*) FROM assets WHERE divisionId = :id")
+    suspend fun assetsInDivision(id: String): Int
+
+    @Query("SELECT COUNT(*) FROM assets WHERE departmentId = :id")
+    suspend fun assetsInDepartment(id: String): Int
+
+    @Query("SELECT COUNT(*) FROM asset_mutations WHERE fromDepartmentId = :id OR toDepartmentId = :id")
+    suspend fun mutationsWithDepartment(id: String): Int
+
+    @Query("SELECT COUNT(*) FROM service_records WHERE vendorId = :id")
+    suspend fun servicesWithVendor(id: String): Int
+
+    @Query("SELECT COUNT(*) FROM items WHERE unitId = :id")
+    suspend fun itemsWithUnit(id: String): Int
+
+    @Query("DELETE FROM categories WHERE id = :id")
+    suspend fun deleteCategory(id: String): Int
+
+    @Query("DELETE FROM locations WHERE id = :id")
+    suspend fun deleteLocation(id: String): Int
+
+    @Query("DELETE FROM divisions WHERE id = :id")
+    suspend fun deleteDivision(id: String): Int
+
+    @Query("DELETE FROM departments WHERE id = :id")
+    suspend fun deleteDepartment(id: String): Int
+
+    @Query("DELETE FROM vendors WHERE id = :id")
+    suspend fun deleteVendor(id: String): Int
+
+    @Query("DELETE FROM units WHERE id = :id")
+    suspend fun deleteUnit(id: String): Int
+}

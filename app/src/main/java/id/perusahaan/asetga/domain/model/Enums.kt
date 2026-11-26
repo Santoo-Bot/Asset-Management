@@ -64,6 +64,7 @@ enum class AuditAction(val label: String) {
     CREATE("Tambah"),
     UPDATE("Ubah"),
     DEACTIVATE("Nonaktifkan"),
+    DELETE("Hapus"),
     RESTORE("Aktifkan kembali"),
     IMPORT("Import"),
     RESTORE_BACKUP("Restore backup"),

@@ -43,7 +43,7 @@ class RepositoryTest {
         audit = AuditLogRepositoryImpl(db.auditLogDao(), session, clock)
         users = UserRepositoryImpl(db.userDao(), PasswordHasher(iterations = 1_000), session, audit, clock)
         master = MasterDataRepositoryImpl(
-            db, db.assetDao(), db.categoryDao(), db.locationDao(), db.divisionDao(), db.departmentDao(), db.vendorDao(), db.unitDao(), session, audit, clock,
+            db, db.assetDao(), db.categoryDao(), db.locationDao(), db.divisionDao(), db.departmentDao(), db.vendorDao(), db.unitDao(), db.masterUsageDao(), session, audit, clock,
         )
     }
 
@@ -145,5 +145,43 @@ class RepositoryTest {
         assertTrue(master.setActive(MasterType.DIVISION, div.id, false) is AppResult.Failure)
         assertTrue(master.setActive(MasterType.DEPARTMENT, dept.id, false) is AppResult.Success)
         assertTrue(master.setActive(MasterType.DIVISION, div.id, false) is AppResult.Success)
+    }
+
+    @Test fun `master yang belum dipakai bisa dihapus, yang dipakai ditolak dengan rincian`() = runTest {
+        createAdmin()
+        val loc = (master.saveLocation(Location("", "Gudang Lama", null)) as AppResult.Success).value
+        val used = (master.saveLocation(Location("", "Kantor Pusat", null)) as AppResult.Success).value
+        val cat = master.observeCategories().first().first { it.codePrefix == "IT" }
+        db.assetDao().insert(
+            id.perusahaan.asetga.data.local.entity.AssetEntity(
+                id = "a1", code = "IT-2024-001", name = "Laptop", categoryId = cat.id, acquisitionDate = java.time.LocalDate.of(2024, 1, 1),
+                acquisitionCost = 1, locationId = used.id, condition = id.perusahaan.asetga.domain.model.AssetCondition.BAIK,
+                status = id.perusahaan.asetga.domain.model.AssetStatus.AKTIF, createdAt = 1, updatedAt = 1,
+            ),
+        )
+
+        assertTrue(master.delete(MasterType.LOCATION, loc.id) is AppResult.Success)
+        assertTrue(master.observeLocations(includeInactive = true).first().none { it.id == loc.id })
+
+        val blocked = master.delete(MasterType.LOCATION, used.id) as AppResult.Failure
+        assertTrue(blocked.message, blocked.message.contains("1 aset"))
+        val blockedCat = master.delete(MasterType.CATEGORY, cat.id) as AppResult.Failure
+        assertTrue(blockedCat.message.contains("1 aset"))
+
+        // Kategori bawaan yang belum dipakai boleh dihapus; prefix-nya bisa dipakai lagi.
+        val furniture = master.observeCategories().first().first { it.codePrefix == "FUR" }
+        assertTrue(master.delete(MasterType.CATEGORY, furniture.id) is AppResult.Success)
+        assertTrue(master.saveCategory(Category("", "Mebel", "FUR", 8, null)) is AppResult.Success)
+
+        val logs = audit.observeForEntity(AuditEntityType.MASTER, loc.id).first()
+        assertTrue(logs.any { it.action == id.perusahaan.asetga.domain.model.AuditAction.DELETE })
+    }
+
+    @Test fun `staf tidak boleh menghapus master`() = runTest {
+        createAdmin()
+        val loc = (master.saveLocation(Location("", "Gudang", null)) as AppResult.Success).value
+        val staf = (users.createUser("staf", "Staf", Role.STAFF, "staf12345") as AppResult.Success).value
+        session.login(staf)
+        assertTrue(master.delete(MasterType.LOCATION, loc.id) is AppResult.Failure)
     }
 }

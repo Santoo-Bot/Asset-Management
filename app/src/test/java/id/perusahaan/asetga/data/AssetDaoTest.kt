@@ -198,7 +198,7 @@ class AssetDaoTest {
         // Admin memindah departemen ke divisi lain → aset ikut.
         session.login(User("adm", "admin", "Admin GA", Role.ADMIN, hasPin = false, isActive = true))
         val master = id.perusahaan.asetga.data.repository.MasterDataRepositoryImpl(
-            db, db.assetDao(), db.categoryDao(), db.locationDao(), db.divisionDao(), db.departmentDao(), db.vendorDao(), db.unitDao(),
+            db, db.assetDao(), db.categoryDao(), db.locationDao(), db.divisionDao(), db.departmentDao(), db.vendorDao(), db.unitDao(), db.masterUsageDao(),
             session, AuditLogRepositoryImpl(db.auditLogDao(), session, clock), clock,
         )
         assertTrue(master.saveDepartment(id.perusahaan.asetga.domain.model.Department("dep1", "General Affair", "divB")) is AppResult.Success)

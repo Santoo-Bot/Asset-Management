@@ -61,6 +61,12 @@ interface MasterDataRepository {
 
     /** Soft delete: master tidak pernah dihapus, hanya dinonaktifkan. */
     suspend fun setActive(type: MasterType, id: String, active: Boolean): AppResult<Unit>
+
+    /**
+     * Hapus permanen data master yang belum pernah dipakai. Bila masih dipakai (aset, stok, riwayat),
+     * ditolak dengan pesan rincian pemakaiannya.
+     */
+    suspend fun delete(type: MasterType, id: String): AppResult<Unit>
 }
 
 interface UserRepository {

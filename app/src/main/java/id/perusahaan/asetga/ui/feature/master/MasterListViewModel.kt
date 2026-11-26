@@ -165,6 +165,18 @@ class MasterListViewModel @Inject constructor(
         }
     }
 
+    fun delete(row: MasterRow) {
+        viewModelScope.launch {
+            when (val r = repo.delete(type, row.id)) {
+                is AppResult.Success -> {
+                    _editor.value = null
+                    _messages.send("${row.title} dihapus")
+                }
+                is AppResult.Failure -> _messages.send(r.message)
+            }
+        }
+    }
+
     private fun rowsFor(includeInactive: Boolean): Flow<List<MasterRow>> = when (type) {
         MasterType.CATEGORY -> combine(repo.observeCategories(includeInactive), defaultResidual) { list, defResidual ->
             list.map { c ->
