@@ -38,6 +38,8 @@ data class AssetDetailRow(
     val divisionName: String?,
 )
 
+data class AssetBrief(val id: String, val code: String, val name: String)
+
 data class DeletedAssetRow(
     val id: String,
     val code: String,
@@ -233,6 +235,35 @@ interface AssetDao {
 
     @Query("UPDATE assets SET deletedAt = NULL, updatedAt = :now, syncState = 'PENDING' WHERE id = :id AND deletedAt IS NOT NULL")
     suspend fun restore(id: String, now: Long): Int
+
+    // ---------- Hapus permanen (hanya aset yang sudah di "Aset terhapus") ----------
+
+    @Query("SELECT id FROM assets WHERE deletedAt IS NOT NULL")
+    suspend fun deletedIds(): List<String>
+
+    @Query("SELECT id, code, name FROM assets WHERE id IN (:ids) AND deletedAt IS NOT NULL")
+    suspend fun deletedBrief(ids: List<String>): List<AssetBrief>
+
+    @Query("SELECT photoPath FROM assets WHERE id IN (:ids) AND photoPath IS NOT NULL")
+    suspend fun assetPhotos(ids: List<String>): List<String>
+
+    @Query("SELECT photoPath FROM service_records WHERE assetId IN (:ids) AND photoPath IS NOT NULL")
+    suspend fun servicePhotos(ids: List<String>): List<String>
+
+    @Query("DELETE FROM asset_mutations WHERE assetId IN (:ids)")
+    suspend fun purgeMutations(ids: List<String>)
+
+    @Query("DELETE FROM service_records WHERE assetId IN (:ids)")
+    suspend fun purgeServices(ids: List<String>)
+
+    @Query("DELETE FROM audit_items WHERE assetId IN (:ids)")
+    suspend fun purgeOpnameItems(ids: List<String>)
+
+    @Query("DELETE FROM insurance_items WHERE assetId IN (:ids)")
+    suspend fun purgeInsuranceItems(ids: List<String>)
+
+    @Query("DELETE FROM assets WHERE id IN (:ids) AND deletedAt IS NOT NULL")
+    suspend fun purgeAssets(ids: List<String>): Int
 
     @Query(
         """SELECT a.id, a.code, a.name, c.name AS categoryName, l.name AS locationName, a.deletedAt AS deletedAt

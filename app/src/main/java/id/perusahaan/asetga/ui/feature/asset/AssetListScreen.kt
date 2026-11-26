@@ -22,6 +22,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.SelectAll
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.FilterAltOff
 import androidx.compose.material.icons.outlined.Inventory2
@@ -97,6 +98,9 @@ fun AssetListScreen(
                 AppTopBar(
                     title = "${selection.size} dipilih",
                     actions = {
+                        if (count != null && selection.size < (count ?: 0)) {
+                            IconButton(onClick = vm::selectAll) { Icon(Icons.Filled.SelectAll, contentDescription = "Pilih semua") }
+                        }
                         TextButton(onClick = { if (vm.prepareLabels()) onPrintLabels() }) {
                             Icon(Icons.Outlined.QrCode2, contentDescription = null, tint = MaterialTheme.colorScheme.onPrimary)
                             Spacer(Modifier.width(4.dp))
@@ -109,7 +113,14 @@ fun AssetListScreen(
                     },
                 )
             } else {
-                AppTopBar(title = "Aset" + (count?.let { " (${Fmt.number(it.toLong())})" } ?: ""))
+                AppTopBar(
+                    title = "Aset" + (count?.let { " (${Fmt.number(it.toLong())})" } ?: ""),
+                    actions = {
+                        if ((count ?: 0) > 0) {
+                            IconButton(onClick = vm::selectAll) { Icon(Icons.Filled.SelectAll, contentDescription = "Pilih semua aset") }
+                        }
+                    },
+                )
             }
         },
         snackbarHost = { SnackbarHost(snackbar) },
@@ -207,6 +218,9 @@ fun AssetListScreen(
             title = { Text("Hapus ${selection.size} aset?") },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    if (selection.size > 50) {
+                        Text("${selection.size} aset terpilih (semua hasil pencarian/filter).", fontWeight = FontWeight.SemiBold)
+                    }
                     Text("Gunakan untuk data salah input. Aset hilang dari daftar dan laporan, tetapi masih bisa dipulihkan dari Lainnya → Aset terhapus. Untuk aset yang dibuang/dijual, gunakan status Write Off.")
                     FormTextField(reason, { reason = it }, "Alasan penghapusan", required = true)
                 }

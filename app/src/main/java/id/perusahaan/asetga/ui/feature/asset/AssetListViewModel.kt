@@ -104,6 +104,14 @@ class AssetListViewModel @Inject constructor(
     fun setSort(s: AssetSort) = _filter.update { it.copy(sort = s) }
     fun resetFilters() = _filter.update { AssetFilter(query = it.query, sort = it.sort) }
 
+    /** Pilih semua aset yang cocok dengan pencarian & filter saat ini (bukan hanya yang tampil di layar). */
+    fun selectAll() {
+        viewModelScope.launch {
+            _selection.value = repo.filteredIds(_filter.value).toSet()
+            if (_selection.value.isEmpty()) _messages.send("Tidak ada aset untuk dipilih")
+        }
+    }
+
     fun toggleSelection(id: String) = _selection.update { if (id in it) it - id else it + id }
     fun clearSelection() { _selection.value = emptySet() }
 

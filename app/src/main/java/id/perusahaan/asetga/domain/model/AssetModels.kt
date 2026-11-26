@@ -133,3 +133,6 @@ data class DeletedAsset(
     val locationName: String,
     val deletedAt: Long,
 )
+
+/** Hasil hapus permanen; [photoPaths] = file foto yang perlu dihapus dari penyimpanan. */
+data class PurgeResult(val count: Int, val photoPaths: List<String>)

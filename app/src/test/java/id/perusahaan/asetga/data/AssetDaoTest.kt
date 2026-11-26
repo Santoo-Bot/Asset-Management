@@ -214,4 +214,35 @@ class AssetDaoTest {
         assertTrue(AssetValidator.FIELD_CODE in noCode.fieldErrors)
         assertTrue(AssetValidator.FIELD_QR in noCode.fieldErrors)
     }
+
+    @Test fun `pilih semua mengikuti filter dan hapus permanen membersihkan riwayat`() = runTest {
+        val a = (repo.save(input("Laptop A")) as AppResult.Success).value
+        val b = (repo.save(input("Laptop B")) as AppResult.Success).value
+        val c = (repo.save(input("Printer C")) as AppResult.Success).value
+        // Pilih semua = semua hasil filter.
+        assertEquals(setOf(a.id, b.id), repo.filteredIds(id.perusahaan.asetga.domain.model.AssetFilter(query = "laptop")).toSet())
+
+        // Riwayat mutasi untuk aset a.
+        db.locationDao().insert(LocationEntity("loc-2", "Gudang", null, true, 1, 1))
+        val ops = id.perusahaan.asetga.data.repository.OperationRepositoryImpl(
+            db, db.assetDao(), db.mutationDao(), db.serviceDao(), db.locationDao(), db.departmentDao(), db.vendorDao(), session,
+            AuditLogRepositoryImpl(db.auditLogDao(), session, clock), clock,
+        )
+        assertTrue(ops.recordMutation(id.perusahaan.asetga.domain.model.MutationInput(a.id, toLocationId = "loc-2")) is AppResult.Success)
+
+        session.login(User("adm", "admin", "Admin GA", Role.ADMIN, hasPin = false, isActive = true))
+        assertTrue(repo.delete(listOf(a.id, b.id), "salah input") is AppResult.Success)
+        // Aset aktif tidak boleh ikut terhapus permanen.
+        assertEquals(1, (repo.purge(listOf(a.id, c.id)) as AppResult.Success).value.count)
+        assertEquals(null, db.assetDao().getById(a.id))
+        assertTrue(ops.observeMutations(a.id).first().isEmpty())
+        assertTrue(db.assetDao().getById(c.id) != null)
+
+        // Kosongkan semua.
+        assertEquals(1, (repo.purge(null) as AppResult.Success).value.count)
+        assertTrue(repo.observeDeleted().first().isEmpty())
+
+        session.login(User("u1", "staf", "Staf GA", Role.STAFF, hasPin = false, isActive = true))
+        assertTrue(repo.purge(null) is AppResult.Failure)
+    }
 }

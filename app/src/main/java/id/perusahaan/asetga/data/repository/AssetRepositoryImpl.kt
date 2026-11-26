@@ -28,6 +28,7 @@ import id.perusahaan.asetga.domain.model.AssetStatus
 import id.perusahaan.asetga.domain.model.AuditAction
 import id.perusahaan.asetga.domain.model.AuditEntityType
 import id.perusahaan.asetga.domain.model.DeletedAsset
+import id.perusahaan.asetga.domain.model.PurgeResult
 import id.perusahaan.asetga.domain.model.SyncState
 import id.perusahaan.asetga.domain.repository.AssetRepository
 import id.perusahaan.asetga.domain.repository.AuditLogRepository
@@ -279,6 +280,31 @@ class AssetRepositoryImpl @Inject constructor(
         if (dao.restore(id, clock.millis()) == 0) return AppResult.Failure("Aset tidak dalam keadaan terhapus")
         audit.log(AuditEntityType.ASSET, id, AuditAction.RESTORE, "Aset ${a.code} ${a.name} dipulihkan")
         return AppResult.Success(Unit)
+    }
+
+    override suspend fun purge(ids: List<String>?): AppResult<PurgeResult> {
+        session.denyUnless { it.canManageMaster }?.let { return AppResult.Failure("Hanya Admin GA yang dapat menghapus permanen") }
+        var count = 0
+        val photos = mutableListOf<String>()
+        db.withTransaction {
+            val targets = (ids ?: dao.deletedIds()).distinct()
+            targets.chunked(500).forEach { chunk ->
+                // Hanya aset yang sudah di-"hapus" (soft delete) yang boleh dihapus permanen.
+                val brief = dao.deletedBrief(chunk)
+                val valid = brief.map { it.id }
+                if (valid.isEmpty()) return@forEach
+                photos += dao.assetPhotos(valid) + dao.servicePhotos(valid)
+                dao.purgeMutations(valid)
+                dao.purgeServices(valid)
+                dao.purgeOpnameItems(valid)
+                dao.purgeInsuranceItems(valid)
+                count += dao.purgeAssets(valid)
+                brief.forEach { a ->
+                    audit.log(AuditEntityType.ASSET, a.id, AuditAction.DELETE, "Aset ${a.code} ${a.name} dihapus permanen")
+                }
+            }
+        }
+        return AppResult.Success(PurgeResult(count, photos))
     }
 
     override fun observeDeleted(): Flow<List<DeletedAsset>> = dao.observeDeleted().map { rows ->

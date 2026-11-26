@@ -18,6 +18,7 @@ import id.perusahaan.asetga.domain.model.InsuranceType
 import id.perusahaan.asetga.domain.model.InsuredAsset
 import id.perusahaan.asetga.domain.model.Insurer
 import id.perusahaan.asetga.domain.model.PolicyInput
+import id.perusahaan.asetga.domain.model.PurgeResult
 import id.perusahaan.asetga.domain.model.DeletedAsset
 import id.perusahaan.asetga.domain.model.OpnameItem
 import id.perusahaan.asetga.domain.model.OpnameScanOutcome
@@ -147,6 +148,12 @@ interface AssetRepository {
     /** Hapus karena salah input (soft delete, bisa dipulihkan). Khusus Admin GA. Mengembalikan jumlah aset terhapus. */
     suspend fun delete(ids: List<String>, reason: String): AppResult<Int>
     suspend fun restore(id: String): AppResult<Unit>
+
+    /**
+     * Hapus PERMANEN aset yang sudah berada di "Aset terhapus" beserta riwayat mutasi, servis, catatan opname,
+     * dan keanggotaan polis asuransinya. [ids] null = semua aset terhapus. Khusus Admin GA.
+     */
+    suspend fun purge(ids: List<String>?): AppResult<PurgeResult>
     fun observeDeleted(): Flow<List<DeletedAsset>>
 }
 
