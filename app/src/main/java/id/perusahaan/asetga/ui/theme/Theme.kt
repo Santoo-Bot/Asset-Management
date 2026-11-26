@@ -13,66 +13,73 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import id.perusahaan.asetga.domain.model.ThemeMode
 
+// Palet bernuansa BCA Life: biru BCA sebagai warna utama, navy & biru muda sebagai pendukung.
+object BrandColors {
+    val BcaBlue = Color(0xFF0060AF)
+    val BcaNavy = Color(0xFF003D7A)
+    val BcaSky = Color(0xFF00A0DF)
+}
+
 private val LightColors = lightColorScheme(
-    primary = Color(0xFF0B5CAD),
+    primary = BrandColors.BcaBlue,
     onPrimary = Color.White,
-    primaryContainer = Color(0xFFD5E3FF),
-    onPrimaryContainer = Color(0xFF001B3C),
-    secondary = Color(0xFF4F5F75),
+    primaryContainer = Color(0xFFD7E5FF),
+    onPrimaryContainer = Color(0xFF001A41),
+    secondary = Color(0xFF3D5A80),
     onSecondary = Color.White,
-    secondaryContainer = Color(0xFFD3E4FD),
-    onSecondaryContainer = Color(0xFF0B1C2E),
-    tertiary = Color(0xFF006B5E),
+    secondaryContainer = Color(0xFFDCE7F8),
+    onSecondaryContainer = Color(0xFF0D1E36),
+    tertiary = Color(0xFF00729F),
     onTertiary = Color.White,
-    tertiaryContainer = Color(0xFF9EF2E0),
-    onTertiaryContainer = Color(0xFF00201B),
+    tertiaryContainer = Color(0xFFCDEBFA),
+    onTertiaryContainer = Color(0xFF001E2C),
     error = Color(0xFFBA1A1A),
     errorContainer = Color(0xFFFFDAD6),
     onErrorContainer = Color(0xFF410002),
-    background = Color(0xFFF8F9FB),
-    onBackground = Color(0xFF191C20),
-    surface = Color(0xFFF8F9FB),
-    onSurface = Color(0xFF191C20),
-    surfaceVariant = Color(0xFFDFE2EB),
-    onSurfaceVariant = Color(0xFF43474E),
+    background = Color(0xFFF5F8FC),
+    onBackground = Color(0xFF181C22),
+    surface = Color(0xFFF5F8FC),
+    onSurface = Color(0xFF181C22),
+    surfaceVariant = Color(0xFFDDE3EE),
+    onSurfaceVariant = Color(0xFF424852),
     surfaceContainerLowest = Color.White,
-    surfaceContainerLow = Color(0xFFF2F3F7),
-    surfaceContainer = Color(0xFFECEEF2),
-    surfaceContainerHigh = Color(0xFFE6E8EC),
-    surfaceContainerHighest = Color(0xFFE0E2E7),
-    outline = Color(0xFF73777F),
-    outlineVariant = Color(0xFFC3C6CF),
+    surfaceContainerLow = Color(0xFFEFF3F9),
+    surfaceContainer = Color(0xFFE9EEF6),
+    surfaceContainerHigh = Color(0xFFE3E9F2),
+    surfaceContainerHighest = Color(0xFFDDE4EE),
+    outline = Color(0xFF727884),
+    outlineVariant = Color(0xFFC2C8D3),
 )
 
 private val DarkColors = darkColorScheme(
-    primary = Color(0xFFA7C8FF),
-    onPrimary = Color(0xFF003061),
-    primaryContainer = Color(0xFF004689),
-    onPrimaryContainer = Color(0xFFD5E3FF),
-    secondary = Color(0xFFB7C8E1),
-    onSecondary = Color(0xFF213245),
-    secondaryContainer = Color(0xFF37485C),
-    onSecondaryContainer = Color(0xFFD3E4FD),
-    tertiary = Color(0xFF82D5C4),
-    onTertiary = Color(0xFF003730),
-    tertiaryContainer = Color(0xFF005047),
-    onTertiaryContainer = Color(0xFF9EF2E0),
+    primary = Color(0xFFA9C8FF),
+    onPrimary = Color(0xFF002F65),
+    primaryContainer = Color(0xFF00468E),
+    onPrimaryContainer = Color(0xFFD7E5FF),
+    secondary = Color(0xFFB9C8E4),
+    onSecondary = Color(0xFF23324B),
+    secondaryContainer = Color(0xFF394A66),
+    onSecondaryContainer = Color(0xFFDCE7F8),
+    tertiary = Color(0xFF86D1F5),
+    onTertiary = Color(0xFF003549),
+    tertiaryContainer = Color(0xFF004D69),
+    onTertiaryContainer = Color(0xFFCDEBFA),
     error = Color(0xFFFFB4AB),
     errorContainer = Color(0xFF93000A),
     onErrorContainer = Color(0xFFFFDAD6),
-    background = Color(0xFF111418),
-    onBackground = Color(0xFFE1E2E8),
-    surface = Color(0xFF111418),
-    onSurface = Color(0xFFE1E2E8),
-    surfaceVariant = Color(0xFF43474E),
-    onSurfaceVariant = Color(0xFFC3C6CF),
-    surfaceContainerLowest = Color(0xFF0C0E12),
-    surfaceContainerLow = Color(0xFF191C20),
-    surfaceContainer = Color(0xFF1D2024),
-    surfaceContainerHigh = Color(0xFF272A2F),
-    surfaceContainerHighest = Color(0xFF32353A),
-    outline = Color(0xFF8D9199),
-    outlineVariant = Color(0xFF43474E),
+    background = Color(0xFF0F141B),
+    onBackground = Color(0xFFDFE3EA),
+    surface = Color(0xFF0F141B),
+    onSurface = Color(0xFFDFE3EA),
+    surfaceVariant = Color(0xFF424852),
+    onSurfaceVariant = Color(0xFFC2C8D3),
+    surfaceContainerLowest = Color(0xFF0A0E14),
+    surfaceContainerLow = Color(0xFF171C23),
+    surfaceContainer = Color(0xFF1B2028),
+    surfaceContainerHigh = Color(0xFF262B33),
+    surfaceContainerHighest = Color(0xFF31363E),
+    outline = Color(0xFF8C929D),
+    outlineVariant = Color(0xFF424852),
 )
 
 /** Warna status (sukses/peringatan/bahaya) yang konsisten di terang & gelap. */
@@ -101,6 +108,7 @@ private val DarkStatus = StatusColors(
 )
 
 val LocalStatusColors = staticCompositionLocalOf { LightStatus }
+val LocalIsDarkTheme = staticCompositionLocalOf { false }
 
 private val AppShapes = Shapes(
     small = RoundedCornerShape(8.dp),
@@ -115,7 +123,10 @@ fun AsetGaTheme(themeMode: ThemeMode = ThemeMode.SYSTEM, content: @Composable ()
         ThemeMode.LIGHT -> false
         ThemeMode.DARK -> true
     }
-    androidx.compose.runtime.CompositionLocalProvider(LocalStatusColors provides if (dark) DarkStatus else LightStatus) {
+    androidx.compose.runtime.CompositionLocalProvider(
+        LocalStatusColors provides if (dark) DarkStatus else LightStatus,
+        LocalIsDarkTheme provides dark,
+    ) {
         MaterialTheme(
             colorScheme = if (dark) DarkColors else LightColors,
             shapes = AppShapes,
@@ -127,4 +138,6 @@ fun AsetGaTheme(themeMode: ThemeMode = ThemeMode.SYSTEM, content: @Composable ()
 object AppTheme {
     val status: StatusColors
         @Composable get() = LocalStatusColors.current
+    val isDark: Boolean
+        @Composable get() = LocalIsDarkTheme.current
 }

@@ -10,6 +10,6 @@
         android:fillType="evenOdd"
         android:pathData="M54,30L76,41L76,67L54,78L32,67L32,41Z M54,35.5L37.5,43.7L54,52L70.5,43.7Z M36,47L36,64.5L52,72.5L52,55Z M72,47L56,55L56,72.5L72,64.5Z" />
     <path
-        android:fillColor="#FF0B5CAD"
+        android:fillColor="#FF0060AF"
         android:pathData="M58.5,62.5l3,3l6.5,-6.5l-1.8,-1.8l-4.7,4.7l-1.2,-1.2z" />
 </vector>

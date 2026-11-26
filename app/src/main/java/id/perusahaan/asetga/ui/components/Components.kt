@@ -28,6 +28,9 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
+import id.perusahaan.asetga.ui.theme.AppTheme
+import id.perusahaan.asetga.ui.theme.LightStatusBarIcons
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -51,7 +54,20 @@ fun AppTopBar(
     onBack: (() -> Unit)? = null,
     actions: @Composable () -> Unit = {},
 ) {
+    // Header biru khas BCA di tema terang; di tema gelap memakai permukaan gelap agar tidak menyilaukan.
+    val dark = AppTheme.isDark
+    if (!dark) LightStatusBarIcons()
     TopAppBar(
+        colors = if (dark) {
+            TopAppBarDefaults.topAppBarColors()
+        } else {
+            TopAppBarDefaults.topAppBarColors(
+                containerColor = MaterialTheme.colorScheme.primary,
+                titleContentColor = MaterialTheme.colorScheme.onPrimary,
+                navigationIconContentColor = MaterialTheme.colorScheme.onPrimary,
+                actionIconContentColor = MaterialTheme.colorScheme.onPrimary,
+            )
+        },
         title = { Text(title, maxLines = 1) },
         navigationIcon = {
             if (onBack != null) {

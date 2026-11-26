@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -33,6 +34,8 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
@@ -48,6 +51,9 @@ import id.perusahaan.asetga.domain.security.CredentialRules.FIELD_USERNAME
 import id.perusahaan.asetga.ui.components.BottomActionBar
 import id.perusahaan.asetga.ui.components.FormTextField
 import id.perusahaan.asetga.ui.components.PasswordField
+import id.perusahaan.asetga.ui.theme.AppTheme
+import id.perusahaan.asetga.ui.theme.BrandColors
+import id.perusahaan.asetga.ui.theme.LightStatusBarIcons
 
 @Composable
 private fun AuthLayout(
@@ -59,33 +65,51 @@ private fun AuthLayout(
     message: String?,
     content: @Composable () -> Unit,
 ) {
-    Scaffold(bottomBar = { BottomActionBar(actionText, onAction, loading = loading, modifier = Modifier.imePadding()) }) { padding ->
+    Scaffold(
+        // Header biru menempati area status bar; inset diatur sendiri oleh BrandHeader & BottomActionBar.
+        contentWindowInsets = WindowInsets(0, 0, 0, 0),
+        bottomBar = { BottomActionBar(actionText, onAction, loading = loading, modifier = Modifier.imePadding()) },
+    ) { padding ->
         Column(
             Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .statusBarsPadding()
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = 24.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+                .verticalScroll(rememberScrollState()),
         ) {
-            Spacer(Modifier.height(32.dp))
-            Box(
-                Modifier.size(64.dp).background(MaterialTheme.colorScheme.primary, MaterialTheme.shapes.large),
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(Icons.Filled.Inventory2, contentDescription = null, tint = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(36.dp))
+            BrandHeader(title = title, subtitle = subtitle)
+            Column(Modifier.padding(horizontal = 24.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                content()
+                if (message != null) {
+                    Text(message, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium)
+                }
+                Spacer(Modifier.height(24.dp))
             }
-            Text(title, style = MaterialTheme.typography.headlineSmall)
-            Text(subtitle, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Spacer(Modifier.height(8.dp))
-            content()
-            if (message != null) {
-                Text(message, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium)
-            }
-            Spacer(Modifier.height(24.dp))
         }
     }
+}
+
+/** Panel biru bergradasi di bagian atas layar masuk. */
+@Composable
+private fun BrandHeader(title: String, subtitle: String) {
+    if (!AppTheme.isDark) LightStatusBarIcons()
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .background(Brush.verticalGradient(listOf(BrandColors.BcaNavy, BrandColors.BcaBlue)))
+            .statusBarsPadding()
+            .padding(start = 24.dp, end = 24.dp, top = 32.dp, bottom = 28.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        Box(
+            Modifier.size(56.dp).background(Color.White, MaterialTheme.shapes.large),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(Icons.Filled.Inventory2, contentDescription = null, tint = BrandColors.BcaBlue, modifier = Modifier.size(32.dp))
+        }
+        Text(title, style = MaterialTheme.typography.headlineSmall, color = Color.White)
+        Text(subtitle, style = MaterialTheme.typography.bodyMedium, color = Color.White.copy(alpha = 0.85f))
+    }
+    Spacer(Modifier.height(16.dp))
 }
 
 @Composable
