@@ -148,11 +148,17 @@ interface UnitDao {
 /** Menghitung pemakaian data master agar data yang masih dipakai tidak terhapus. */
 @Dao
 interface MasterUsageDao {
-    @Query("SELECT COUNT(*) FROM assets WHERE categoryId = :id")
+    @Query("SELECT COUNT(*) FROM assets WHERE categoryId = :id AND deletedAt IS NULL")
     suspend fun assetsInCategory(id: String): Int
 
-    @Query("SELECT COUNT(*) FROM assets WHERE locationId = :id")
+    @Query("SELECT COUNT(*) FROM assets WHERE categoryId = :id AND deletedAt IS NOT NULL")
+    suspend fun deletedAssetsInCategory(id: String): Int
+
+    @Query("SELECT COUNT(*) FROM assets WHERE locationId = :id AND deletedAt IS NULL")
     suspend fun assetsInLocation(id: String): Int
+
+    @Query("SELECT COUNT(*) FROM assets WHERE locationId = :id AND deletedAt IS NOT NULL")
+    suspend fun deletedAssetsInLocation(id: String): Int
 
     @Query("SELECT COUNT(*) FROM items WHERE storageLocationId = :id")
     suspend fun itemsInLocation(id: String): Int
@@ -166,11 +172,17 @@ interface MasterUsageDao {
     @Query("SELECT COUNT(*) FROM departments WHERE divisionId = :id")
     suspend fun departmentsInDivision(id: String): Int
 
-    @Query("SELECT COUNT(*) FROM assets WHERE divisionId = :id")
+    @Query("SELECT COUNT(*) FROM assets WHERE divisionId = :id AND deletedAt IS NULL")
     suspend fun assetsInDivision(id: String): Int
 
-    @Query("SELECT COUNT(*) FROM assets WHERE departmentId = :id")
+    @Query("SELECT COUNT(*) FROM assets WHERE divisionId = :id AND deletedAt IS NOT NULL")
+    suspend fun deletedAssetsInDivision(id: String): Int
+
+    @Query("SELECT COUNT(*) FROM assets WHERE departmentId = :id AND deletedAt IS NULL")
     suspend fun assetsInDepartment(id: String): Int
+
+    @Query("SELECT COUNT(*) FROM assets WHERE departmentId = :id AND deletedAt IS NOT NULL")
+    suspend fun deletedAssetsInDepartment(id: String): Int
 
     @Query("SELECT COUNT(*) FROM asset_mutations WHERE fromDepartmentId = :id OR toDepartmentId = :id")
     suspend fun mutationsWithDepartment(id: String): Int

@@ -36,8 +36,16 @@ interface InsuranceTypeDao {
     @Query("DELETE FROM insurance_types WHERE id = :id")
     suspend fun delete(id: String): Int
 
-    @Query("SELECT COUNT(*) FROM insurance_policies WHERE typeId = :id")
-    suspend fun usage(id: String): Int
+    /** Nomor polis AKTIF (belum dihapus) yang memakai data ini. */
+    @Query("SELECT policyNumber FROM insurance_policies WHERE typeId = :id AND deletedAt IS NULL ORDER BY policyNumber")
+    suspend fun activePolicyNumbers(id: String): List<String>
+
+    /** Polis yang sudah dihapus tidak boleh menghalangi; dibersihkan permanen sebelum master dihapus. */
+    @Query("DELETE FROM insurance_items WHERE policyId IN (SELECT id FROM insurance_policies WHERE typeId = :id AND deletedAt IS NOT NULL)")
+    suspend fun purgeDeletedPolicyItems(id: String)
+
+    @Query("DELETE FROM insurance_policies WHERE typeId = :id AND deletedAt IS NOT NULL")
+    suspend fun purgeDeletedPolicies(id: String)
 }
 
 @Dao
@@ -63,8 +71,16 @@ interface InsurerDao {
     @Query("DELETE FROM insurers WHERE id = :id")
     suspend fun delete(id: String): Int
 
-    @Query("SELECT COUNT(*) FROM insurance_policies WHERE insurerId = :id")
-    suspend fun usage(id: String): Int
+    /** Nomor polis AKTIF (belum dihapus) yang memakai data ini. */
+    @Query("SELECT policyNumber FROM insurance_policies WHERE insurerId = :id AND deletedAt IS NULL ORDER BY policyNumber")
+    suspend fun activePolicyNumbers(id: String): List<String>
+
+    /** Polis yang sudah dihapus tidak boleh menghalangi; dibersihkan permanen sebelum master dihapus. */
+    @Query("DELETE FROM insurance_items WHERE policyId IN (SELECT id FROM insurance_policies WHERE insurerId = :id AND deletedAt IS NOT NULL)")
+    suspend fun purgeDeletedPolicyItems(id: String)
+
+    @Query("DELETE FROM insurance_policies WHERE insurerId = :id AND deletedAt IS NOT NULL")
+    suspend fun purgeDeletedPolicies(id: String)
 }
 
 data class PolicyRow(

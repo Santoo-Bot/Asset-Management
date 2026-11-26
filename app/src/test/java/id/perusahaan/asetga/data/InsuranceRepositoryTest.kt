@@ -145,7 +145,7 @@ class InsuranceRepositoryTest {
         newPolicy()
         session.login(admin)
         val r = master.delete(MasterType.INSURANCE_TYPE, typeId) as AppResult.Failure
-        assertTrue(r.message.contains("1 polis"))
+        assertTrue(r.message, r.message.contains("polis POL-001"))
         assertTrue(master.delete(MasterType.INSURER, insurerId) is AppResult.Failure)
         val unused = (master.saveInsuranceType(InsuranceType("", "Kendaraan")) as AppResult.Success).value
         assertTrue(master.delete(MasterType.INSURANCE_TYPE, unused.id) is AppResult.Success)
@@ -160,5 +160,17 @@ class InsuranceRepositoryTest {
         assertTrue(s.actions.any { it.title.startsWith("POL-A") })
         assertEquals(1, dashboard.reminderSummary().policiesExpiring)
         assertEquals(PolicyStatus.EXPIRING, repo.observePolicies().first().first { it.policyNumber == "POL-A" }.status)
+    }
+
+    @Test fun `polis yang sudah dihapus tidak menghalangi hapus perusahaan dan tipe asuransi`() = runTest {
+        val id = newPolicy()
+        repo.addAssets(id, listOf("a1"))
+        session.login(admin)
+        assertTrue(master.delete(MasterType.INSURER, insurerId) is AppResult.Failure)
+        assertTrue(repo.deletePolicy(id) is AppResult.Success)
+        assertTrue(master.delete(MasterType.INSURER, insurerId) is AppResult.Success)
+        assertTrue(master.delete(MasterType.INSURANCE_TYPE, typeId) is AppResult.Success)
+        assertTrue(master.observeInsurers(includeInactive = true).first().isEmpty())
+        assertTrue(db.assetDao().getById("a1") != null) // aset tidak ikut terhapus
     }
 }

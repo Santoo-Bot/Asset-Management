@@ -47,6 +47,8 @@ import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Singleton
 
+private const val TRASH_LABEL = "aset di menu Aset terhapus"
+
 @Singleton
 class MasterDataRepositoryImpl @Inject constructor(
     private val db: AppDatabase,
@@ -338,7 +340,8 @@ class MasterDataRepositoryImpl @Inject constructor(
                 MasterType.UNIT -> "Ubah satuan barang tersebut dulu."
                 MasterType.INSURANCE_TYPE, MasterType.INSURER -> "Ubah atau hapus polis tersebut dulu."
             }
-            return AppResult.Failure("$name tidak bisa dihapus karena dipakai ${usage.joinToString(", ")}. $hint")
+            val trashHint = if (usage.any { it.contains(TRASH_LABEL) }) " Aset di menu Aset terhapus perlu dihapus permanen dulu." else ""
+            return AppResult.Failure("$name tidak bisa dihapus karena dipakai ${usage.joinToString(", ")}. $hint$trashHint")
         }
 
         db.withTransaction {
@@ -349,8 +352,16 @@ class MasterDataRepositoryImpl @Inject constructor(
                 MasterType.DEPARTMENT -> usageDao.deleteDepartment(id)
                 MasterType.VENDOR -> usageDao.deleteVendor(id)
                 MasterType.UNIT -> usageDao.deleteUnit(id)
-                MasterType.INSURANCE_TYPE -> insuranceTypeDao.delete(id)
-                MasterType.INSURER -> insurerDao.delete(id)
+                MasterType.INSURANCE_TYPE -> {
+                    insuranceTypeDao.purgeDeletedPolicyItems(id)
+                    insuranceTypeDao.purgeDeletedPolicies(id)
+                    insuranceTypeDao.delete(id)
+                }
+                MasterType.INSURER -> {
+                    insurerDao.purgeDeletedPolicyItems(id)
+                    insurerDao.purgeDeletedPolicies(id)
+                    insurerDao.delete(id)
+                }
             }
             audit.log(AuditEntityType.MASTER, id, AuditAction.DELETE, "${type.label} $name dihapus")
         }
@@ -362,9 +373,13 @@ class MasterDataRepositoryImpl @Inject constructor(
         fun MutableList<String>.addIfUsed(count: Int, label: String) { if (count > 0) add("$count $label") }
         return buildList {
             when (type) {
-                MasterType.CATEGORY -> addIfUsed(usageDao.assetsInCategory(id), "aset")
+                MasterType.CATEGORY -> {
+                    addIfUsed(usageDao.assetsInCategory(id), "aset")
+                    addIfUsed(usageDao.deletedAssetsInCategory(id), TRASH_LABEL)
+                }
                 MasterType.LOCATION -> {
                     addIfUsed(usageDao.assetsInLocation(id), "aset")
+                    addIfUsed(usageDao.deletedAssetsInLocation(id), TRASH_LABEL)
                     addIfUsed(usageDao.itemsInLocation(id), "barang stok")
                     addIfUsed(usageDao.mutationsWithLocation(id), "riwayat mutasi")
                     addIfUsed(usageDao.opnameInLocation(id), "sesi stock opname")
@@ -372,17 +387,26 @@ class MasterDataRepositoryImpl @Inject constructor(
                 MasterType.DIVISION -> {
                     addIfUsed(usageDao.departmentsInDivision(id), "departemen")
                     addIfUsed(usageDao.assetsInDivision(id), "aset")
+                    addIfUsed(usageDao.deletedAssetsInDivision(id), TRASH_LABEL)
                 }
                 MasterType.DEPARTMENT -> {
                     addIfUsed(usageDao.assetsInDepartment(id), "aset")
+                    addIfUsed(usageDao.deletedAssetsInDepartment(id), TRASH_LABEL)
                     addIfUsed(usageDao.mutationsWithDepartment(id), "riwayat mutasi")
                 }
                 MasterType.VENDOR -> addIfUsed(usageDao.servicesWithVendor(id), "catatan servis")
                 MasterType.UNIT -> addIfUsed(usageDao.itemsWithUnit(id), "barang stok")
-                MasterType.INSURANCE_TYPE -> addIfUsed(insuranceTypeDao.usage(id), "polis")
-                MasterType.INSURER -> addIfUsed(insurerDao.usage(id), "polis")
+                MasterType.INSURANCE_TYPE -> policyUsage(insuranceTypeDao.activePolicyNumbers(id))?.let { add(it) }
+                MasterType.INSURER -> policyUsage(insurerDao.activePolicyNumbers(id))?.let { add(it) }
             }
         }
+    }
+
+    /** "polis POL-001, POL-002 dan 3 lainnya"; null bila tidak ada polis aktif. */
+    private fun policyUsage(numbers: List<String>): String? {
+        if (numbers.isEmpty()) return null
+        val shown = numbers.take(3).joinToString(", ")
+        return "polis $shown" + if (numbers.size > 3) " dan ${numbers.size - 3} lainnya" else ""
     }
 
     private fun nameErrors(name: String, duplicates: Int, label: String): AppResult.Failure? {

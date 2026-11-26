@@ -184,4 +184,20 @@ class RepositoryTest {
         session.login(staf)
         assertTrue(master.delete(MasterType.LOCATION, loc.id) is AppResult.Failure)
     }
+
+    @Test fun `aset di Aset terhapus disebut terpisah saat hapus master`() = runTest {
+        createAdmin()
+        val loc = (master.saveLocation(Location("", "Gudang Lama", null)) as AppResult.Success).value
+        val cat = master.observeCategories().first().first { it.codePrefix == "IT" }
+        db.assetDao().insert(
+            id.perusahaan.asetga.data.local.entity.AssetEntity(
+                id = "t1", code = "IT-9", name = "Lama", categoryId = cat.id, acquisitionDate = java.time.LocalDate.of(2024, 1, 1),
+                acquisitionCost = 1, locationId = loc.id, condition = id.perusahaan.asetga.domain.model.AssetCondition.BAIK,
+                status = id.perusahaan.asetga.domain.model.AssetStatus.DIGUNAKAN, createdAt = 1, updatedAt = 1, deletedAt = 5,
+            ),
+        )
+        val r = master.delete(MasterType.LOCATION, loc.id) as AppResult.Failure
+        assertTrue(r.message, r.message.contains("1 aset di menu Aset terhapus"))
+        assertTrue(r.message.contains("hapus permanen"))
+    }
 }
