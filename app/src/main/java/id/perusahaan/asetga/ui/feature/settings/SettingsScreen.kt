@@ -12,6 +12,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.Logout
 import androidx.compose.material.icons.outlined.Business
+import androidx.compose.material.icons.outlined.DeleteForever
 import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material.icons.outlined.Schedule
@@ -27,6 +28,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -37,11 +39,13 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import id.perusahaan.asetga.data.file.ResetScope
 import id.perusahaan.asetga.domain.model.ThemeMode
 import id.perusahaan.asetga.ui.components.AppTopBar
 import id.perusahaan.asetga.ui.components.FormTextField
@@ -51,7 +55,7 @@ import id.perusahaan.asetga.ui.components.SectionHeader
 import id.perusahaan.asetga.util.Fmt
 import kotlinx.coroutines.launch
 
-private enum class SettingsDialog { PIN, PASSWORD, RESIDUAL, COMPANY, HOUR, LOGOUT }
+private enum class SettingsDialog { PIN, PASSWORD, RESIDUAL, COMPANY, HOUR, RESET, LOGOUT }
 
 @Composable
 fun SettingsScreen(onBack: () -> Unit, vm: SettingsViewModel = hiltViewModel()) {
@@ -130,6 +134,16 @@ fun SettingsScreen(onBack: () -> Unit, vm: SettingsViewModel = hiltViewModel()) 
                 )
             }
 
+            if (user?.role?.canManageMaster == true) {
+                SectionHeader("Data")
+                ListItem(
+                    modifier = Modifier.clickable { dialog = SettingsDialog.RESET },
+                    leadingContent = { Icon(Icons.Outlined.DeleteForever, contentDescription = null, tint = MaterialTheme.colorScheme.error) },
+                    headlineContent = { Text("Hapus seluruh data", color = MaterialTheme.colorScheme.error) },
+                    supportingContent = { Text("Kosongkan data operasional, atau kembalikan aplikasi seperti baru dipasang") },
+                )
+            }
+
             SectionHeader("Akun")
             ListItem(
                 modifier = Modifier.clickable { dialog = SettingsDialog.LOGOUT },
@@ -163,6 +177,7 @@ fun SettingsScreen(onBack: () -> Unit, vm: SettingsViewModel = hiltViewModel()) 
             onDismiss = { dialog = null },
             onSelect = { h -> if (h != null) vm.setReminderHour(h); dialog = null },
         )
+        SettingsDialog.RESET -> ResetDialog(onConfirm = { scope -> dialog = null; vm.resetData(scope) }, onDismiss = { dialog = null })
         SettingsDialog.LOGOUT -> AlertDialog(
             onDismissRequest = { dialog = null },
             title = { Text("Keluar dari akun?") },
@@ -267,6 +282,40 @@ private fun TextInputDialog(title: String, initial: String, label: String, onSav
         title = { Text(title) },
         text = { FormTextField(text, { text = it.take(60) }, label) },
         confirmButton = { TextButton(onClick = { onSave(text) }) { Text("Simpan") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Batal") } },
+    )
+}
+
+@Composable
+private fun ResetDialog(onConfirm: (ResetScope) -> Unit, onDismiss: () -> Unit) {
+    var scope by remember { mutableStateOf(ResetScope.OPERATIONAL) }
+    var typed by remember { mutableStateOf("") }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Hapus seluruh data?") },
+        text = {
+            Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                ResetScope.entries.forEach { s ->
+                    Row(Modifier.fillMaxWidth().clickable { scope = s }, verticalAlignment = Alignment.Top) {
+                        RadioButton(selected = scope == s, onClick = { scope = s })
+                        Column(Modifier.padding(top = 12.dp)) {
+                            Text(s.label, style = MaterialTheme.typography.bodyLarge)
+                            Text(s.description, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
+                }
+                Text(
+                    "Tidak bisa dibatalkan. Buat backup dulu di Lainnya → Backup & restore bila data masih diperlukan.",
+                    color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall,
+                )
+                FormTextField(typed, { typed = it }, "Ketik HAPUS untuk konfirmasi")
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = { onConfirm(scope) }, enabled = typed.trim().equals("HAPUS", ignoreCase = true)) {
+                Text("Hapus", color = MaterialTheme.colorScheme.error)
+            }
+        },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Batal") } },
     )
 }

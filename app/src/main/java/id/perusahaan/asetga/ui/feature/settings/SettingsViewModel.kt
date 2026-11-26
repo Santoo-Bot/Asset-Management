@@ -3,6 +3,8 @@ package id.perusahaan.asetga.ui.feature.settings
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
+import id.perusahaan.asetga.data.file.DataResetManager
+import id.perusahaan.asetga.data.file.ResetScope
 import id.perusahaan.asetga.domain.model.AppResult
 import id.perusahaan.asetga.domain.model.ThemeMode
 import id.perusahaan.asetga.domain.model.User
@@ -27,6 +29,7 @@ class SettingsViewModel @Inject constructor(
     private val settingsRepo: SettingsRepository,
     private val users: UserRepository,
     private val session: SessionManager,
+    private val resetManager: DataResetManager,
 ) : ViewModel() {
 
     val settings: StateFlow<AppSettings> = settingsRepo.settings
@@ -93,6 +96,14 @@ class SettingsViewModel @Inject constructor(
                 null
             }
             is AppResult.Failure -> r.message
+        }
+    }
+
+    fun resetData(scope: ResetScope) = viewModelScope.launch {
+        if (scope == ResetScope.EVERYTHING) settingsRepo.setLastUserId(null)
+        when (val r = resetManager.reset(scope)) {
+            is AppResult.Success -> if (scope == ResetScope.OPERATIONAL) _messages.send("Seluruh data operasional dihapus")
+            is AppResult.Failure -> _messages.send(r.message)
         }
     }
 
