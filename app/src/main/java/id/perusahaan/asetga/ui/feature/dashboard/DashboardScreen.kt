@@ -30,6 +30,7 @@ import androidx.compose.material.icons.outlined.Inventory
 import androidx.compose.material.icons.outlined.Inventory2
 import androidx.compose.material.icons.outlined.ReportProblem
 import androidx.compose.material.icons.outlined.Schedule
+import androidx.compose.material.icons.outlined.Shield
 import androidx.compose.material.icons.outlined.VerifiedUser
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -93,6 +94,8 @@ class DashboardViewModel @Inject constructor(
 @Composable
 fun DashboardScreen(
     userName: String,
+    onOpenPolicy: (String) -> Unit,
+    onOpenInsurance: () -> Unit,
     onOpenAsset: (String) -> Unit,
     onOpenItem: (String) -> Unit,
     onOpenAssets: () -> Unit,
@@ -123,7 +126,7 @@ fun DashboardScreen(
                     modifier = Modifier.padding(horizontal = 16.dp),
                 )
                 Spacer(Modifier.height(12.dp))
-                StatGrid(s, onOpenAssets, onOpenStock, onOpenServices)
+                StatGrid(s, onOpenAssets, onOpenStock, onOpenServices, onOpenInsurance)
                 SectionHeader("Aset per kategori")
                 BarChart(s.byCategory, emptyText = "Belum ada aset")
                 SectionHeader("Aset per kondisi")
@@ -142,6 +145,7 @@ fun DashboardScreen(
                     when (val t = a.target) {
                         is ActionTarget.AssetTarget -> onOpenAsset(t.assetId)
                         is ActionTarget.ItemTarget -> onOpenItem(t.itemId)
+                        is ActionTarget.PolicyTarget -> onOpenPolicy(t.policyId)
                     }
                 })
                 HorizontalDivider(Modifier.padding(start = 56.dp))
@@ -154,7 +158,7 @@ private data class Stat(val label: String, val value: String, val icon: ImageVec
 private enum class Tone { NEUTRAL, PRIMARY, WARNING, DANGER }
 
 @Composable
-private fun StatGrid(s: DashboardSummary, onOpenAssets: () -> Unit, onOpenStock: () -> Unit, onOpenServices: () -> Unit) {
+private fun StatGrid(s: DashboardSummary, onOpenAssets: () -> Unit, onOpenStock: () -> Unit, onOpenServices: () -> Unit, onOpenInsurance: () -> Unit) {
     val stats = listOf(
         Stat("Total aset", Fmt.number(s.totalAssets.toLong()), Icons.Outlined.Inventory2, Tone.PRIMARY, onOpenAssets),
         Stat("Aset rusak", Fmt.number(s.damaged.toLong()), Icons.Outlined.ReportProblem, if (s.damaged > 0) Tone.WARNING else Tone.NEUTRAL, onOpenAssets),
@@ -164,6 +168,7 @@ private fun StatGrid(s: DashboardSummary, onOpenAssets: () -> Unit, onOpenStock:
         Stat("Servis terlambat", Fmt.number(s.serviceOverdue.toLong()), Icons.Outlined.Build, if (s.serviceOverdue > 0) Tone.DANGER else Tone.NEUTRAL, onOpenServices),
         Stat("Servis jatuh tempo ≤30 hari", Fmt.number(s.serviceDueSoon.toLong()), Icons.Outlined.Schedule, if (s.serviceDueSoon > 0) Tone.WARNING else Tone.NEUTRAL, onOpenServices),
         Stat("Barang perlu reorder", Fmt.number(s.reorderItems.toLong()), Icons.Outlined.Inventory, if (s.reorderItems > 0) Tone.DANGER else Tone.NEUTRAL, onOpenStock),
+        Stat("Polis berakhir ≤30 hari", Fmt.number(s.policiesExpiring.toLong()), Icons.Outlined.Shield, if (s.policiesExpiring > 0) Tone.WARNING else Tone.NEUTRAL, onOpenInsurance),
     )
     Column(Modifier.padding(horizontal = 12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         stats.chunked(2).forEach { row ->
@@ -253,6 +258,7 @@ private fun ActionRow(a: ActionItem, onClick: () -> Unit) {
         ActionKind.REORDER -> Icons.Outlined.Inventory to status.danger
         ActionKind.SERVICE_DUE -> Icons.Outlined.Schedule to status.warning
         ActionKind.DAMAGED -> Icons.Outlined.ErrorOutline to status.warning
+        ActionKind.POLICY_EXPIRING -> Icons.Outlined.Shield to status.warning
     }
     ListItem(
         modifier = Modifier.clickable(onClick = onClick),

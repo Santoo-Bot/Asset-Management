@@ -51,6 +51,11 @@ import id.perusahaan.asetga.ui.feature.data.BackupScreen
 import id.perusahaan.asetga.ui.feature.data.ImportExportScreen
 import id.perusahaan.asetga.ui.feature.opname.OpnameListScreen
 import id.perusahaan.asetga.ui.feature.opname.OpnameSessionScreen
+import id.perusahaan.asetga.ui.feature.insurance.AssetInsuranceSection
+import id.perusahaan.asetga.ui.feature.insurance.InsuranceAssetPickerScreen
+import id.perusahaan.asetga.ui.feature.insurance.InsuranceListScreen
+import id.perusahaan.asetga.ui.feature.insurance.PolicyDetailScreen
+import id.perusahaan.asetga.ui.feature.insurance.PolicyFormScreen
 import id.perusahaan.asetga.ui.feature.label.LabelScreen
 import id.perusahaan.asetga.ui.feature.scan.ScanScreen
 import id.perusahaan.asetga.ui.feature.master.MasterListScreen
@@ -105,6 +110,8 @@ fun MainScaffold(user: User) {
             composable<DashboardRoute> {
                 DashboardScreen(
                     userName = user.fullName,
+                    onOpenPolicy = { nav.navigate(PolicyDetailRoute(it)) },
+                    onOpenInsurance = { nav.navigate(InsuranceListRoute) },
                     onOpenAsset = { nav.navigate(AssetDetailRoute(it)) },
                     onOpenItem = { nav.navigate(ItemDetailRoute(it)) },
                     onOpenAssets = { nav.navigateTopLevel(AssetsRoute) },
@@ -138,6 +145,7 @@ fun MainScaffold(user: User) {
                         )
                     },
                     extraSections = { assetId ->
+                        AssetInsuranceSection(onOpenPolicy = { nav.navigate(PolicyDetailRoute(it)) })
                         AssetOperationsSection(
                             canEdit = user.role.canEditData,
                             onEditService = { serviceId -> nav.navigate(ServiceFormRoute(assetId, serviceId)) },
@@ -163,6 +171,46 @@ fun MainScaffold(user: User) {
             composable<BackupRoute> { BackupScreen(onBack = nav::navigateUp) }
             composable<AuditLogRoute> { AuditLogScreen(onBack = nav::navigateUp) }
             composable<DeletedAssetsRoute> { DeletedAssetsScreen(onBack = nav::navigateUp) }
+            composable<InsuranceListRoute> {
+                InsuranceListScreen(
+                    onBack = nav::navigateUp,
+                    onOpenPolicy = { nav.navigate(PolicyDetailRoute(it)) },
+                    onAddPolicy = { nav.navigate(PolicyFormRoute()) },
+                    onOpenMaster = { nav.navigate(MasterMenuRoute) },
+                )
+            }
+            composable<PolicyFormRoute> { entry ->
+                PolicyFormScreen(
+                    onBack = nav::navigateUp,
+                    onSaved = { id, isNew ->
+                        if (isNew) nav.navigate(PolicyDetailRoute(id)) { popUpTo<PolicyFormRoute> { inclusive = true } } else nav.popBackStack()
+                    },
+                )
+            }
+            composable<PolicyDetailRoute> { entry ->
+                val scanned by entry.savedStateHandle.getStateFlow<String?>(SCAN_RESULT_KEY, null).collectAsStateWithLifecycle()
+                val pickerMessage by entry.savedStateHandle.getStateFlow<String?>(PICKER_MESSAGE_KEY, null).collectAsStateWithLifecycle()
+                PolicyDetailScreen(
+                    message = pickerMessage,
+                    onMessageConsumed = { entry.savedStateHandle[PICKER_MESSAGE_KEY] = null },
+                    onBack = nav::navigateUp,
+                    onEdit = { nav.navigate(PolicyFormRoute(it)) },
+                    onPickAssets = { nav.navigate(InsuranceAssetPickerRoute(it)) },
+                    onScan = { nav.navigate(ScanPickRoute("Scan aset untuk polis")) },
+                    onOpenAsset = { nav.navigate(AssetDetailRoute(it)) },
+                    scannedCode = scanned,
+                    onScanConsumed = { entry.savedStateHandle[SCAN_RESULT_KEY] = null },
+                )
+            }
+            composable<InsuranceAssetPickerRoute> {
+                InsuranceAssetPickerScreen(
+                    onBack = nav::navigateUp,
+                    onDone = { message ->
+                        nav.previousBackStackEntry?.savedStateHandle?.set(PICKER_MESSAGE_KEY, message)
+                        nav.popBackStack()
+                    },
+                )
+            }
             composable<OpnameListRoute> {
                 OpnameListScreen(onBack = nav::navigateUp, onOpenSession = { nav.navigate(OpnameSessionRoute(it)) })
             }
@@ -219,6 +267,7 @@ fun MainScaffold(user: User) {
                     onOpenBackup = { nav.navigate(BackupRoute) },
                     onOpenAuditLog = { nav.navigate(AuditLogRoute) },
                     onOpenDeletedAssets = { nav.navigate(DeletedAssetsRoute) },
+                    onOpenInsurance = { nav.navigate(InsuranceListRoute) },
                     onOpenUsers = { nav.navigate(UsersRoute) },
                     onOpenSettings = { nav.navigate(SettingsRoute) },
                 )

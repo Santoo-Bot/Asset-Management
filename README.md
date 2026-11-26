@@ -114,6 +114,7 @@ Semua data tersimpan **hanya di HP** (database Room + folder foto). Backup otoma
 | **Mutasi** | Pindah lokasi/departemen/PIC dengan alasan & penyetuju; data aset ikut diperbarui |
 | **Servis** | Preventif/Korektif/Kalibrasi/Inspeksi, vendor, biaya, foto, jadwal berikutnya; status Terlambat / Jatuh tempo ≤30 hari / Terjadwal |
 | **Stok** | Master barang, transaksi masuk/keluar (keluar tidak boleh melebihi stok), stok akhir = awal + masuk − keluar, status Reorder, scan barcode untuk memilih barang |
+| **Asuransi** | Master tipe & perusahaan asuransi; polis (nomor, tipe, perusahaan, periode, premi, nilai pertanggungan) dengan status Aktif / Segera berakhir ≤30 hari / Berakhir; aset yang ditanggung bisa ditambah manual (pilih banyak / semua hasil filter), scan QR, atau upload Excel (kolom Kode Aset / Kode QR + nilai pertanggungan); export polis; polis tampil di detail aset; pengingat & dashboard untuk polis yang segera berakhir |
 | **Stock opname** | Pilih lokasi, scan aset berurutan, lalu lihat yang ditemukan / tidak ditemukan / tidak terdaftar di lokasi itu; laporan tersimpan & bisa diexport |
 | **Import/Export** | Template Excel + import dengan validasi per baris (baris bermasalah ditampilkan); export aset/servis/stok ke XLSX atau CSV (pemisah `;`) lalu bagikan |
 | **Notifikasi** | Cek harian (default 08:00, bisa diubah) untuk garansi, servis, dan stok; izin notifikasi Android 13+ |

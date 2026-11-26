@@ -10,7 +10,14 @@ import id.perusahaan.asetga.domain.model.AssetListItem
 import id.perusahaan.asetga.domain.model.AuditAction
 import id.perusahaan.asetga.domain.model.AuditEntityType
 import id.perusahaan.asetga.domain.model.AuditLogEntry
+import id.perusahaan.asetga.domain.model.AddAssetsResult
 import id.perusahaan.asetga.domain.model.Category
+import id.perusahaan.asetga.domain.model.InsurancePolicy
+import id.perusahaan.asetga.domain.model.InsuranceImportPreview
+import id.perusahaan.asetga.domain.model.InsuranceType
+import id.perusahaan.asetga.domain.model.InsuredAsset
+import id.perusahaan.asetga.domain.model.Insurer
+import id.perusahaan.asetga.domain.model.PolicyInput
 import id.perusahaan.asetga.domain.model.DeletedAsset
 import id.perusahaan.asetga.domain.model.OpnameItem
 import id.perusahaan.asetga.domain.model.OpnameScanOutcome
@@ -48,6 +55,8 @@ interface MasterDataRepository {
     fun observeCategories(includeInactive: Boolean = false): Flow<List<Category>>
     fun observeLocations(includeInactive: Boolean = false): Flow<List<Location>>
     fun observeDivisions(includeInactive: Boolean = false): Flow<List<Division>>
+    fun observeInsuranceTypes(includeInactive: Boolean = false): Flow<List<InsuranceType>>
+    fun observeInsurers(includeInactive: Boolean = false): Flow<List<Insurer>>
     fun observeDepartments(includeInactive: Boolean = false): Flow<List<Department>>
     fun observeVendors(includeInactive: Boolean = false): Flow<List<Vendor>>
     fun observeUnits(includeInactive: Boolean = false): Flow<List<MeasureUnit>>
@@ -55,6 +64,8 @@ interface MasterDataRepository {
     suspend fun saveCategory(category: Category): AppResult<Category>
     suspend fun saveLocation(location: Location): AppResult<Location>
     suspend fun saveDivision(division: Division): AppResult<Division>
+    suspend fun saveInsuranceType(type: InsuranceType): AppResult<InsuranceType>
+    suspend fun saveInsurer(insurer: Insurer): AppResult<Insurer>
     suspend fun saveDepartment(department: Department): AppResult<Department>
     suspend fun saveVendor(vendor: Vendor): AppResult<Vendor>
     suspend fun saveUnit(unit: MeasureUnit): AppResult<MeasureUnit>
@@ -124,6 +135,8 @@ interface AssetRepository {
     suspend fun get(id: String): Asset?
     suspend fun findByCode(code: String): Asset?
     suspend fun getListItems(ids: List<String>): List<AssetListItem>
+    /** Semua id aset yang cocok dengan filter (tanpa paging). */
+    suspend fun filteredIds(filter: AssetFilter): List<String>
     /** Usulan kode otomatis PREFIX-TAHUN-NNN berdasarkan kategori & tahun perolehan. */
     suspend fun suggestCode(categoryId: String, year: Int): String
     suspend fun save(input: AssetInput): AppResult<Asset>
@@ -173,4 +186,25 @@ interface OpnameRepository {
     suspend fun start(locationId: String): AppResult<String>
     suspend fun scan(sessionId: String, code: String): OpnameScanOutcome
     suspend fun finish(sessionId: String, note: String): AppResult<Unit>
+}
+
+interface InsuranceRepository {
+    fun observePolicies(): Flow<List<InsurancePolicy>>
+    fun observePolicy(id: String): Flow<InsurancePolicy?>
+    fun observePoliciesForAsset(assetId: String): Flow<List<InsurancePolicy>>
+    fun observeInsuredAssets(policyId: String): Flow<List<InsuredAsset>>
+    fun observeAssetIdsInPolicy(policyId: String): Flow<Set<String>>
+    suspend fun getPolicyInput(id: String): PolicyInput?
+    suspend fun savePolicy(input: PolicyInput): AppResult<String>
+    /** Hapus polis (soft delete). */
+    suspend fun deletePolicy(id: String): AppResult<Unit>
+
+    suspend fun addAssets(policyId: String, assetIds: List<String>): AppResult<AddAssetsResult>
+    /** Tambah aset dari hasil scan (kode aset atau kode QR). */
+    suspend fun addAssetByCode(policyId: String, code: String): AppResult<String>
+    suspend fun removeAsset(policyId: String, assetId: String): AppResult<Unit>
+    suspend fun setSumInsured(policyId: String, assetId: String, value: Long?): AppResult<Unit>
+
+    suspend fun previewImport(policyId: String, sheet: List<List<String>>): InsuranceImportPreview
+    suspend fun commitImport(policyId: String, preview: InsuranceImportPreview): AppResult<AddAssetsResult>
 }

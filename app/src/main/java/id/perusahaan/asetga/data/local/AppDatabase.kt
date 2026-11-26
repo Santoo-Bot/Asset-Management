@@ -10,6 +10,9 @@ import id.perusahaan.asetga.data.local.dao.AuditLogDao
 import id.perusahaan.asetga.data.local.dao.CategoryDao
 import id.perusahaan.asetga.data.local.dao.DepartmentDao
 import id.perusahaan.asetga.data.local.dao.DivisionDao
+import id.perusahaan.asetga.data.local.dao.InsuranceDao
+import id.perusahaan.asetga.data.local.dao.InsuranceTypeDao
+import id.perusahaan.asetga.data.local.dao.InsurerDao
 import id.perusahaan.asetga.data.local.dao.LocationDao
 import id.perusahaan.asetga.data.local.dao.MasterUsageDao
 import id.perusahaan.asetga.data.local.dao.MutationDao
@@ -29,6 +32,10 @@ import id.perusahaan.asetga.data.local.entity.AuditSessionEntity
 import id.perusahaan.asetga.data.local.entity.CategoryEntity
 import id.perusahaan.asetga.data.local.entity.DepartmentEntity
 import id.perusahaan.asetga.data.local.entity.DivisionEntity
+import id.perusahaan.asetga.data.local.entity.InsuranceItemEntity
+import id.perusahaan.asetga.data.local.entity.InsurancePolicyEntity
+import id.perusahaan.asetga.data.local.entity.InsuranceTypeEntity
+import id.perusahaan.asetga.data.local.entity.InsurerEntity
 import id.perusahaan.asetga.data.local.entity.ItemEntity
 import id.perusahaan.asetga.data.local.entity.LocationEntity
 import id.perusahaan.asetga.data.local.entity.ServiceRecordEntity
@@ -56,8 +63,12 @@ import java.util.UUID
         AuditSessionEntity::class,
         AuditItemEntity::class,
         AuditLogEntity::class,
+        InsuranceTypeEntity::class,
+        InsurerEntity::class,
+        InsurancePolicyEntity::class,
+        InsuranceItemEntity::class,
     ],
-    version = 5,
+    version = 6,
     exportSchema = true,
 )
 @TypeConverters(Converters::class)
@@ -67,6 +78,9 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun locationDao(): LocationDao
     abstract fun divisionDao(): DivisionDao
     abstract fun masterUsageDao(): MasterUsageDao
+    abstract fun insuranceTypeDao(): InsuranceTypeDao
+    abstract fun insurerDao(): InsurerDao
+    abstract fun insuranceDao(): InsuranceDao
     abstract fun departmentDao(): DepartmentDao
     abstract fun vendorDao(): VendorDao
     abstract fun unitDao(): UnitDao
@@ -154,7 +168,40 @@ object Migrations {
         }
     }
 
-    val ALL = arrayOf(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
+    /** v6: modul asuransi (tipe, perusahaan, polis, aset yang ditanggung). */
+    val MIGRATION_5_6 = object : Migration(5, 6) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            val sync = "`createdAt` INTEGER NOT NULL, `updatedAt` INTEGER NOT NULL, `deletedAt` INTEGER, `syncState` TEXT NOT NULL"
+            db.execSQL("CREATE TABLE IF NOT EXISTS `insurance_types` (`id` TEXT NOT NULL, `name` TEXT NOT NULL, `isActive` INTEGER NOT NULL, $sync, PRIMARY KEY(`id`))")
+            db.execSQL("CREATE INDEX IF NOT EXISTS `index_insurance_types_name` ON `insurance_types` (`name`)")
+            db.execSQL(
+                "CREATE TABLE IF NOT EXISTS `insurers` (`id` TEXT NOT NULL, `name` TEXT NOT NULL, `phone` TEXT, `email` TEXT, `address` TEXT, " +
+                    "`isActive` INTEGER NOT NULL, $sync, PRIMARY KEY(`id`))",
+            )
+            db.execSQL("CREATE INDEX IF NOT EXISTS `index_insurers_name` ON `insurers` (`name`)")
+            db.execSQL(
+                "CREATE TABLE IF NOT EXISTS `insurance_policies` (`id` TEXT NOT NULL, `policyNumber` TEXT NOT NULL, `typeId` TEXT NOT NULL, " +
+                    "`insurerId` TEXT NOT NULL, `startDate` INTEGER NOT NULL, `endDate` INTEGER NOT NULL, `premium` INTEGER, `sumInsured` INTEGER, " +
+                    "`notes` TEXT, $sync, PRIMARY KEY(`id`), " +
+                    "FOREIGN KEY(`typeId`) REFERENCES `insurance_types`(`id`) ON UPDATE NO ACTION ON DELETE RESTRICT , " +
+                    "FOREIGN KEY(`insurerId`) REFERENCES `insurers`(`id`) ON UPDATE NO ACTION ON DELETE RESTRICT )",
+            )
+            db.execSQL("CREATE INDEX IF NOT EXISTS `index_insurance_policies_policyNumber` ON `insurance_policies` (`policyNumber`)")
+            db.execSQL("CREATE INDEX IF NOT EXISTS `index_insurance_policies_typeId` ON `insurance_policies` (`typeId`)")
+            db.execSQL("CREATE INDEX IF NOT EXISTS `index_insurance_policies_insurerId` ON `insurance_policies` (`insurerId`)")
+            db.execSQL("CREATE INDEX IF NOT EXISTS `index_insurance_policies_endDate` ON `insurance_policies` (`endDate`)")
+            db.execSQL(
+                "CREATE TABLE IF NOT EXISTS `insurance_items` (`id` TEXT NOT NULL, `policyId` TEXT NOT NULL, `assetId` TEXT NOT NULL, " +
+                    "`sumInsured` INTEGER, `createdAt` INTEGER NOT NULL, `updatedAt` INTEGER NOT NULL, `syncState` TEXT NOT NULL, PRIMARY KEY(`id`), " +
+                    "FOREIGN KEY(`policyId`) REFERENCES `insurance_policies`(`id`) ON UPDATE NO ACTION ON DELETE RESTRICT , " +
+                    "FOREIGN KEY(`assetId`) REFERENCES `assets`(`id`) ON UPDATE NO ACTION ON DELETE RESTRICT )",
+            )
+            db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS `index_insurance_items_policyId_assetId` ON `insurance_items` (`policyId`, `assetId`)")
+            db.execSQL("CREATE INDEX IF NOT EXISTS `index_insurance_items_assetId` ON `insurance_items` (`assetId`)")
+        }
+    }
+
+    val ALL = arrayOf(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6)
 }
 
 /** Data awal wajib (semua build): kategori dengan umur ekonomis, satuan, dan pengaturan default. */

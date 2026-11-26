@@ -2,6 +2,7 @@ package id.perusahaan.asetga.domain.validation
 
 import id.perusahaan.asetga.domain.model.ItemInput
 import id.perusahaan.asetga.domain.model.MutationInput
+import id.perusahaan.asetga.domain.model.PolicyInput
 import id.perusahaan.asetga.domain.model.ServiceInput
 import id.perusahaan.asetga.domain.model.StockTxnInput
 import id.perusahaan.asetga.util.Fmt
@@ -52,6 +53,26 @@ object OperationValidator {
         if (input.nextServiceDate != null && input.serviceDate != null && !input.nextServiceDate.isAfter(input.serviceDate)) {
             put(FIELD_NEXT, "Jadwal berikutnya harus setelah tanggal servis")
         }
+    }
+
+    const val FIELD_POLICY_NUMBER = "policyNumber"
+    const val FIELD_TYPE = "type"
+    const val FIELD_INSURER = "insurer"
+    const val FIELD_START = "startDate"
+    const val FIELD_END = "endDate"
+    const val FIELD_PREMIUM = "premium"
+
+    fun validatePolicy(input: PolicyInput): Map<String, String> = buildMap {
+        if (input.policyNumber.isBlank()) put(FIELD_POLICY_NUMBER, "Nomor polis wajib diisi")
+        else if (input.policyNumber.trim().length > 60) put(FIELD_POLICY_NUMBER, "Maksimal 60 karakter")
+        if (input.typeId == null) put(FIELD_TYPE, "Pilih tipe asuransi")
+        if (input.insurerId == null) put(FIELD_INSURER, "Pilih perusahaan asuransi")
+        if (input.startDate == null) put(FIELD_START, "Tanggal mulai wajib diisi")
+        when {
+            input.endDate == null -> put(FIELD_END, "Tanggal berakhir wajib diisi")
+            input.startDate != null && input.endDate.isBefore(input.startDate) -> put(FIELD_END, "Tanggal berakhir sebelum tanggal mulai")
+        }
+        if (input.premium != null && input.premium < 0) put(FIELD_PREMIUM, "Premi tidak valid")
     }
 
     private val itemCodeRegex = Regex("^[A-Z0-9][A-Z0-9./-]{1,29}$")

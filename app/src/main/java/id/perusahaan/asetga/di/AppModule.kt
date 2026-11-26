@@ -14,6 +14,7 @@ import id.perusahaan.asetga.data.local.Migrations
 import id.perusahaan.asetga.data.repository.AssetRepositoryImpl
 import id.perusahaan.asetga.data.repository.AuditLogRepositoryImpl
 import id.perusahaan.asetga.data.repository.DashboardRepositoryImpl
+import id.perusahaan.asetga.data.repository.InsuranceRepositoryImpl
 import id.perusahaan.asetga.data.repository.MasterDataRepositoryImpl
 import id.perusahaan.asetga.data.repository.OperationRepositoryImpl
 import id.perusahaan.asetga.data.repository.OpnameRepositoryImpl
@@ -23,6 +24,7 @@ import id.perusahaan.asetga.data.repository.UserRepositoryImpl
 import id.perusahaan.asetga.domain.repository.AssetRepository
 import id.perusahaan.asetga.domain.repository.AuditLogRepository
 import id.perusahaan.asetga.domain.repository.DashboardRepository
+import id.perusahaan.asetga.domain.repository.InsuranceRepository
 import id.perusahaan.asetga.domain.repository.MasterDataRepository
 import id.perusahaan.asetga.domain.repository.OperationRepository
 import id.perusahaan.asetga.domain.repository.OpnameRepository
@@ -50,6 +52,9 @@ object AppModule {
     @Provides fun locationDao(db: AppDatabase) = db.locationDao()
     @Provides fun divisionDao(db: AppDatabase) = db.divisionDao()
     @Provides fun masterUsageDao(db: AppDatabase) = db.masterUsageDao()
+    @Provides fun insuranceTypeDao(db: AppDatabase) = db.insuranceTypeDao()
+    @Provides fun insurerDao(db: AppDatabase) = db.insurerDao()
+    @Provides fun insuranceDao(db: AppDatabase) = db.insuranceDao()
     @Provides fun departmentDao(db: AppDatabase) = db.departmentDao()
     @Provides fun vendorDao(db: AppDatabase) = db.vendorDao()
     @Provides fun unitDao(db: AppDatabase) = db.unitDao()
@@ -82,4 +87,5 @@ abstract class RepositoryModule {
     @Binds abstract fun stock(impl: StockRepositoryImpl): StockRepository
     @Binds abstract fun dashboard(impl: DashboardRepositoryImpl): DashboardRepository
     @Binds abstract fun opname(impl: OpnameRepositoryImpl): OpnameRepository
+    @Binds abstract fun insurance(impl: InsuranceRepositoryImpl): InsuranceRepository
 }

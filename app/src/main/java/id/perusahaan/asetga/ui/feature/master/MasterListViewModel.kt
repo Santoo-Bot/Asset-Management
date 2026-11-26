@@ -9,6 +9,8 @@ import id.perusahaan.asetga.domain.model.AppResult
 import id.perusahaan.asetga.domain.model.Category
 import id.perusahaan.asetga.domain.model.Department
 import id.perusahaan.asetga.domain.model.Division
+import id.perusahaan.asetga.domain.model.InsuranceType
+import id.perusahaan.asetga.domain.model.Insurer
 import id.perusahaan.asetga.domain.model.Location
 import id.perusahaan.asetga.domain.model.MasterType
 import id.perusahaan.asetga.domain.model.MeasureUnit
@@ -139,6 +141,8 @@ class MasterListViewModel @Inject constructor(
                 MasterType.DEPARTMENT -> repo.saveDepartment(Department(f.id, f.name, f.divisionId))
                 MasterType.VENDOR -> repo.saveVendor(Vendor(f.id, f.name, f.phone, f.email, f.address))
                 MasterType.UNIT -> repo.saveUnit(MeasureUnit(f.id, f.name))
+                MasterType.INSURANCE_TYPE -> repo.saveInsuranceType(InsuranceType(f.id, f.name))
+                MasterType.INSURER -> repo.saveInsurer(Insurer(f.id, f.name, f.phone, f.email, f.address))
             }
             when (result) {
                 is AppResult.Success -> {
@@ -212,6 +216,17 @@ class MasterListViewModel @Inject constructor(
             }
         }
         MasterType.VENDOR -> repo.observeVendors(includeInactive).map { list ->
+            list.map { v ->
+                MasterRow(
+                    v.id, v.name, listOfNotNull(v.phone, v.email).joinToString(" · ").ifEmpty { null }, null, v.isActive,
+                    MasterForm(id = v.id, name = v.name, phone = v.phone.orEmpty(), email = v.email.orEmpty(), address = v.address.orEmpty()),
+                )
+            }
+        }
+        MasterType.INSURANCE_TYPE -> repo.observeInsuranceTypes(includeInactive).map { list ->
+            list.map { MasterRow(it.id, it.name, null, null, it.isActive, MasterForm(id = it.id, name = it.name)) }
+        }
+        MasterType.INSURER -> repo.observeInsurers(includeInactive).map { list ->
             list.map { v ->
                 MasterRow(
                     v.id, v.name, listOfNotNull(v.phone, v.email).joinToString(" · ").ifEmpty { null }, null, v.isActive,

@@ -8,7 +8,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.outlined.AccountTree
 import androidx.compose.material.icons.outlined.Apartment
+import androidx.compose.material.icons.outlined.Business
 import androidx.compose.material.icons.outlined.Category
+import androidx.compose.material.icons.outlined.Shield
 import androidx.compose.material.icons.outlined.LocalShipping
 import androidx.compose.material.icons.outlined.Place
 import androidx.compose.material.icons.outlined.Straighten
@@ -29,6 +31,8 @@ fun MasterType.icon(): ImageVector = when (this) {
     MasterType.DEPARTMENT -> Icons.Outlined.Apartment
     MasterType.VENDOR -> Icons.Outlined.LocalShipping
     MasterType.UNIT -> Icons.Outlined.Straighten
+    MasterType.INSURANCE_TYPE -> Icons.Outlined.Shield
+    MasterType.INSURER -> Icons.Outlined.Business
 }
 
 private fun MasterType.description(): String = when (this) {
@@ -38,6 +42,8 @@ private fun MasterType.description(): String = when (this) {
     MasterType.DEPARTMENT -> "Unit kerja pemakai aset, berada di bawah divisi"
     MasterType.VENDOR -> "Pemasok & penyedia jasa servis"
     MasterType.UNIT -> "Satuan barang habis pakai"
+    MasterType.INSURANCE_TYPE -> "Mis. All Risk, Kendaraan Bermotor, Kebakaran"
+    MasterType.INSURER -> "Perusahaan penerbit polis & kontaknya"
 }
 
 @Composable

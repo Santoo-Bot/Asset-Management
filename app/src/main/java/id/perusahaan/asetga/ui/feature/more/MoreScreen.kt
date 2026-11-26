@@ -18,6 +18,7 @@ import androidx.compose.material.icons.outlined.TaskAlt
 import androidx.compose.material.icons.outlined.Group
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Settings
+import androidx.compose.material.icons.outlined.Shield
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ListItem
@@ -41,6 +42,7 @@ fun MoreScreen(
     onOpenBackup: () -> Unit,
     onOpenAuditLog: () -> Unit,
     onOpenDeletedAssets: () -> Unit,
+    onOpenInsurance: () -> Unit,
     onOpenUsers: () -> Unit,
     onOpenSettings: () -> Unit,
 ) {
@@ -53,6 +55,7 @@ fun MoreScreen(
             HorizontalDivider()
             SectionHeader("Data")
             MenuRow(Icons.Outlined.Build, "Servis & perawatan", "Jadwal servis, terlambat, jatuh tempo, riwayat", onOpenServices)
+            MenuRow(Icons.Outlined.Shield, "Asuransi", "Polis, tipe & perusahaan asuransi, aset yang ditanggung", onOpenInsurance)
             MenuRow(Icons.Outlined.TaskAlt, "Stock opname aset", "Audit fisik aset per lokasi dengan scan", onOpenOpname)
             MenuRow(Icons.Outlined.Category, "Master data", "Kategori, lokasi, departemen, vendor, satuan", onOpenMaster)
             SectionHeader("File")

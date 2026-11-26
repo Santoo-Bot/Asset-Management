@@ -8,11 +8,13 @@ enum class ActionKind(val label: String) {
     REORDER("Stok perlu reorder"),
     SERVICE_DUE("Servis jatuh tempo"),
     DAMAGED("Aset rusak"),
+    POLICY_EXPIRING("Polis asuransi segera berakhir"),
 }
 
 sealed interface ActionTarget {
     data class AssetTarget(val assetId: String) : ActionTarget
     data class ItemTarget(val itemId: String) : ActionTarget
+    data class PolicyTarget(val policyId: String) : ActionTarget
 }
 
 data class ActionItem(
@@ -34,6 +36,7 @@ data class DashboardSummary(
     val serviceOverdue: Int = 0,
     val serviceDueSoon: Int = 0,
     val reorderItems: Int = 0,
+    val policiesExpiring: Int = 0,
     val byCategory: List<ChartBar> = emptyList(),
     val byCondition: List<ChartBar> = emptyList(),
     val actions: List<ActionItem> = emptyList(),
@@ -45,6 +48,7 @@ data class ReminderSummary(
     val serviceOverdue: Int,
     val serviceDueSoon: Int,
     val reorderItems: Int,
+    val policiesExpiring: Int = 0,
 ) {
-    val isEmpty: Boolean get() = warrantyExpiring + serviceOverdue + serviceDueSoon + reorderItems == 0
+    val isEmpty: Boolean get() = warrantyExpiring + serviceOverdue + serviceDueSoon + reorderItems + policiesExpiring == 0
 }

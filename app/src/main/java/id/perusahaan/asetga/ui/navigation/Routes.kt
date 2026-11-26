@@ -39,3 +39,10 @@ const val SCAN_RESULT_KEY = "scan_result"
 @Serializable data object OpnameListRoute
 @Serializable data class OpnameSessionRoute(val id: String)
 @Serializable data object DeletedAssetsRoute
+
+@Serializable data object InsuranceListRoute
+@Serializable data class PolicyDetailRoute(val id: String)
+/** [id] null = polis baru. */
+@Serializable data class PolicyFormRoute(val id: String? = null)
+@Serializable data class InsuranceAssetPickerRoute(val policyId: String)
+const val PICKER_MESSAGE_KEY = "picker_message"

@@ -43,7 +43,7 @@ class RepositoryTest {
         audit = AuditLogRepositoryImpl(db.auditLogDao(), session, clock)
         users = UserRepositoryImpl(db.userDao(), PasswordHasher(iterations = 1_000), session, audit, clock)
         master = MasterDataRepositoryImpl(
-            db, db.assetDao(), db.categoryDao(), db.locationDao(), db.divisionDao(), db.departmentDao(), db.vendorDao(), db.unitDao(), db.masterUsageDao(), session, audit, clock,
+            db, db.assetDao(), db.categoryDao(), db.locationDao(), db.divisionDao(), db.departmentDao(), db.vendorDao(), db.unitDao(), db.masterUsageDao(), db.insuranceTypeDao(), db.insurerDao(), session, audit, clock,
         )
     }
 

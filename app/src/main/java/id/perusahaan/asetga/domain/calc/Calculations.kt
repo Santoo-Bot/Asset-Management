@@ -132,3 +132,23 @@ object AssetCodeGenerator {
         return max + 1
     }
 }
+
+enum class PolicyStatus(val label: String) {
+    NOT_STARTED("Belum mulai"),
+    ACTIVE("Aktif"),
+    EXPIRING("Segera berakhir"),
+    EXPIRED("Berakhir"),
+}
+
+object PolicyCalc {
+    const val EXPIRING_DAYS = 30L
+
+    fun status(start: LocalDate, end: LocalDate, today: LocalDate): PolicyStatus = when {
+        end.isBefore(today) -> PolicyStatus.EXPIRED
+        start.isAfter(today) -> PolicyStatus.NOT_STARTED
+        ChronoUnit.DAYS.between(today, end) <= EXPIRING_DAYS -> PolicyStatus.EXPIRING
+        else -> PolicyStatus.ACTIVE
+    }
+
+    fun daysLeft(end: LocalDate, today: LocalDate): Long = ChronoUnit.DAYS.between(today, end)
+}

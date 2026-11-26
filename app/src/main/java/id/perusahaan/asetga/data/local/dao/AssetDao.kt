@@ -101,6 +101,9 @@ interface AssetDao {
         divisionId: String?,
     ): PagingSource<Int, AssetListRow>
 
+    @Query("SELECT a.id FROM assets a WHERE $FILTER_WHERE")
+    suspend fun filteredIds(query: String, categoryId: String?, locationId: String?, condition: String?, status: String?, divisionId: String?): List<String>
+
     @Query(
         "SELECT COUNT(*) FROM assets a WHERE $FILTER_WHERE",
     )

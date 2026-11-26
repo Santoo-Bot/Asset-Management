@@ -6,6 +6,8 @@ import id.perusahaan.asetga.data.local.dao.AssetDao
 import id.perusahaan.asetga.data.local.dao.CategoryDao
 import id.perusahaan.asetga.data.local.dao.DepartmentDao
 import id.perusahaan.asetga.data.local.dao.DivisionDao
+import id.perusahaan.asetga.data.local.dao.InsuranceTypeDao
+import id.perusahaan.asetga.data.local.dao.InsurerDao
 import id.perusahaan.asetga.data.local.dao.LocationDao
 import id.perusahaan.asetga.data.local.dao.MasterUsageDao
 import id.perusahaan.asetga.data.local.dao.UnitDao
@@ -13,6 +15,8 @@ import id.perusahaan.asetga.data.local.dao.VendorDao
 import id.perusahaan.asetga.data.local.entity.CategoryEntity
 import id.perusahaan.asetga.data.local.entity.DepartmentEntity
 import id.perusahaan.asetga.data.local.entity.DivisionEntity
+import id.perusahaan.asetga.data.local.entity.InsuranceTypeEntity
+import id.perusahaan.asetga.data.local.entity.InsurerEntity
 import id.perusahaan.asetga.data.local.entity.LocationEntity
 import id.perusahaan.asetga.data.local.entity.UnitEntity
 import id.perusahaan.asetga.data.local.entity.VendorEntity
@@ -22,6 +26,8 @@ import id.perusahaan.asetga.domain.model.AuditEntityType
 import id.perusahaan.asetga.domain.model.Category
 import id.perusahaan.asetga.domain.model.Department
 import id.perusahaan.asetga.domain.model.Division
+import id.perusahaan.asetga.domain.model.InsuranceType
+import id.perusahaan.asetga.domain.model.Insurer
 import id.perusahaan.asetga.domain.model.Location
 import id.perusahaan.asetga.domain.model.MasterType
 import id.perusahaan.asetga.domain.model.MeasureUnit
@@ -52,6 +58,8 @@ class MasterDataRepositoryImpl @Inject constructor(
     private val vendorDao: VendorDao,
     private val unitDao: UnitDao,
     private val usageDao: MasterUsageDao,
+    private val insuranceTypeDao: InsuranceTypeDao,
+    private val insurerDao: InsurerDao,
     private val session: SessionManager,
     private val audit: AuditLogRepository,
     private val clock: Clock,
@@ -72,6 +80,58 @@ class MasterDataRepositoryImpl @Inject constructor(
             val names = divs.associate { it.id to it.name }
             deps.map { d -> d.toDomain(d.divisionId?.let(names::get)) }
         }
+
+    override fun observeInsuranceTypes(includeInactive: Boolean): Flow<List<InsuranceType>> =
+        insuranceTypeDao.observeAll(includeInactive).map { l -> l.map { InsuranceType(it.id, it.name, it.isActive) } }
+
+    override fun observeInsurers(includeInactive: Boolean): Flow<List<Insurer>> =
+        insurerDao.observeAll(includeInactive).map { l -> l.map { Insurer(it.id, it.name, it.phone, it.email, it.address, it.isActive) } }
+
+    override suspend fun saveInsuranceType(type: InsuranceType): AppResult<InsuranceType> {
+        session.denyUnless { it.canManageMaster }?.let { return it }
+        val name = type.name.trim()
+        nameErrors(name, insuranceTypeDao.countByName(name, type.id), "tipe asuransi")?.let { return it }
+        val now = clock.millis()
+        val old = type.id.takeIf { it.isNotEmpty() }?.let { insuranceTypeDao.getById(it) }
+        return if (old == null) {
+            val e = InsuranceTypeEntity(newId(), name, true, now, now)
+            insuranceTypeDao.insert(e)
+            audit.log(AuditEntityType.MASTER, e.id, AuditAction.CREATE, "Tipe asuransi ${e.name} ditambahkan")
+            AppResult.Success(InsuranceType(e.id, e.name))
+        } else {
+            val e = old.copy(name = name, updatedAt = now, syncState = SyncState.PENDING)
+            insuranceTypeDao.update(e)
+            logUpdate("Tipe asuransi", e.id, e.name) { field("Nama", old.name, e.name) }
+            AppResult.Success(InsuranceType(e.id, e.name, e.isActive))
+        }
+    }
+
+    override suspend fun saveInsurer(insurer: Insurer): AppResult<Insurer> {
+        session.denyUnless { it.canManageMaster }?.let { return it }
+        val v = insurer.copy(name = insurer.name.trim(), phone = insurer.phone.trimToNull(), email = insurer.email.trimToNull(), address = insurer.address.trimToNull())
+        // Validasi kontak sama dengan vendor.
+        val errors = MasterValidator.validateVendor(Vendor("", v.name, v.phone, v.email, v.address)).toMutableMap()
+        if (FIELD_NAME !in errors && insurerDao.countByName(v.name, v.id) > 0) errors[FIELD_NAME] = "Nama perusahaan asuransi sudah ada"
+        if (errors.isNotEmpty()) return invalid(errors)
+        val now = clock.millis()
+        val old = v.id.takeIf { it.isNotEmpty() }?.let { insurerDao.getById(it) }
+        return if (old == null) {
+            val e = InsurerEntity(newId(), v.name, v.phone, v.email, v.address, true, now, now)
+            insurerDao.insert(e)
+            audit.log(AuditEntityType.MASTER, e.id, AuditAction.CREATE, "Perusahaan asuransi ${e.name} ditambahkan")
+            AppResult.Success(v.copy(id = e.id))
+        } else {
+            val e = old.copy(name = v.name, phone = v.phone, email = v.email, address = v.address, updatedAt = now, syncState = SyncState.PENDING)
+            insurerDao.update(e)
+            logUpdate("Perusahaan asuransi", e.id, e.name) {
+                field("Nama", old.name, e.name)
+                field("Telepon", old.phone, e.phone)
+                field("Email", old.email, e.email)
+                field("Alamat", old.address, e.address)
+            }
+            AppResult.Success(v)
+        }
+    }
 
     override suspend fun saveDivision(division: Division): AppResult<Division> {
         session.denyUnless { it.canManageMaster }?.let { return it }
@@ -244,6 +304,8 @@ class MasterDataRepositoryImpl @Inject constructor(
             MasterType.DEPARTMENT -> departmentDao.getById(id)?.name?.also { departmentDao.setActive(id, active, now) }
             MasterType.VENDOR -> vendorDao.getById(id)?.name?.also { vendorDao.setActive(id, active, now) }
             MasterType.UNIT -> unitDao.getById(id)?.name?.also { unitDao.setActive(id, active, now) }
+            MasterType.INSURANCE_TYPE -> insuranceTypeDao.getById(id)?.name?.also { insuranceTypeDao.setActive(id, active, now) }
+            MasterType.INSURER -> insurerDao.getById(id)?.name?.also { insurerDao.setActive(id, active, now) }
         }
         if (name == null) return AppResult.Failure("Data tidak ditemukan")
         audit.log(
@@ -263,6 +325,8 @@ class MasterDataRepositoryImpl @Inject constructor(
             MasterType.DEPARTMENT -> departmentDao.getById(id)?.name
             MasterType.VENDOR -> vendorDao.getById(id)?.name
             MasterType.UNIT -> unitDao.getById(id)?.name
+            MasterType.INSURANCE_TYPE -> insuranceTypeDao.getById(id)?.name
+            MasterType.INSURER -> insurerDao.getById(id)?.name
         } ?: return AppResult.Failure("Data tidak ditemukan")
 
         val usage = usageOf(type, id)
@@ -272,6 +336,7 @@ class MasterDataRepositoryImpl @Inject constructor(
                 MasterType.CATEGORY, MasterType.LOCATION, MasterType.DEPARTMENT -> "Pindahkan dulu ke ${type.singular} lain (ubah aset / mutasi)."
                 MasterType.VENDOR -> "Ubah vendor pada catatan servis tersebut dulu."
                 MasterType.UNIT -> "Ubah satuan barang tersebut dulu."
+                MasterType.INSURANCE_TYPE, MasterType.INSURER -> "Ubah atau hapus polis tersebut dulu."
             }
             return AppResult.Failure("$name tidak bisa dihapus karena dipakai ${usage.joinToString(", ")}. $hint")
         }
@@ -284,6 +349,8 @@ class MasterDataRepositoryImpl @Inject constructor(
                 MasterType.DEPARTMENT -> usageDao.deleteDepartment(id)
                 MasterType.VENDOR -> usageDao.deleteVendor(id)
                 MasterType.UNIT -> usageDao.deleteUnit(id)
+                MasterType.INSURANCE_TYPE -> insuranceTypeDao.delete(id)
+                MasterType.INSURER -> insurerDao.delete(id)
             }
             audit.log(AuditEntityType.MASTER, id, AuditAction.DELETE, "${type.label} $name dihapus")
         }
@@ -312,6 +379,8 @@ class MasterDataRepositoryImpl @Inject constructor(
                 }
                 MasterType.VENDOR -> addIfUsed(usageDao.servicesWithVendor(id), "catatan servis")
                 MasterType.UNIT -> addIfUsed(usageDao.itemsWithUnit(id), "barang stok")
+                MasterType.INSURANCE_TYPE -> addIfUsed(insuranceTypeDao.usage(id), "polis")
+                MasterType.INSURER -> addIfUsed(insurerDao.usage(id), "polis")
             }
         }
     }

@@ -107,6 +107,9 @@ class AssetRepositoryImpl @Inject constructor(
     override suspend fun getListItems(ids: List<String>): List<AssetListItem> =
         ids.chunked(500).flatMap { dao.listItemsByIds(it) }.map { it.toDomain() }.sortedBy { it.code }
 
+    override suspend fun filteredIds(filter: AssetFilter): List<String> =
+        dao.filteredIds(filter.query.trim(), filter.categoryId, filter.locationId, filter.condition?.name, filter.status?.name, filter.divisionId)
+
     override suspend fun suggestCode(categoryId: String, year: Int): String {
         val prefix = categoryDao.getById(categoryId)?.codePrefix ?: "AST"
         val seq = AssetCodeGenerator.nextSequence(prefix, year, dao.codesStartingWith("$prefix-$year-"))

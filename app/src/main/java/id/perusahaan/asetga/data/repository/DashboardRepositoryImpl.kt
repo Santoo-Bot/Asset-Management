@@ -1,9 +1,11 @@
 package id.perusahaan.asetga.data.repository
 
 import id.perusahaan.asetga.data.local.dao.AssetDao
+import id.perusahaan.asetga.data.local.dao.InsuranceDao
 import id.perusahaan.asetga.data.local.dao.ServiceDao
 import id.perusahaan.asetga.data.local.dao.StockDao
 import id.perusahaan.asetga.domain.calc.Depreciation
+import id.perusahaan.asetga.domain.calc.PolicyCalc
 import id.perusahaan.asetga.domain.calc.ServiceDueCalc
 import id.perusahaan.asetga.domain.calc.ServiceDueStatus
 import id.perusahaan.asetga.domain.calc.WarrantyCalc
@@ -34,13 +36,14 @@ class DashboardRepositoryImpl @Inject constructor(
     private val assetDao: AssetDao,
     private val serviceDao: ServiceDao,
     private val stockDao: StockDao,
+    private val insuranceDao: InsuranceDao,
     private val settings: SettingsRepository,
     private val clock: Clock,
 ) : DashboardRepository {
 
     @OptIn(ExperimentalCoroutinesApi::class)
     override fun observeSummary(): Flow<DashboardSummary> =
-        combine(assetDao.observeTick(), serviceDao.observeTick(), stockDao.observeTick(), settings.settings) { _, _, _, s -> s.defaultResidualPercent }
+        combine(assetDao.observeTick(), serviceDao.observeTick(), stockDao.observeTick(), insuranceDao.observeTick(), settings.settings) { _, _, _, _, s -> s.defaultResidualPercent }
             .conflate()
             .mapLatest { load(it) }
             .flowOn(Dispatchers.Default)
@@ -61,6 +64,8 @@ class DashboardRepositoryImpl @Inject constructor(
         val dueSoon = schedules.filter { ServiceDueCalc.status(it.nextServiceDate, today) == ServiceDueStatus.DUE_SOON }
         val reorder = stockDao.reorderItems()
         val damagedRows = assetDao.damaged(ACTION_LIMIT)
+        val policyTo = today.plusDays(PolicyCalc.EXPIRING_DAYS)
+        val expiringPolicies = insuranceDao.policiesEndingBetween(today, policyTo)
 
         val conditionCounts = assetDao.countByCondition().associate { it.label to it.count }
         val actions = buildList {
@@ -70,6 +75,10 @@ class DashboardRepositoryImpl @Inject constructor(
             warrantyRows.forEach {
                 val days = WarrantyCalc.daysLeft(it.warrantyUntil!!, today)
                 add(ActionItem(ActionKind.WARRANTY_EXPIRING, "${it.code} · ${it.name}", "Garansi habis ${Fmt.date(it.warrantyUntil)} ($days hari lagi)", it.warrantyUntil, ActionTarget.AssetTarget(it.id)))
+            }
+            expiringPolicies.forEach {
+                val days = PolicyCalc.daysLeft(it.endDate, today)
+                add(ActionItem(ActionKind.POLICY_EXPIRING, "${it.policyNumber} · ${it.insurerName}", "${it.typeName} berakhir ${Fmt.date(it.endDate)} ($days hari lagi, ${it.itemCount} aset)", it.endDate, ActionTarget.PolicyTarget(it.id)))
             }
             reorder.forEach {
                 add(ActionItem(ActionKind.REORDER, "${it.code} · ${it.name}", "Stok ${Fmt.qty(it.currentStock)} ${it.unitName} (min ${Fmt.qty(it.minStock)})", null, ActionTarget.ItemTarget(it.id)))
@@ -91,6 +100,7 @@ class DashboardRepositoryImpl @Inject constructor(
             serviceOverdue = overdue.size,
             serviceDueSoon = dueSoon.size,
             reorderItems = reorder.size,
+            policiesExpiring = expiringPolicies.size,
             byCategory = assetDao.countByCategory().map { ChartBar(it.label, it.count) },
             byCondition = AssetCondition.entries.map { ChartBar(it.label, conditionCounts[it.name] ?: 0) },
             actions = actions,
@@ -105,6 +115,7 @@ class DashboardRepositoryImpl @Inject constructor(
             serviceOverdue = schedules.count { ServiceDueCalc.status(it.nextServiceDate, today) == ServiceDueStatus.OVERDUE },
             serviceDueSoon = schedules.count { ServiceDueCalc.status(it.nextServiceDate, today) == ServiceDueStatus.DUE_SOON },
             reorderItems = stockDao.reorderCount(),
+            policiesExpiring = insuranceDao.countEndingBetween(today, today.plusDays(PolicyCalc.EXPIRING_DAYS)),
         )
     }
 

@@ -39,7 +39,7 @@ object ReminderNotifier {
     fun ensureChannel(context: Context) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val channel = NotificationChannel(CHANNEL_ID, "Pengingat harian", NotificationManager.IMPORTANCE_DEFAULT).apply {
-                description = "Garansi segera habis, servis jatuh tempo/terlambat, dan stok di bawah minimum"
+                description = "Garansi segera habis, servis jatuh tempo/terlambat, stok di bawah minimum, dan polis asuransi yang segera berakhir"
             }
             context.getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
         }
@@ -55,6 +55,7 @@ object ReminderNotifier {
         if (s.serviceDueSoon > 0) add("${s.serviceDueSoon} aset servis jatuh tempo ≤30 hari")
         if (s.warrantyExpiring > 0) add("${s.warrantyExpiring} aset garansi segera habis (≤90 hari)")
         if (s.reorderItems > 0) add("${s.reorderItems} barang stok di bawah minimum")
+        if (s.policiesExpiring > 0) add("${s.policiesExpiring} polis asuransi berakhir ≤30 hari")
     }
 
     fun show(context: Context, summary: ReminderSummary) {

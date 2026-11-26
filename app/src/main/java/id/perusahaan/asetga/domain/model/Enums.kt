@@ -60,6 +60,7 @@ enum class AuditEntityType(val label: String) {
     SERVICE("Servis"),
     MASTER("Master data"),
     USER("Pengguna"),
+    INSURANCE("Asuransi"),
     SYSTEM("Sistem"),
 }
 
@@ -89,4 +90,6 @@ enum class MasterType(val label: String, val singular: String) {
     DEPARTMENT("Departemen", "departemen"),
     VENDOR("Vendor", "vendor"),
     UNIT("Satuan", "satuan"),
+    INSURANCE_TYPE("Tipe asuransi", "tipe asuransi"),
+    INSURER("Perusahaan asuransi", "perusahaan asuransi"),
 }

@@ -188,7 +188,7 @@ private fun MasterEditorSheet(
                     )
                 }
                 MasterType.LOCATION -> FormTextField(f.address, { v -> onChange { it.copy(address = v) } }, "Alamat / keterangan", singleLine = false, minLines = 2)
-                MasterType.VENDOR -> {
+                MasterType.VENDOR, MasterType.INSURER -> {
                     FormTextField(f.phone, { v -> onChange { it.copy(phone = v) } }, "Telepon", error = e[MasterValidator.FIELD_PHONE], keyboardType = KeyboardType.Phone)
                     FormTextField(f.email, { v -> onChange { it.copy(email = v.trim()) } }, "Email", error = e[MasterValidator.FIELD_EMAIL], keyboardType = KeyboardType.Email)
                     FormTextField(f.address, { v -> onChange { it.copy(address = v) } }, "Alamat", singleLine = false, minLines = 2)
@@ -200,7 +200,7 @@ private fun MasterEditorSheet(
                     error = e[MasterValidator.FIELD_DIVISION],
                     supporting = if (divisions.isEmpty()) "Belum ada divisi. Tambahkan dulu di Master data → Divisi." else null,
                 )
-                MasterType.DIVISION, MasterType.UNIT -> Unit
+                MasterType.DIVISION, MasterType.UNIT, MasterType.INSURANCE_TYPE -> Unit
             }
             Spacer(Modifier.height(8.dp))
             Button(onClick = onSave, enabled = !state.saving, modifier = Modifier.fillMaxWidth().height(52.dp)) {

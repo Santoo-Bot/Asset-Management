@@ -40,7 +40,7 @@ class OpnameAndDashboardTest {
         db = inMemoryDb()
         val audit = AuditLogRepositoryImpl(db.auditLogDao(), session, clock)
         opname = OpnameRepositoryImpl(db, db.opnameDao(), db.assetDao(), db.locationDao(), session, audit, clock)
-        dashboard = DashboardRepositoryImpl(db.assetDao(), db.serviceDao(), db.stockDao(), SettingsRepositoryImpl(db.settingsDao()), clock)
+        dashboard = DashboardRepositoryImpl(db.assetDao(), db.serviceDao(), db.stockDao(), db.insuranceDao(), SettingsRepositoryImpl(db.settingsDao()), clock)
         session.login(User("u1", "staf", "Staf GA", Role.STAFF, hasPin = false, isActive = true))
         db.locationDao().insert(LocationEntity("A", "Gedung A", null, true, 1, 1))
         db.locationDao().insert(LocationEntity("B", "Gedung B", null, true, 1, 1))
