@@ -54,12 +54,19 @@ class AssetListViewModel @Inject constructor(
     private val _messages = Channel<String>(Channel.BUFFERED)
     val messages: Flow<String> = _messages.receiveAsFlow()
 
+    private val _busy = MutableStateFlow(false)
+    /** Sedang memproses hapus massal; UI menampilkan progres dan menonaktifkan tombol. */
+    val busy: StateFlow<Boolean> = _busy.asStateFlow()
+
     /** Hapus (soft delete) semua aset terpilih. Khusus Admin GA. */
     fun deleteSelected(reason: String) {
         val ids = _selection.value.toList()
-        if (ids.isEmpty()) return
+        if (ids.isEmpty() || _busy.value) return
+        _busy.value = true
         viewModelScope.launch {
-            when (val r = repo.delete(ids, reason)) {
+            val r = repo.delete(ids, reason)
+            _busy.value = false
+            when (r) {
                 is AppResult.Success -> {
                     clearSelection()
                     _messages.send("${r.value} aset dihapus. Bisa dipulihkan dari Lainnya → Aset terhapus.")

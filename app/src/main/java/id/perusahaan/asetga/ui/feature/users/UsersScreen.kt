@@ -46,6 +46,7 @@ import id.perusahaan.asetga.domain.security.CredentialRules.FIELD_FULL_NAME
 import id.perusahaan.asetga.domain.security.CredentialRules.FIELD_PASSWORD
 import id.perusahaan.asetga.domain.security.CredentialRules.FIELD_USERNAME
 import id.perusahaan.asetga.ui.components.AppTopBar
+import id.perusahaan.asetga.ui.components.ErrorBanner
 import id.perusahaan.asetga.ui.components.FormTextField
 import id.perusahaan.asetga.ui.components.PasswordField
 import id.perusahaan.asetga.ui.components.StatusChip
@@ -130,6 +131,7 @@ private fun UserEditorSheet(
                 if (s.existing == null) "Kata sandi awal" else "Atur ulang kata sandi (opsional)",
                 error = s.errors[FIELD_PASSWORD], supporting = "Minimal 8 karakter, berisi huruf dan angka",
             )
+            s.message?.let { ErrorBanner(it) }
             Spacer(Modifier.height(8.dp))
             Button(onClick = onSave, enabled = !s.saving, modifier = Modifier.fillMaxWidth().height(52.dp)) {
                 Text(if (s.saving) "Menyimpan…" else "Simpan")

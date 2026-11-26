@@ -78,6 +78,7 @@ data class TxnSheetState(
     val input: StockTxnInput,
     val errors: Map<String, String> = emptyMap(),
     val saving: Boolean = false,
+    val message: String? = null,
 )
 
 @HiltViewModel
@@ -115,8 +116,7 @@ class ItemDetailViewModel @Inject constructor(
                     _messages.send("${s.input.type.label} ${Fmt.qty(Fmt.parseDecimal(s.input.qty) ?: 0.0)} tercatat")
                 }
                 is AppResult.Failure -> {
-                    _sheet.update { it?.copy(saving = false, errors = r.fieldErrors) }
-                    if (r.fieldErrors.isEmpty()) _messages.send(r.message)
+                    _sheet.update { it?.copy(saving = false, errors = r.fieldErrors, message = r.message.takeIf { r.fieldErrors.isEmpty() }) }
                 }
             }
         }

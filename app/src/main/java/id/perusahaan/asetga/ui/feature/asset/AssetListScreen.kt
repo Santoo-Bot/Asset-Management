@@ -85,6 +85,7 @@ fun AssetListScreen(
     val locations by vm.locations.collectAsStateWithLifecycle()
     val divisions by vm.divisions.collectAsStateWithLifecycle()
     val selection by vm.selection.collectAsStateWithLifecycle()
+    val busy by vm.busy.collectAsStateWithLifecycle()
     val items = vm.assets.collectAsLazyPagingItems()
     var sheet by remember { mutableStateOf<FilterSheet?>(null) }
     var confirmDelete by remember { mutableStateOf(false) }
@@ -107,7 +108,7 @@ fun AssetListScreen(
                             Text("Label QR", color = MaterialTheme.colorScheme.onPrimary)
                         }
                         if (vm.canDelete) {
-                            IconButton(onClick = { confirmDelete = true }) { Icon(Icons.Outlined.Delete, contentDescription = "Hapus terpilih") }
+                            IconButton(onClick = { confirmDelete = true }, enabled = !busy) { Icon(Icons.Outlined.Delete, contentDescription = "Hapus terpilih") }
                         }
                         IconButton(onClick = vm::clearSelection) { Icon(Icons.Filled.Close, contentDescription = "Batal pilih") }
                     },
@@ -184,7 +185,13 @@ fun AssetListScreen(
                     )
                 }
             }
-            if (items.loadState.refresh is LoadState.Loading) {
+            if (busy) {
+                Text(
+                    "Menghapus ${Fmt.number(selection.size.toLong())} aset…",
+                    style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+                )
+            }
+            if (busy || items.loadState.refresh is LoadState.Loading) {
                 LinearProgressIndicator(Modifier.fillMaxWidth())
             }
             if (items.loadState.refresh is LoadState.NotLoading && items.itemCount == 0) {

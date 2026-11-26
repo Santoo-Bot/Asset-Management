@@ -68,6 +68,7 @@ import id.perusahaan.asetga.ui.components.AppTopBar
 import id.perusahaan.asetga.ui.components.BottomActionBar
 import id.perusahaan.asetga.ui.components.DateField
 import id.perusahaan.asetga.ui.components.EmptyState
+import id.perusahaan.asetga.ui.components.ErrorBanner
 import id.perusahaan.asetga.ui.components.FormTextField
 import id.perusahaan.asetga.ui.components.LabeledValue
 import id.perusahaan.asetga.ui.components.QuantityField
@@ -280,6 +281,7 @@ fun ItemDetailScreen(onBack: () -> Unit, onEdit: (String) -> Unit, vm: ItemDetai
                 DateField(s.input.date, { d -> vm.updateTxn { it.copy(date = d) } }, "Tanggal", required = true, error = s.errors[OperationValidator.FIELD_DATE])
                 FormTextField(s.input.reference, { v -> vm.updateTxn { it.copy(reference = v) } }, if (s.input.type == StockTxnType.IN) "No. PO / dokumen" else "Diminta oleh / departemen")
                 FormTextField(s.input.note, { v -> vm.updateTxn { it.copy(note = v) } }, "Catatan")
+                s.message?.let { ErrorBanner(it) }
                 Button(onClick = vm::saveTxn, enabled = !s.saving, modifier = Modifier.fillMaxWidth().height(52.dp)) {
                     Text(if (s.saving) "Menyimpan…" else "Simpan ${s.input.type.label.lowercase()}")
                 }

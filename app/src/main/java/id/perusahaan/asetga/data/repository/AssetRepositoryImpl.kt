@@ -266,9 +266,7 @@ class AssetRepositoryImpl @Inject constructor(
                 // Ambil kode sebelum ditandai agar audit log tetap informatif.
                 val targets = dao.listItemsByIds(chunk)
                 total += dao.softDelete(chunk, now)
-                targets.forEach { a ->
-                    audit.log(AuditEntityType.ASSET, a.id, AuditAction.DEACTIVATE, "Aset ${a.code} ${a.name} dihapus (salah input): ${reason.trim()}")
-                }
+                audit.logBatch(AuditEntityType.ASSET, AuditAction.DEACTIVATE, targets.map { a -> a.id to "Aset ${a.code} ${a.name} dihapus (salah input): ${reason.trim()}" })
             }
         }
         return AppResult.Success(total)
@@ -299,9 +297,7 @@ class AssetRepositoryImpl @Inject constructor(
                 dao.purgeOpnameItems(valid)
                 dao.purgeInsuranceItems(valid)
                 count += dao.purgeAssets(valid)
-                brief.forEach { a ->
-                    audit.log(AuditEntityType.ASSET, a.id, AuditAction.DELETE, "Aset ${a.code} ${a.name} dihapus permanen")
-                }
+                audit.logBatch(AuditEntityType.ASSET, AuditAction.DELETE, brief.map { a -> a.id to "Aset ${a.code} ${a.name} dihapus permanen" })
             }
         }
         return AppResult.Success(PurgeResult(count, photos))

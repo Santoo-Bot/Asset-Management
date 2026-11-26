@@ -61,6 +61,19 @@ class AuditLogRepositoryImpl @Inject constructor(
         )
     }
 
+    override suspend fun logBatch(entityType: AuditEntityType, action: AuditAction, entries: List<Pair<String, String>>) {
+        if (entries.isEmpty()) return
+        val user = session.currentUser
+        val now = clock.millis()
+        entries.chunked(500).forEach { chunk ->
+            dao.insertAll(
+                chunk.map { (id, summary) ->
+                    AuditLogEntity(UUID.randomUUID().toString(), now, user?.id, user?.fullName ?: "Sistem", entityType, id, action, summary)
+                },
+            )
+        }
+    }
+
     override fun paging(entityType: AuditEntityType?, query: String): Flow<PagingData<AuditLogEntry>> =
         Pager(PagingConfig(pageSize = 50, enablePlaceholders = false)) { dao.paging(entityType, query.trim()) }
             .flow.map { page -> page.map { it.toDomain() } }

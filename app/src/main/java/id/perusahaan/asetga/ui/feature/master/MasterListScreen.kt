@@ -53,6 +53,7 @@ import id.perusahaan.asetga.domain.model.MasterType
 import id.perusahaan.asetga.domain.validation.MasterValidator
 import id.perusahaan.asetga.ui.components.AppTopBar
 import id.perusahaan.asetga.ui.components.EmptyState
+import id.perusahaan.asetga.ui.components.ErrorBanner
 import id.perusahaan.asetga.ui.components.FormTextField
 import id.perusahaan.asetga.ui.components.SelectField
 import id.perusahaan.asetga.ui.components.StatusChip
@@ -192,6 +193,7 @@ private fun MasterEditorSheet(
                 )
                 MasterType.DIVISION, MasterType.UNIT, MasterType.INSURANCE_TYPE -> Unit
             }
+            state.message?.let { ErrorBanner(it) }
             Spacer(Modifier.height(8.dp))
             Button(onClick = onSave, enabled = !state.saving, modifier = Modifier.fillMaxWidth().height(52.dp)) {
                 Text(if (state.saving) "Menyimpan…" else "Simpan")
@@ -199,6 +201,7 @@ private fun MasterEditorSheet(
             if (activeRow != null) {
                 OutlinedButton(
                     onClick = { confirmDelete = true },
+                    enabled = !state.saving,
                     modifier = Modifier.fillMaxWidth().height(52.dp),
                     colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error),
                 ) { Text("Hapus ${type.singular}") }

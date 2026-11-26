@@ -63,6 +63,8 @@ data class MasterEditorState(
     val form: MasterForm,
     val errors: Map<String, String> = emptyMap(),
     val saving: Boolean = false,
+    /** Pesan galat ditampilkan DI DALAM panel (snackbar tertutup oleh bottom sheet). */
+    val message: String? = null,
 ) {
     val isNew: Boolean get() = form.id.isEmpty()
 }
@@ -114,13 +116,13 @@ class MasterListViewModel @Inject constructor(
     fun openNew() { if (canEdit) _editor.value = MasterEditorState(MasterForm()) }
     fun openEdit(row: MasterRow) { if (canEdit) _editor.value = MasterEditorState(row.form) }
     fun closeEditor() { _editor.value = null }
-    fun updateForm(transform: (MasterForm) -> MasterForm) = _editor.update { it?.copy(form = transform(it.form)) }
+    fun updateForm(transform: (MasterForm) -> MasterForm) = _editor.update { it?.copy(form = transform(it.form), message = null) }
 
     fun save() {
         val current = _editor.value ?: return
         if (current.saving) return
         val f = current.form
-        _editor.value = current.copy(saving = true, errors = emptyMap())
+        _editor.value = current.copy(saving = true, errors = emptyMap(), message = null)
         viewModelScope.launch {
             val result: AppResult<Any> = when (type) {
                 MasterType.CATEGORY -> {
@@ -150,8 +152,7 @@ class MasterListViewModel @Inject constructor(
                     _messages.send("${type.label} ${if (f.id.isEmpty()) "ditambahkan" else "disimpan"}")
                 }
                 is AppResult.Failure -> {
-                    _editor.update { it?.copy(saving = false, errors = result.fieldErrors) }
-                    if (result.fieldErrors.isEmpty()) _messages.send(result.message)
+                    _editor.update { it?.copy(saving = false, errors = result.fieldErrors, message = result.message.takeIf { result.fieldErrors.isEmpty() }) }
                 }
             }
         }
@@ -170,13 +171,16 @@ class MasterListViewModel @Inject constructor(
     }
 
     fun delete(row: MasterRow) {
+        if (_editor.value?.saving == true) return
+        _editor.update { it?.copy(saving = true, message = null) }
         viewModelScope.launch {
             when (val r = repo.delete(type, row.id)) {
                 is AppResult.Success -> {
                     _editor.value = null
                     _messages.send("${row.title} dihapus")
                 }
-                is AppResult.Failure -> _messages.send(r.message)
+                // Alasan penolakan (mis. masih dipakai aset) ditampilkan di panel agar terlihat.
+                is AppResult.Failure -> _editor.update { it?.copy(saving = false, message = r.message) }
             }
         }
     }

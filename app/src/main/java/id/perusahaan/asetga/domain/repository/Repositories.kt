@@ -125,6 +125,9 @@ interface AuditLogRepository {
         changes: Map<String, Pair<String?, String?>> = emptyMap(),
     )
 
+    /** Catat banyak entri sekaligus (untuk operasi massal ribuan aset). Tiap pasangan = (entityId, ringkasan). */
+    suspend fun logBatch(entityType: AuditEntityType, action: AuditAction, entries: List<Pair<String, String>>)
+
     fun paging(entityType: AuditEntityType?, query: String): Flow<PagingData<AuditLogEntry>>
     fun observeForEntity(entityType: AuditEntityType, entityId: String): Flow<List<AuditLogEntry>>
 }

@@ -2,6 +2,7 @@ package id.perusahaan.asetga.ui.feature.asset
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
@@ -16,6 +17,7 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -44,13 +46,17 @@ import id.perusahaan.asetga.ui.components.AppTopBar
 import id.perusahaan.asetga.ui.components.EmptyState
 import id.perusahaan.asetga.ui.components.FormTextField
 import id.perusahaan.asetga.util.Fmt
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import javax.inject.Inject
 
 @HiltViewModel
@@ -62,15 +68,23 @@ class DeletedAssetsViewModel @Inject constructor(
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
     private val _messages = Channel<String>(Channel.BUFFERED)
     val messages: Flow<String> = _messages.receiveAsFlow()
+    private val _busy = MutableStateFlow(false)
+    val busy: StateFlow<Boolean> = _busy.asStateFlow()
 
     /** [ids] null = kosongkan semua. */
-    fun purge(ids: List<String>?) = viewModelScope.launch {
-        when (val r = repo.purge(ids)) {
-            is AppResult.Success -> {
-                r.value.photoPaths.forEach(photos::delete)
-                _messages.send("${r.value.count} aset dihapus permanen")
+    fun purge(ids: List<String>?) {
+        if (_busy.value) return
+        _busy.value = true
+        viewModelScope.launch {
+            val r = repo.purge(ids)
+            when (r) {
+                is AppResult.Success -> {
+                    withContext(Dispatchers.IO) { r.value.photoPaths.forEach(photos::delete) }
+                    _messages.send("${r.value.count} aset dihapus permanen")
+                }
+                is AppResult.Failure -> _messages.send(r.message)
             }
-            is AppResult.Failure -> _messages.send(r.message)
+            _busy.value = false
         }
     }
 
@@ -86,6 +100,7 @@ class DeletedAssetsViewModel @Inject constructor(
 @Composable
 fun DeletedAssetsScreen(onBack: () -> Unit, vm: DeletedAssetsViewModel = hiltViewModel()) {
     val items by vm.items.collectAsStateWithLifecycle()
+    val busy by vm.busy.collectAsStateWithLifecycle()
     val snackbar = remember { SnackbarHostState() }
     var confirm by remember { mutableStateOf<DeletedAsset?>(null) }
     var purgeOne by remember { mutableStateOf<DeletedAsset?>(null) }
@@ -96,12 +111,19 @@ fun DeletedAssetsScreen(onBack: () -> Unit, vm: DeletedAssetsViewModel = hiltVie
         topBar = {
             AppTopBar("Aset terhapus", onBack = onBack, actions = {
                 if (!items.isNullOrEmpty()) {
-                    IconButton(onClick = { purgeAll = true }) { Icon(Icons.Outlined.DeleteSweep, contentDescription = "Hapus permanen semua") }
+                    IconButton(onClick = { purgeAll = true }, enabled = !busy) { Icon(Icons.Outlined.DeleteSweep, contentDescription = "Hapus permanen semua") }
                 }
             })
         },
         snackbarHost = { SnackbarHost(snackbar) },
     ) { padding ->
+        if (busy) {
+            Column(Modifier.padding(padding).fillMaxWidth()) {
+                LinearProgressIndicator(Modifier.fillMaxWidth())
+                Text("Menghapus permanen…", Modifier.padding(16.dp))
+            }
+            return@Scaffold
+        }
         val list = items ?: return@Scaffold
         if (list.isEmpty()) {
             EmptyState(Icons.Outlined.DeleteOutline, "Tidak ada aset terhapus", "Aset yang dihapus karena salah input muncul di sini dan bisa dipulihkan.", modifier = Modifier.padding(padding))

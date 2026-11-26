@@ -13,6 +13,9 @@ interface AuditLogDao {
     @Insert
     suspend fun insert(entity: AuditLogEntity)
 
+    @Insert
+    suspend fun insertAll(entities: List<AuditLogEntity>)
+
     @Query(
         """
         SELECT * FROM audit_logs

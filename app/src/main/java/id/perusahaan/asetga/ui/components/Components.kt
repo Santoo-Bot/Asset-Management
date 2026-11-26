@@ -254,3 +254,16 @@ fun ChangeList(changes: List<id.perusahaan.asetga.domain.model.FieldChange>, mod
         }
     }
 }
+
+/** Kotak pesan galat yang menonjol; dipakai di dalam bottom sheet/dialog (tempat snackbar tidak terlihat). */
+@Composable
+fun ErrorBanner(message: String, modifier: Modifier = Modifier) {
+    Surface(
+        color = MaterialTheme.colorScheme.errorContainer,
+        contentColor = MaterialTheme.colorScheme.onErrorContainer,
+        shape = MaterialTheme.shapes.medium,
+        modifier = modifier.fillMaxWidth(),
+    ) {
+        Text(message, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(12.dp))
+    }
+}

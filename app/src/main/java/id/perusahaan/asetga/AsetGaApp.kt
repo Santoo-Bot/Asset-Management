@@ -8,6 +8,7 @@ import androidx.lifecycle.ProcessLifecycleOwner
 import androidx.lifecycle.lifecycleScope
 import androidx.work.Configuration
 import dagger.hilt.android.HiltAndroidApp
+import id.perusahaan.asetga.data.file.CrashReporter
 import id.perusahaan.asetga.data.seed.SampleDataSeeder
 import id.perusahaan.asetga.data.worker.ReminderNotifier
 import id.perusahaan.asetga.data.worker.ReminderScheduler
@@ -31,6 +32,7 @@ class AsetGaApp : Application(), Configuration.Provider {
         get() = Configuration.Builder().setWorkerFactory(workerFactory).build()
 
     override fun onCreate() {
+        CrashReporter.install(this)
         super.onCreate()
         // No-op di build release; data contoh hanya untuk debug.
         ProcessLifecycleOwner.get().lifecycleScope.launch { seeder.seedIfNeeded() }

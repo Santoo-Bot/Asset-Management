@@ -29,6 +29,7 @@ data class UserEditorState(
     val password: String = "",
     val errors: Map<String, String> = emptyMap(),
     val saving: Boolean = false,
+    val message: String? = null,
 )
 
 @HiltViewModel
@@ -61,7 +62,7 @@ class UsersViewModel @Inject constructor(
     fun save() {
         val s = _editor.value ?: return
         if (s.saving) return
-        _editor.value = s.copy(saving = true, errors = emptyMap())
+        _editor.value = s.copy(saving = true, errors = emptyMap(), message = null)
         viewModelScope.launch {
             val result = if (s.existing == null) {
                 repo.createUser(s.username, s.fullName, s.role, s.password)
@@ -82,8 +83,7 @@ class UsersViewModel @Inject constructor(
                     _messages.send(if (s.existing == null) "Pengguna ditambahkan" else "Perubahan disimpan")
                 }
                 is AppResult.Failure -> {
-                    _editor.update { it?.copy(saving = false, errors = result.fieldErrors) }
-                    if (result.fieldErrors.isEmpty()) _messages.send(result.message)
+                    _editor.update { it?.copy(saving = false, errors = result.fieldErrors, message = result.message.takeIf { result.fieldErrors.isEmpty() }) }
                 }
             }
         }
