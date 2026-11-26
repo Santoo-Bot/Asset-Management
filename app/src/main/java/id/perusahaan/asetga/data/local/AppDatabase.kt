@@ -10,6 +10,7 @@ import id.perusahaan.asetga.data.local.dao.CategoryDao
 import id.perusahaan.asetga.data.local.dao.DepartmentDao
 import id.perusahaan.asetga.data.local.dao.LocationDao
 import id.perusahaan.asetga.data.local.dao.MutationDao
+import id.perusahaan.asetga.data.local.dao.OpnameDao
 import id.perusahaan.asetga.data.local.dao.ServiceDao
 import id.perusahaan.asetga.data.local.dao.StockDao
 import id.perusahaan.asetga.data.local.dao.SettingsDao
@@ -68,6 +69,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun mutationDao(): MutationDao
     abstract fun serviceDao(): ServiceDao
     abstract fun stockDao(): StockDao
+    abstract fun opnameDao(): OpnameDao
 
     companion object {
         const val NAME = "aset_ga.db"

@@ -59,6 +59,12 @@ class SettingsViewModel @Inject constructor(
         }
     }
 
+    fun setNotifications(enabled: Boolean) = viewModelScope.launch { settingsRepo.setNotificationsEnabled(enabled) }
+    fun setReminderHour(hour: Int) = viewModelScope.launch {
+        settingsRepo.setReminderHour(hour)
+        _messages.send("Pengingat dijadwalkan setiap hari pukul ${"%02d".format(hour)}:00")
+    }
+
     fun setCompanyName(name: String) = viewModelScope.launch {
         if (session.currentUser?.role?.canManageMaster != true) return@launch
         settingsRepo.setCompanyName(name)

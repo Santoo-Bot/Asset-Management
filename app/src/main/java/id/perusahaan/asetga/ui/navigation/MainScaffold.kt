@@ -44,7 +44,12 @@ import id.perusahaan.asetga.domain.model.User
 import id.perusahaan.asetga.ui.feature.asset.AssetDetailScreen
 import id.perusahaan.asetga.ui.feature.asset.AssetFormScreen
 import id.perusahaan.asetga.ui.feature.asset.AssetListScreen
-import id.perusahaan.asetga.ui.feature.home.PlaceholderScreen
+import id.perusahaan.asetga.ui.feature.audit.AuditLogScreen
+import id.perusahaan.asetga.ui.feature.dashboard.DashboardScreen
+import id.perusahaan.asetga.ui.feature.data.BackupScreen
+import id.perusahaan.asetga.ui.feature.data.ImportExportScreen
+import id.perusahaan.asetga.ui.feature.opname.OpnameListScreen
+import id.perusahaan.asetga.ui.feature.opname.OpnameSessionScreen
 import id.perusahaan.asetga.ui.feature.label.LabelScreen
 import id.perusahaan.asetga.ui.feature.scan.ScanScreen
 import id.perusahaan.asetga.ui.feature.master.MasterListScreen
@@ -97,7 +102,14 @@ fun MainScaffold(user: User) {
     ) { padding ->
         NavHost(nav, startDestination = DashboardRoute, modifier = Modifier.padding(padding).consumeWindowInsets(padding)) {
             composable<DashboardRoute> {
-                PlaceholderScreen("Beranda", "Dashboard ringkasan aset, nilai buku, dan daftar perlu tindakan hadir pada tahap (f).")
+                DashboardScreen(
+                    userName = user.fullName,
+                    onOpenAsset = { nav.navigate(AssetDetailRoute(it)) },
+                    onOpenItem = { nav.navigate(ItemDetailRoute(it)) },
+                    onOpenAssets = { nav.navigateTopLevel(AssetsRoute) },
+                    onOpenStock = { nav.navigateTopLevel(StockRoute) },
+                    onOpenServices = { nav.navigate(ServiceListRoute) },
+                )
             }
             composable<AssetsRoute> {
                 AssetListScreen(
@@ -107,7 +119,10 @@ fun MainScaffold(user: User) {
                 )
             }
             composable<ScanRoute> {
-                ScanScreen(onOpenAsset = { nav.navigate(AssetDetailRoute(it)) })
+                ScanScreen(
+                    onOpenAsset = { nav.navigate(AssetDetailRoute(it)) },
+                    onOpenOpname = { nav.navigate(OpnameListRoute) },
+                )
             }
             composable<AssetDetailRoute> {
                 AssetDetailScreen(
@@ -143,6 +158,15 @@ fun MainScaffold(user: User) {
                 )
             }
             composable<LabelRoute> { LabelScreen(onBack = nav::navigateUp) }
+            composable<ImportExportRoute> { ImportExportScreen(onBack = nav::navigateUp) }
+            composable<BackupRoute> { BackupScreen(onBack = nav::navigateUp) }
+            composable<AuditLogRoute> { AuditLogScreen(onBack = nav::navigateUp) }
+            composable<OpnameListRoute> {
+                OpnameListScreen(onBack = nav::navigateUp, onOpenSession = { nav.navigate(OpnameSessionRoute(it)) })
+            }
+            composable<OpnameSessionRoute> {
+                OpnameSessionScreen(onBack = nav::navigateUp, onOpenAsset = { nav.navigate(AssetDetailRoute(it)) })
+            }
             composable<StockRoute> { entry ->
                 val scanned by entry.savedStateHandle.getStateFlow<String?>(SCAN_RESULT_KEY, null).collectAsStateWithLifecycle()
                 StockListScreen(
@@ -188,6 +212,10 @@ fun MainScaffold(user: User) {
                     user = user,
                     onOpenMaster = { nav.navigate(MasterMenuRoute) },
                     onOpenServices = { nav.navigate(ServiceListRoute) },
+                    onOpenOpname = { nav.navigate(OpnameListRoute) },
+                    onOpenImportExport = { nav.navigate(ImportExportRoute) },
+                    onOpenBackup = { nav.navigate(BackupRoute) },
+                    onOpenAuditLog = { nav.navigate(AuditLogRoute) },
                     onOpenUsers = { nav.navigate(UsersRoute) },
                     onOpenSettings = { nav.navigate(SettingsRoute) },
                 )

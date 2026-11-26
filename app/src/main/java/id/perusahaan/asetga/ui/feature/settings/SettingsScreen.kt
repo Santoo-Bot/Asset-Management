@@ -13,6 +13,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.Logout
 import androidx.compose.material.icons.outlined.Business
 import androidx.compose.material.icons.outlined.Lock
+import androidx.compose.material.icons.outlined.Notifications
+import androidx.compose.material.icons.outlined.Schedule
 import androidx.compose.material.icons.outlined.Palette
 import androidx.compose.material.icons.outlined.Password
 import androidx.compose.material.icons.outlined.Percent
@@ -43,12 +45,13 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import id.perusahaan.asetga.domain.model.ThemeMode
 import id.perusahaan.asetga.ui.components.AppTopBar
 import id.perusahaan.asetga.ui.components.FormTextField
+import id.perusahaan.asetga.ui.components.OptionSheet
 import id.perusahaan.asetga.ui.components.PasswordField
 import id.perusahaan.asetga.ui.components.SectionHeader
 import id.perusahaan.asetga.util.Fmt
 import kotlinx.coroutines.launch
 
-private enum class SettingsDialog { PIN, PASSWORD, RESIDUAL, COMPANY, LOGOUT }
+private enum class SettingsDialog { PIN, PASSWORD, RESIDUAL, COMPANY, HOUR, LOGOUT }
 
 @Composable
 fun SettingsScreen(onBack: () -> Unit, vm: SettingsViewModel = hiltViewModel()) {
@@ -72,6 +75,23 @@ fun SettingsScreen(onBack: () -> Unit, vm: SettingsViewModel = hiltViewModel()) 
                     }
                 },
             )
+
+            SectionHeader("Notifikasi")
+            ListItem(
+                modifier = Modifier.clickable { vm.setNotifications(!settings.notificationsEnabled) },
+                leadingContent = { Icon(Icons.Outlined.Notifications, contentDescription = null) },
+                headlineContent = { Text("Pengingat harian") },
+                supportingContent = { Text("Garansi segera habis, servis jatuh tempo/terlambat, stok di bawah minimum") },
+                trailingContent = { Switch(checked = settings.notificationsEnabled, onCheckedChange = { vm.setNotifications(it) }) },
+            )
+            if (settings.notificationsEnabled) {
+                ListItem(
+                    modifier = Modifier.clickable { dialog = SettingsDialog.HOUR },
+                    leadingContent = { Icon(Icons.Outlined.Schedule, contentDescription = null) },
+                    headlineContent = { Text("Jam pengingat") },
+                    supportingContent = { Text("Setiap hari pukul ${"%02d".format(settings.reminderHour)}:00") },
+                )
+            }
 
             SectionHeader("Keamanan")
             ListItem(
@@ -134,6 +154,14 @@ fun SettingsScreen(onBack: () -> Unit, vm: SettingsViewModel = hiltViewModel()) 
             label = "Mis. PT BCA Life",
             onSave = { vm.setCompanyName(it); dialog = null },
             onDismiss = { dialog = null },
+        )
+        SettingsDialog.HOUR -> OptionSheet(
+            title = "Jam pengingat",
+            options = (5..21).toList(),
+            selected = settings.reminderHour,
+            itemLabel = { "%02d:00".format(it) },
+            onDismiss = { dialog = null },
+            onSelect = { h -> if (h != null) vm.setReminderHour(h); dialog = null },
         )
         SettingsDialog.LOGOUT -> AlertDialog(
             onDismissRequest = { dialog = null },

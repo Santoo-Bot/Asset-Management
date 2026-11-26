@@ -36,6 +36,10 @@ data class AssetDetailRow(
     val departmentName: String?,
 )
 
+data class AssetTotals(val total: Int, val cost: Long)
+
+data class LabelCount(val label: String, val count: Int)
+
 /** Proyeksi ringan untuk menghitung total nilai buku di dashboard. */
 data class AssetValuationRow(
     val acquisitionCost: Long,
@@ -101,6 +105,20 @@ interface AssetDao {
     @Query("SELECT $LIST_COLUMNS FROM assets a JOIN categories c ON c.id = a.categoryId JOIN locations l ON l.id = a.locationId WHERE a.id IN (:ids) ORDER BY a.code")
     suspend fun listItemsByIds(ids: List<String>): List<AssetListRow>
 
+    @Query(
+        """SELECT a.*, c.name AS categoryName, c.usefulLifeYears AS usefulLifeYears,
+                  c.residualPercent AS categoryResidualPercent, l.name AS locationName, d.name AS departmentName
+           FROM assets a
+           JOIN categories c ON c.id = a.categoryId
+           JOIN locations l ON l.id = a.locationId
+           LEFT JOIN departments d ON d.id = a.departmentId
+           WHERE a.deletedAt IS NULL ORDER BY a.code""",
+    )
+    suspend fun exportRows(): List<AssetDetailRow>
+
+    @Query("SELECT code FROM assets")
+    suspend fun allCodes(): List<String>
+
     @Query("SELECT * FROM assets WHERE id = :id")
     suspend fun getById(id: String): AssetEntity?
 
@@ -122,6 +140,47 @@ interface AssetDao {
 
     @Query("SELECT COUNT(*) FROM assets")
     suspend fun countAll(): Int
+
+    // ---------- Dashboard ----------
+
+    /** Dipakai sebagai pemicu: Room memancarkan ulang setiap kali tabel aset berubah. */
+    @Query("SELECT COUNT(*) FROM assets")
+    fun observeTick(): Flow<Int>
+
+    @Query("SELECT COUNT(*) AS total, COALESCE(SUM(acquisitionCost), 0) AS cost FROM assets WHERE deletedAt IS NULL AND status != 'DIHAPUS_DIJUAL'")
+    suspend fun activeTotals(): AssetTotals
+
+    @Query(
+        """SELECT c.name AS label, COUNT(*) AS count FROM assets a JOIN categories c ON c.id = a.categoryId
+           WHERE a.deletedAt IS NULL AND a.status != 'DIHAPUS_DIJUAL' GROUP BY c.id ORDER BY count DESC, c.name""",
+    )
+    suspend fun countByCategory(): List<LabelCount>
+
+    @Query(
+        """SELECT condition AS label, COUNT(*) AS count FROM assets
+           WHERE deletedAt IS NULL AND status != 'DIHAPUS_DIJUAL' GROUP BY condition""",
+    )
+    suspend fun countByCondition(): List<LabelCount>
+
+    @Query(
+        "SELECT $LIST_COLUMNS FROM assets a JOIN categories c ON c.id = a.categoryId JOIN locations l ON l.id = a.locationId " +
+            "WHERE a.deletedAt IS NULL AND a.status != 'DIHAPUS_DIJUAL' AND a.warrantyUntil BETWEEN :from AND :to " +
+            "ORDER BY a.warrantyUntil ASC LIMIT :limit",
+    )
+    suspend fun warrantyBetween(from: LocalDate, to: LocalDate, limit: Int): List<AssetListRow>
+
+    @Query("SELECT COUNT(*) FROM assets WHERE deletedAt IS NULL AND status != 'DIHAPUS_DIJUAL' AND warrantyUntil BETWEEN :from AND :to")
+    suspend fun countWarrantyBetween(from: LocalDate, to: LocalDate): Int
+
+    @Query(
+        "SELECT $LIST_COLUMNS FROM assets a JOIN categories c ON c.id = a.categoryId JOIN locations l ON l.id = a.locationId " +
+            "WHERE a.deletedAt IS NULL AND a.status != 'DIHAPUS_DIJUAL' AND a.condition IN ('RUSAK_RINGAN', 'RUSAK_BERAT') " +
+            "ORDER BY a.condition DESC, a.code LIMIT :limit",
+    )
+    suspend fun damaged(limit: Int): List<AssetListRow>
+
+    @Query("SELECT COUNT(*) FROM assets WHERE deletedAt IS NULL AND status != 'DIHAPUS_DIJUAL' AND condition IN ('RUSAK_RINGAN', 'RUSAK_BERAT')")
+    suspend fun countDamaged(): Int
 
     @Insert(onConflict = OnConflictStrategy.ABORT)
     suspend fun insert(entity: AssetEntity)

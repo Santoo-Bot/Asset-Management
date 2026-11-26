@@ -52,6 +52,12 @@ private const val ITEM_SELECT = """
 
 @Dao
 interface StockDao {
+    @Query("SELECT (SELECT COUNT(*) FROM items) + (SELECT COUNT(*) FROM stock_txns)")
+    fun observeTick(): Flow<Int>
+
+    @Query("$ITEM_SELECT WHERE i.deletedAt IS NULL AND i.isActive = 1 AND $CURRENT_STOCK <= i.minStock ORDER BY i.name COLLATE NOCASE")
+    suspend fun reorderItems(): List<ItemRow>
+
     @Query(
         "$ITEM_SELECT WHERE i.deletedAt IS NULL AND (:includeInactive OR i.isActive = 1) " +
             "AND (:query = '' OR i.code LIKE '%' || :query || '%' OR i.name LIKE '%' || :query || '%' OR i.barcode = :query) " +

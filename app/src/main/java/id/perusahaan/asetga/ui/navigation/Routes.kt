@@ -32,3 +32,9 @@ import kotlinx.serialization.Serializable
 @Serializable data class ScanPickRoute(val title: String)
 
 const val SCAN_RESULT_KEY = "scan_result"
+
+@Serializable data object ImportExportRoute
+@Serializable data object BackupRoute
+@Serializable data object AuditLogRoute
+@Serializable data object OpnameListRoute
+@Serializable data class OpnameSessionRoute(val id: String)

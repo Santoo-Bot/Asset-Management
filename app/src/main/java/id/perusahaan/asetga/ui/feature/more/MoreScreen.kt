@@ -9,7 +9,11 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.outlined.Build
+import androidx.compose.material.icons.outlined.Backup
 import androidx.compose.material.icons.outlined.Category
+import androidx.compose.material.icons.outlined.History
+import androidx.compose.material.icons.outlined.ImportExport
+import androidx.compose.material.icons.outlined.TaskAlt
 import androidx.compose.material.icons.outlined.Group
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Settings
@@ -31,6 +35,10 @@ fun MoreScreen(
     user: User,
     onOpenMaster: () -> Unit,
     onOpenServices: () -> Unit,
+    onOpenOpname: () -> Unit,
+    onOpenImportExport: () -> Unit,
+    onOpenBackup: () -> Unit,
+    onOpenAuditLog: () -> Unit,
     onOpenUsers: () -> Unit,
     onOpenSettings: () -> Unit,
 ) {
@@ -43,11 +51,16 @@ fun MoreScreen(
             HorizontalDivider()
             SectionHeader("Data")
             MenuRow(Icons.Outlined.Build, "Servis & perawatan", "Jadwal servis, terlambat, jatuh tempo, riwayat", onOpenServices)
+            MenuRow(Icons.Outlined.TaskAlt, "Stock opname aset", "Audit fisik aset per lokasi dengan scan", onOpenOpname)
             MenuRow(Icons.Outlined.Category, "Master data", "Kategori, lokasi, departemen, vendor, satuan", onOpenMaster)
+            SectionHeader("File")
+            MenuRow(Icons.Outlined.ImportExport, "Import & export", "Excel/CSV aset, servis, stok; template import", onOpenImportExport)
+            MenuRow(Icons.Outlined.Backup, "Backup & restore", "File terenkripsi ke HP atau Google Drive", onOpenBackup)
             SectionHeader("Sistem")
             if (user.role.canManageUsers) {
                 MenuRow(Icons.Outlined.Group, "Pengguna & peran", "Tambah pengguna, atur peran, reset kata sandi", onOpenUsers)
             }
+            MenuRow(Icons.Outlined.History, "Audit log", "Siapa mengubah apa dan kapan", onOpenAuditLog)
             MenuRow(Icons.Outlined.Settings, "Pengaturan", "Tema, kunci aplikasi, PIN, kata sandi", onOpenSettings)
             ListItem(
                 leadingContent = { Icon(Icons.Outlined.Info, contentDescription = null) },

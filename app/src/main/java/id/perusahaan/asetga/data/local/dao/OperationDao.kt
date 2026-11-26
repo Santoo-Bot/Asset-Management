@@ -77,6 +77,9 @@ interface MutationDao {
 
 @Dao
 interface ServiceDao {
+    @Query("SELECT COUNT(*) FROM service_records")
+    fun observeTick(): Flow<Int>
+
     @Insert
     suspend fun insert(entity: ServiceRecordEntity)
 

@@ -12,15 +12,19 @@ import id.perusahaan.asetga.data.local.AppDatabase
 import id.perusahaan.asetga.data.local.DefaultData
 import id.perusahaan.asetga.data.repository.AssetRepositoryImpl
 import id.perusahaan.asetga.data.repository.AuditLogRepositoryImpl
+import id.perusahaan.asetga.data.repository.DashboardRepositoryImpl
 import id.perusahaan.asetga.data.repository.MasterDataRepositoryImpl
 import id.perusahaan.asetga.data.repository.OperationRepositoryImpl
+import id.perusahaan.asetga.data.repository.OpnameRepositoryImpl
 import id.perusahaan.asetga.data.repository.StockRepositoryImpl
 import id.perusahaan.asetga.data.repository.SettingsRepositoryImpl
 import id.perusahaan.asetga.data.repository.UserRepositoryImpl
 import id.perusahaan.asetga.domain.repository.AssetRepository
 import id.perusahaan.asetga.domain.repository.AuditLogRepository
+import id.perusahaan.asetga.domain.repository.DashboardRepository
 import id.perusahaan.asetga.domain.repository.MasterDataRepository
 import id.perusahaan.asetga.domain.repository.OperationRepository
+import id.perusahaan.asetga.domain.repository.OpnameRepository
 import id.perusahaan.asetga.domain.repository.StockRepository
 import id.perusahaan.asetga.domain.repository.SettingsRepository
 import id.perusahaan.asetga.domain.repository.UserRepository
@@ -51,6 +55,7 @@ object AppModule {
     @Provides fun mutationDao(db: AppDatabase) = db.mutationDao()
     @Provides fun serviceDao(db: AppDatabase) = db.serviceDao()
     @Provides fun stockDao(db: AppDatabase) = db.stockDao()
+    @Provides fun opnameDao(db: AppDatabase) = db.opnameDao()
 
     @Provides
     @Singleton
@@ -71,4 +76,6 @@ abstract class RepositoryModule {
     @Binds abstract fun assets(impl: AssetRepositoryImpl): AssetRepository
     @Binds abstract fun operations(impl: OperationRepositoryImpl): OperationRepository
     @Binds abstract fun stock(impl: StockRepositoryImpl): StockRepository
+    @Binds abstract fun dashboard(impl: DashboardRepositoryImpl): DashboardRepository
+    @Binds abstract fun opname(impl: OpnameRepositoryImpl): OpnameRepository
 }

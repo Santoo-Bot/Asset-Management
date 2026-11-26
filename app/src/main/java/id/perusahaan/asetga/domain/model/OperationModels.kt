@@ -118,3 +118,41 @@ data class StockTxn(
     val createdBy: String?,
     val createdAt: Long,
 )
+
+// ---------- Stock opname ----------
+
+data class OpnameSession(
+    val id: String,
+    val locationId: String,
+    val locationName: String,
+    val startedAt: Long,
+    val finishedAt: Long?,
+    val startedBy: String?,
+    val note: String?,
+    val expected: Int,
+    val found: Int,
+    val unregistered: Int,
+) {
+    val missing: Int get() = expected - found
+    val isFinished: Boolean get() = finishedAt != null
+}
+
+data class OpnameItem(
+    val id: String,
+    val assetId: String?,
+    val scannedCode: String,
+    val result: AuditResult,
+    val scannedAt: Long?,
+    val assetCode: String?,
+    val assetName: String?,
+    val assetLocation: String?,
+)
+
+sealed interface OpnameScanOutcome {
+    data class Found(val code: String, val name: String) : OpnameScanOutcome
+    data class AlreadyScanned(val code: String, val name: String) : OpnameScanOutcome
+    /** Aset terdaftar tetapi tercatat di lokasi lain. */
+    data class OtherLocation(val code: String, val name: String, val location: String) : OpnameScanOutcome
+    data class Unknown(val code: String) : OpnameScanOutcome
+    data class Error(val message: String) : OpnameScanOutcome
+}

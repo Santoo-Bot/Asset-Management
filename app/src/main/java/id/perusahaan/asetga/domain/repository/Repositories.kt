@@ -11,6 +11,11 @@ import id.perusahaan.asetga.domain.model.AuditAction
 import id.perusahaan.asetga.domain.model.AuditEntityType
 import id.perusahaan.asetga.domain.model.AuditLogEntry
 import id.perusahaan.asetga.domain.model.Category
+import id.perusahaan.asetga.domain.model.OpnameItem
+import id.perusahaan.asetga.domain.model.OpnameScanOutcome
+import id.perusahaan.asetga.domain.model.OpnameSession
+import id.perusahaan.asetga.domain.model.DashboardSummary
+import id.perusahaan.asetga.domain.model.ReminderSummary
 import id.perusahaan.asetga.domain.model.AssetMutation
 import id.perusahaan.asetga.domain.model.ItemInput
 import id.perusahaan.asetga.domain.model.MutationInput
@@ -133,4 +138,20 @@ interface StockRepository {
     suspend fun saveItem(input: ItemInput): AppResult<String>
     suspend fun setItemActive(id: String, active: Boolean): AppResult<Unit>
     suspend fun recordTxn(input: StockTxnInput): AppResult<Unit>
+}
+
+interface DashboardRepository {
+    /** Dihitung ulang setiap kali data aset, servis, atau stok berubah. */
+    fun observeSummary(): Flow<DashboardSummary>
+    suspend fun reminderSummary(): ReminderSummary
+}
+
+interface OpnameRepository {
+    fun observeSessions(): Flow<List<OpnameSession>>
+    fun observeSession(id: String): Flow<OpnameSession?>
+    fun observeItems(sessionId: String): Flow<List<OpnameItem>>
+    /** Membuat sesi + daftar aset yang seharusnya ada di lokasi tersebut. */
+    suspend fun start(locationId: String): AppResult<String>
+    suspend fun scan(sessionId: String, code: String): OpnameScanOutcome
+    suspend fun finish(sessionId: String, note: String): AppResult<Unit>
 }
