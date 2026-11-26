@@ -21,20 +21,6 @@ jobs:
 
       - uses: gradle/actions/setup-gradle@v4
 
-      # Semua APK debug harus ditandatangani kunci yang SAMA agar bisa di-update di HP tanpa uninstall.
-      # Kunci disimpan di secret ASETGA_DEBUG_KEYSTORE_BASE64 (tidak pernah di-commit).
-      - name: Pasang kunci debug tetap
-        env:
-          DEBUG_KEYSTORE: ${{ secrets.ASETGA_DEBUG_KEYSTORE_BASE64 }}
-        run: |
-          if [ -n "$DEBUG_KEYSTORE" ]; then
-            mkdir -p ~/.android
-            echo "$DEBUG_KEYSTORE" | base64 -d > ~/.android/debug.keystore
-            echo "Kunci debug tetap dipakai."
-          else
-            echo "::warning::Secret ASETGA_DEBUG_KEYSTORE_BASE64 belum diisi. APK ditandatangani kunci acak dan TIDAK bisa meng-update versi sebelumnya."
-          fi
-
       - name: Unit test (domain + Room via Robolectric)
         run: ./gradlew testDebugUnitTest --stacktrace
 

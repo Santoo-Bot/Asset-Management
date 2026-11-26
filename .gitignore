@@ -11,3 +11,5 @@ build/
 *.jks
 *.keystore
 keystore.properties
+# Pengecualian: kunci KHUSUS build debug (bukan rahasia) agar APK debug dari CI bisa saling meng-update.
+!app/signing/debug.keystore

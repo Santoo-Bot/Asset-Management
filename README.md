@@ -15,7 +15,7 @@ Setiap push ke `main` dibuild otomatis oleh GitHub Actions. Seluruh unit test di
 2. Unduh `aset-ga-debug-N.apk`, lalu buka file itu.
 3. Izinkan "Instal dari sumber ini" bila diminta. Jika Play Protect memperingatkan, pilih **Tetap instal**.
 
-Versi baru dipasang di atas versi lama tanpa menghapus data (selama keduanya build debug).
+Versi baru dipasang di atas versi lama tanpa menghapus data. Semua APK debug ditandatangani kunci tetap `app/signing/debug.keystore` (khusus debug, bukan rahasia) dan versionCode naik setiap build, sehingga Android menerimanya sebagai update.
 
 ### Pertama kali dibuka
 1. Buat akun **Admin GA** pertama.

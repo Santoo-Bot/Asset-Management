@@ -26,6 +26,14 @@ android {
     }
 
     signingConfigs {
+        // Kunci tetap untuk SEMUA build debug (lokal & CI). Tanpa ini setiap mesin build memakai kunci acak
+        // dan Android menolak update ("App not installed"). Kunci ini hanya untuk versi debug.
+        getByName("debug") {
+            storeFile = file("signing/debug.keystore")
+            storePassword = "android"
+            keyAlias = "androiddebugkey"
+            keyPassword = "android"
+        }
         if (releaseKeystorePath != null) {
             create("release") {
                 storeFile = file(releaseKeystorePath)
