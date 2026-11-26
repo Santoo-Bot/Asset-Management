@@ -85,7 +85,8 @@ class MasterListViewModel @Inject constructor(
     val canEdit: Boolean = session.currentUser?.role?.canManageMaster == true
 
     private val query = MutableStateFlow("")
-    private val showInactive = MutableStateFlow(false)
+    /** Data nonaktif (sisa versi lama) selalu ditampilkan agar bisa diaktifkan kembali atau dihapus. */
+    private val showInactive = MutableStateFlow(true)
     private val defaultResidual = settings.settings.map { it.defaultResidualPercent }
 
     val uiState: StateFlow<MasterListUiState> =
@@ -107,7 +108,6 @@ class MasterListViewModel @Inject constructor(
     val messages: Flow<String> = _messages.receiveAsFlow()
 
     fun setQuery(q: String) { query.value = q }
-    fun setShowInactive(v: Boolean) { showInactive.value = v }
 
     fun openNew() { if (canEdit) _editor.value = MasterEditorState(MasterForm()) }
     fun openEdit(row: MasterRow) { if (canEdit) _editor.value = MasterEditorState(row.form) }

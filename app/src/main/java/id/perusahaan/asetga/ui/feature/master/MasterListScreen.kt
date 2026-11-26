@@ -25,7 +25,6 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExtendedFloatingActionButton
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ListItem
@@ -93,13 +92,6 @@ fun MasterListScreen(
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
             )
-            Row(Modifier.padding(horizontal = 16.dp)) {
-                FilterChip(
-                    selected = state.showInactive,
-                    onClick = { vm.setShowInactive(!state.showInactive) },
-                    label = { Text("Tampilkan nonaktif") },
-                )
-            }
             if (!state.loading && state.rows.isEmpty()) {
                 EmptyState(
                     icon = type.icon(),
