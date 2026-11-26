@@ -64,11 +64,20 @@ fun AssetFormScreen(
             Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
             return@Scaffold
         }
-        // Urutan field mengikuti template import aset.
+        // Foto di paling atas, lalu field sesuai urutan template import aset.
         Column(
             Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState()).padding(horizontal = 16.dp),
             verticalArrangement = Arrangement.spacedBy(4.dp),
         ) {
+            SectionHeader("Foto aset", Modifier.padding(start = 0.dp))
+            PhotoPicker(
+                photoFile = vm.photoFile(),
+                busy = state.photoBusy,
+                newCameraUri = vm::newCameraUri,
+                onPicked = vm::onPhotoPicked,
+                onRemove = vm::removePhoto,
+            )
+
             SectionHeader("Data aset", Modifier.padding(start = 0.dp))
             FormTextField(
                 value = input.code, onValueChange = { v -> vm.update { it.copy(code = v.uppercase()) } },
@@ -146,14 +155,6 @@ fun AssetFormScreen(
                 supporting = "Nomor / keterangan BAST", singleLine = false,
             )
 
-            SectionHeader("Foto (opsional)", Modifier.padding(start = 0.dp))
-            PhotoPicker(
-                photoFile = vm.photoFile(),
-                busy = state.photoBusy,
-                newCameraUri = vm::newCameraUri,
-                onPicked = vm::onPhotoPicked,
-                onRemove = vm::removePhoto,
-            )
             Spacer(Modifier.height(24.dp))
         }
     }

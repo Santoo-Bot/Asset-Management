@@ -4,14 +4,12 @@ import id.perusahaan.asetga.domain.calc.ServiceDueStatus
 import id.perusahaan.asetga.domain.calc.StockCalc
 import java.time.LocalDate
 
+/** Mutasi = pindah lokasi dan/atau pengguna / detail lokasi. Tanggal = hari ini. */
 data class MutationInput(
     val assetId: String,
-    val date: LocalDate? = LocalDate.now(),
     val toLocationId: String? = null,
-    val toDepartmentId: String? = null,
-    val toPic: String = "",
-    val reason: String = "",
-    val approvedBy: String = "",
+    val toUserLocation: String = "",
+    val date: LocalDate? = LocalDate.now(),
 )
 
 data class AssetMutation(
@@ -27,6 +25,8 @@ data class AssetMutation(
     val reason: String,
     val approvedBy: String?,
     val createdBy: String?,
+    val fromUserLocation: String? = null,
+    val toUserLocation: String? = null,
 )
 
 data class ServiceInput(

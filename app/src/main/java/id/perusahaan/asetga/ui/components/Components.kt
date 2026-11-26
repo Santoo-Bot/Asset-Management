@@ -40,7 +40,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
@@ -226,5 +231,26 @@ fun LabeledValue(label: String, value: String, modifier: Modifier = Modifier) {
         Text(label, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Spacer(Modifier.size(16.dp))
         Text(value, style = MaterialTheme.typography.bodyMedium, textAlign = TextAlign.End)
+    }
+}
+
+/** Daftar field yang berubah: "Field: lama → baru". */
+@Composable
+fun ChangeList(changes: List<id.perusahaan.asetga.domain.model.FieldChange>, modifier: Modifier = Modifier) {
+    Column(modifier, verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        changes.forEach { c ->
+            Text(
+                buildAnnotatedString {
+                    withStyle(SpanStyle(fontWeight = FontWeight.SemiBold)) { append(c.field) }
+                    append(": ")
+                    withStyle(SpanStyle(color = MaterialTheme.colorScheme.onSurfaceVariant, textDecoration = TextDecoration.LineThrough)) {
+                        append(c.oldValue ?: "(kosong)")
+                    }
+                    append("  →  ")
+                    append(c.newValue ?: "(kosong)")
+                },
+                style = MaterialTheme.typography.bodyMedium,
+            )
+        }
     }
 }

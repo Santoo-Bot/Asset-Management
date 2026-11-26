@@ -62,24 +62,37 @@ class OperationAndStockTest {
 
     @After fun tearDown() = db.close()
 
-    @Test fun `mutasi memperbarui lokasi dan PIC aset serta tercatat`() = runTest {
-        val r = ops.recordMutation(MutationInput("as1", today, toLocationId = "B", toPic = "Budi", reason = "Pindah ruangan", approvedBy = "Manajer GA"))
+    @Test fun `mutasi memperbarui lokasi dan pengguna aset serta riwayat lama-baru`() = runTest {
+        val r = ops.recordMutation(MutationInput("as1", toLocationId = "B", toUserLocation = "Budi · Ruang 301"))
         assertTrue(r is AppResult.Success)
         val asset = db.assetDao().getById("as1")!!
         assertEquals("B", asset.locationId)
-        assertEquals("Budi", asset.picName)
-        val history = ops.observeMutations("as1").first()
-        assertEquals(1, history.size)
-        assertEquals("Gedung A", history[0].fromLocation)
-        assertEquals("Gedung B", history[0].toLocation)
-        assertEquals("Andi", history[0].fromPic)
+        assertEquals("Budi · Ruang 301", asset.userLocationDetail)
+        val history = ops.observeMutations("as1").first().single()
+        assertEquals("Gedung A", history.fromLocation)
+        assertEquals("Gedung B", history.toLocation)
+        assertEquals(null, history.fromUserLocation)
+        assertEquals("Budi · Ruang 301", history.toUserLocation)
+        assertEquals(today, history.date)
+
+        val log = db.auditLogDao().observeForEntity(id.perusahaan.asetga.domain.model.AuditEntityType.ASSET, "as1").first()
+            .first { it.summary.startsWith("Mutasi") }
+        val changes = id.perusahaan.asetga.data.repository.parseChanges(log.changesJson)
+        assertEquals(
+            listOf(
+                id.perusahaan.asetga.domain.model.FieldChange("Lokasi", "Gedung A", "Gedung B"),
+                id.perusahaan.asetga.domain.model.FieldChange("Pengguna / detail lokasi", null, "Budi · Ruang 301"),
+            ),
+            changes,
+        )
     }
 
-    @Test fun `mutasi tanpa perubahan atau tanpa alasan ditolak`() = runTest {
-        val same = ops.recordMutation(MutationInput("as1", today, toLocationId = "A", toPic = "Andi", reason = "x")) as AppResult.Failure
+    @Test fun `mutasi tanpa perubahan ditolak, cukup ganti pengguna diterima`() = runTest {
+        val same = ops.recordMutation(MutationInput("as1", toLocationId = "A")) as AppResult.Failure
         assertTrue(OperationValidator.FIELD_TARGET in same.fieldErrors)
-        val noReason = ops.recordMutation(MutationInput("as1", today, toLocationId = "B")) as AppResult.Failure
-        assertTrue(OperationValidator.FIELD_REASON in noReason.fieldErrors)
+        assertTrue(ops.recordMutation(MutationInput("as1", toLocationId = "A", toUserLocation = "Citra")) is AppResult.Success)
+        assertEquals("A", db.assetDao().getById("as1")!!.locationId)
+        assertEquals("Citra", db.assetDao().getById("as1")!!.userLocationDetail)
     }
 
     @Test fun `jadwal servis diambil dari catatan terakhir`() = runTest {

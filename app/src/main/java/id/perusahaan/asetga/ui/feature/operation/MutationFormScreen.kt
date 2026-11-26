@@ -25,7 +25,6 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import id.perusahaan.asetga.domain.validation.OperationValidator
 import id.perusahaan.asetga.ui.components.AppTopBar
 import id.perusahaan.asetga.ui.components.BottomActionBar
-import id.perusahaan.asetga.ui.components.DateField
 import id.perusahaan.asetga.ui.components.FormTextField
 import id.perusahaan.asetga.ui.components.LabeledValue
 import id.perusahaan.asetga.ui.components.SectionHeader
@@ -36,7 +35,6 @@ import id.perusahaan.asetga.ui.feature.asset.InfoCard
 fun MutationFormScreen(onBack: () -> Unit, onSaved: () -> Unit, vm: MutationFormViewModel = hiltViewModel()) {
     val state by vm.state.collectAsStateWithLifecycle()
     val locations by vm.locations.collectAsStateWithLifecycle()
-    val departments by vm.departments.collectAsStateWithLifecycle()
     val snackbar = remember { SnackbarHostState() }
     LaunchedEffect(vm) { vm.results.collect { msg -> if (msg == null) onSaved() else snackbar.showSnackbar(msg) } }
     val input = state.input
@@ -55,29 +53,24 @@ fun MutationFormScreen(onBack: () -> Unit, onSaved: () -> Unit, vm: MutationForm
                 InfoCard("Posisi saat ini · ${d.asset.code}") {
                     Text(d.asset.name, style = MaterialTheme.typography.titleMedium)
                     LabeledValue("Lokasi", d.locationName)
-                    LabeledValue("Departemen", d.departmentName ?: "-")
-                    LabeledValue("PIC", d.asset.picName ?: "-")
+                    LabeledValue("Pengguna / detail lokasi", d.asset.userLocationDetail ?: "-")
                 }
             }
             Column(Modifier.padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                SectionHeader("Tujuan", Modifier.padding(start = 0.dp))
+                SectionHeader("Pindah ke", Modifier.padding(start = 0.dp))
                 SelectField(
-                    "Lokasi tujuan", locations, locations.firstOrNull { it.id == input.toLocationId }, { it.name },
+                    "Lokasi", locations, locations.firstOrNull { it.id == input.toLocationId }, { it.name },
                     onSelect = { l -> vm.update { it.copy(toLocationId = l?.id) } }, required = true,
                     error = err[OperationValidator.FIELD_TARGET],
                 )
-                SelectField(
-                    "Departemen tujuan", departments, departments.firstOrNull { it.id == input.toDepartmentId }, { it.name },
-                    onSelect = { d -> vm.update { it.copy(toDepartmentId = d?.id) } }, noneLabel = "Tidak ada",
-                )
-                FormTextField(input.toPic, { v -> vm.update { it.copy(toPic = v) } }, "PIC tujuan")
-                SectionHeader("Keterangan", Modifier.padding(start = 0.dp))
-                DateField(input.date, { d -> vm.update { it.copy(date = d) } }, "Tanggal mutasi", required = true, error = err[OperationValidator.FIELD_DATE])
                 FormTextField(
-                    input.reason, { v -> vm.update { it.copy(reason = v) } }, "Alasan", required = true,
-                    error = err[OperationValidator.FIELD_REASON], singleLine = false, minLines = 2,
+                    input.toUserLocation, { v -> vm.update { it.copy(toUserLocation = v) } }, "Pengguna / detail lokasi",
+                    supporting = "Mis. Budi · Ruang 301, meja 4",
                 )
-                FormTextField(input.approvedBy, { v -> vm.update { it.copy(approvedBy = v) } }, "Disetujui oleh")
+                Text(
+                    "Mutasi dicatat dengan tanggal hari ini dan data aset langsung diperbarui.",
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
                 Spacer(Modifier.height(24.dp))
             }
         }

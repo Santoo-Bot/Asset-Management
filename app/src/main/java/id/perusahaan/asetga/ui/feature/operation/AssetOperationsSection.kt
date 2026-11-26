@@ -115,14 +115,17 @@ fun AssetOperationsSection(
     if (mutations.isEmpty()) Text("Belum pernah dimutasi", Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
     mutations.forEach { m ->
         Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
-            Text(Fmt.date(m.date), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+            Text(
+                Fmt.date(m.date) + (m.createdBy?.let { " · $it" } ?: ""),
+                style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary,
+            )
             if (m.fromLocation != m.toLocation) Text("Lokasi: ${m.fromLocation ?: "-"} → ${m.toLocation ?: "-"}", style = MaterialTheme.typography.bodyMedium)
+            if (m.fromUserLocation != m.toUserLocation) {
+                Text("Pengguna / detail lokasi: ${m.fromUserLocation ?: "-"} → ${m.toUserLocation ?: "-"}", style = MaterialTheme.typography.bodyMedium)
+            }
+            // Mutasi lama (sebelum v5) bisa berisi perubahan departemen/PIC.
             if (m.fromDepartment != m.toDepartment) Text("Departemen: ${m.fromDepartment ?: "-"} → ${m.toDepartment ?: "-"}", style = MaterialTheme.typography.bodyMedium)
             if (m.fromPic != m.toPic) Text("PIC: ${m.fromPic ?: "-"} → ${m.toPic ?: "-"}", style = MaterialTheme.typography.bodyMedium)
-            Text(
-                "Alasan: ${m.reason}" + (m.approvedBy?.let { " · Disetujui: $it" } ?: "") + (m.createdBy?.let { " · oleh $it" } ?: ""),
-                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
         }
         HorizontalDivider(Modifier.padding(horizontal = 16.dp))
     }

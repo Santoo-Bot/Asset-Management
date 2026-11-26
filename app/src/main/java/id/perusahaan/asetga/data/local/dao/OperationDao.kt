@@ -24,6 +24,8 @@ data class MutationRow(
     val reason: String,
     val approvedBy: String?,
     val createdBy: String?,
+    val fromUserLocation: String?,
+    val toUserLocation: String?,
 )
 
 data class ServiceRow(
@@ -62,7 +64,7 @@ interface MutationDao {
     @Query(
         """SELECT m.id, m.assetId, m.mutationDate, fl.name AS fromLocation, tl.name AS toLocation,
                   fd.name AS fromDepartment, td.name AS toDepartment, m.fromPic, m.toPic, m.reason, m.approvedBy,
-                  u.fullName AS createdBy
+                  u.fullName AS createdBy, m.fromUserLocation, m.toUserLocation
            FROM asset_mutations m
            LEFT JOIN locations fl ON fl.id = m.fromLocationId
            LEFT JOIN locations tl ON tl.id = m.toLocationId

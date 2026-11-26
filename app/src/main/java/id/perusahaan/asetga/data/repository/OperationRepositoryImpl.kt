@@ -41,6 +41,7 @@ import javax.inject.Singleton
 
 internal fun MutationRow.toDomain() = AssetMutation(
     id, assetId, mutationDate, fromLocation, toLocation, fromDepartment, toDepartment, fromPic, toPic, reason, approvedBy, createdBy,
+    fromUserLocation, toUserLocation,
 )
 
 internal fun ServiceRow.toDomain() = ServiceRecord(
@@ -70,17 +71,13 @@ class OperationRepositoryImpl @Inject constructor(
         session.denyUnless { it.canEditData }?.let { return it }
         return db.withTransaction {
             val asset = assetDao.getById(input.assetId) ?: return@withTransaction AppResult.Failure("Aset tidak ditemukan")
-            val errors = OperationValidator.validateMutation(
-                input, asset.locationId, asset.departmentId, asset.picName, asset.acquisitionDate, today(),
-            )
+            val errors = OperationValidator.validateMutation(input, asset.locationId, asset.userLocationDetail, asset.acquisitionDate, today())
             if (errors.isNotEmpty()) return@withTransaction AppResult.Failure("Periksa kembali isian", errors)
-            if (input.toLocationId != null && locationDao.getById(input.toLocationId) == null) {
-                return@withTransaction AppResult.Failure("Lokasi tujuan tidak ditemukan")
-            }
+            val toLocation = input.toLocationId!!
+            val toLocationEntity = locationDao.getById(toLocation) ?: return@withTransaction AppResult.Failure("Lokasi tujuan tidak ditemukan")
 
             val now = clock.millis()
-            val toLocation = input.toLocationId ?: asset.locationId
-            val toPic = input.toPic.trimToNull()
+            val toUser = input.toUserLocation.trimToNull()
             mutationDao.insert(
                 AssetMutationEntity(
                     id = UUID.randomUUID().toString(),
@@ -89,35 +86,25 @@ class OperationRepositoryImpl @Inject constructor(
                     fromLocationId = asset.locationId,
                     toLocationId = toLocation,
                     fromDepartmentId = asset.departmentId,
-                    toDepartmentId = input.toDepartmentId,
+                    toDepartmentId = asset.departmentId,
                     fromPic = asset.picName,
-                    toPic = toPic,
-                    reason = input.reason.trim(),
-                    approvedBy = input.approvedBy.trimToNull(),
+                    toPic = asset.picName,
+                    reason = "",
+                    approvedBy = null,
                     createdByUserId = session.currentUser?.id,
                     createdAt = now,
                     updatedAt = now,
+                    fromUserLocation = asset.userLocationDetail,
+                    toUserLocation = toUser,
                 ),
             )
             // Data aset ikut diperbarui saat mutasi disimpan.
-            assetDao.update(
-                asset.copy(
-                    locationId = toLocation,
-                    departmentId = input.toDepartmentId,
-                    // Divisi mengikuti departemen tujuan.
-                    divisionId = input.toDepartmentId?.let { departmentDao.getById(it)?.divisionId } ?: asset.divisionId,
-                    picName = toPic,
-                    updatedAt = now,
-                    syncState = SyncState.PENDING,
-                ),
-            )
+            assetDao.update(asset.copy(locationId = toLocation, userLocationDetail = toUser, updatedAt = now, syncState = SyncState.PENDING))
             val changes = ChangeSet().apply {
-                field("Lokasi", locationDao.getById(asset.locationId)?.name, locationDao.getById(toLocation)?.name)
-                field("Departemen", asset.departmentId?.let { departmentDao.getById(it)?.name }, input.toDepartmentId?.let { departmentDao.getById(it)?.name })
-                field("PIC", asset.picName, toPic)
-                field("Alasan", null, input.reason.trim())
+                field("Lokasi", locationDao.getById(asset.locationId)?.name, toLocationEntity.name)
+                field("Pengguna / detail lokasi", asset.userLocationDetail, toUser)
             }
-            audit.log(AuditEntityType.ASSET, asset.id, AuditAction.UPDATE, "Mutasi aset ${asset.code} (${Fmt.date(input.date)})", changes.build())
+            audit.log(AuditEntityType.ASSET, asset.id, AuditAction.UPDATE, "Mutasi aset ${asset.code}", changes.build())
             AppResult.Success(Unit)
         }
     }

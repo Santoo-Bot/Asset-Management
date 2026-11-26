@@ -36,6 +36,7 @@ import id.perusahaan.asetga.domain.model.AuditEntityType
 import id.perusahaan.asetga.domain.model.AuditLogEntry
 import id.perusahaan.asetga.domain.repository.AuditLogRepository
 import id.perusahaan.asetga.ui.components.AppTopBar
+import id.perusahaan.asetga.ui.components.ChangeList
 import id.perusahaan.asetga.util.Fmt
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.FlowPreview
@@ -87,9 +88,9 @@ fun AuditLogScreen(onBack: () -> Unit, vm: AuditLogViewModel = hiltViewModel()) 
                 items(count = logs.itemCount, key = logs.itemKey { it.id }) { i ->
                     val e = logs[i] ?: return@items
                     ListItem(
-                        overlineContent = { Text("${Fmt.dateTime(e.timestamp)} · ${e.entityType.label} · ${e.action.label}") },
+                        overlineContent = { Text("${Fmt.dateTime(e.timestamp)} · ${e.entityType.label} · ${e.action.label} · ${e.userName}") },
                         headlineContent = { Text(e.summary) },
-                        supportingContent = { Text("oleh ${e.userName}") },
+                        supportingContent = if (e.changes.isEmpty()) null else ({ ChangeList(e.changes) }),
                     )
                     HorizontalDivider()
                 }

@@ -57,6 +57,9 @@ data class User(
     val isActive: Boolean,
 )
 
+/** Satu field yang berubah: nilai lama → nilai baru (null = kosong). */
+data class FieldChange(val field: String, val oldValue: String?, val newValue: String?)
+
 data class AuditLogEntry(
     val id: String,
     val timestamp: Long,
@@ -65,4 +68,5 @@ data class AuditLogEntry(
     val entityId: String,
     val action: AuditAction,
     val summary: String,
+    val changes: List<FieldChange> = emptyList(),
 )

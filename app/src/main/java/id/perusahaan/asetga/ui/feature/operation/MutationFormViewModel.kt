@@ -7,7 +7,6 @@ import androidx.navigation.toRoute
 import dagger.hilt.android.lifecycle.HiltViewModel
 import id.perusahaan.asetga.domain.model.AppResult
 import id.perusahaan.asetga.domain.model.AssetDetail
-import id.perusahaan.asetga.domain.model.Department
 import id.perusahaan.asetga.domain.model.Location
 import id.perusahaan.asetga.domain.model.MutationInput
 import id.perusahaan.asetga.domain.repository.AssetRepository
@@ -48,8 +47,6 @@ class MutationFormViewModel @Inject constructor(
 
     val locations: StateFlow<List<Location>> = master.observeLocations()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
-    val departments: StateFlow<List<Department>> = master.observeDepartments()
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     private val _done = Channel<String?>(Channel.BUFFERED)
     /** null = sukses, teks = pesan galat. */
@@ -64,8 +61,7 @@ class MutationFormViewModel @Inject constructor(
                     asset = d,
                     input = it.input.copy(
                         toLocationId = d.asset.locationId,
-                        toDepartmentId = d.asset.departmentId,
-                        toPic = d.asset.picName.orEmpty(),
+                        toUserLocation = d.asset.userLocationDetail.orEmpty(),
                     ),
                 )
             }

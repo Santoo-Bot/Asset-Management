@@ -57,7 +57,7 @@ import java.util.UUID
         AuditItemEntity::class,
         AuditLogEntity::class,
     ],
-    version = 4,
+    version = 5,
     exportSchema = true,
 )
 @TypeConverters(Converters::class)
@@ -146,7 +146,15 @@ object Migrations {
         }
     }
 
-    val ALL = arrayOf(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
+    /** v5: mutasi mencatat pengguna / detail lokasi lama & baru. */
+    val MIGRATION_4_5 = object : Migration(4, 5) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("ALTER TABLE `asset_mutations` ADD COLUMN `fromUserLocation` TEXT")
+            db.execSQL("ALTER TABLE `asset_mutations` ADD COLUMN `toUserLocation` TEXT")
+        }
+    }
+
+    val ALL = arrayOf(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
 }
 
 /** Data awal wajib (semua build): kategori dengan umur ekonomis, satuan, dan pengaturan default. */

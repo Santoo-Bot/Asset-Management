@@ -61,6 +61,7 @@ import id.perusahaan.asetga.domain.model.AssetDetail
 import id.perusahaan.asetga.domain.model.AssetStatus
 import id.perusahaan.asetga.domain.model.AuditLogEntry
 import id.perusahaan.asetga.ui.components.AppTopBar
+import id.perusahaan.asetga.ui.components.ChangeList
 import id.perusahaan.asetga.ui.components.DateField
 import id.perusahaan.asetga.ui.components.FormTextField
 import id.perusahaan.asetga.ui.components.MoneyField
@@ -343,13 +344,15 @@ private fun HistorySection(history: List<AuditLogEntry>) {
     if (history.isEmpty()) {
         Text("Belum ada riwayat", Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
-    history.take(30).forEach { h ->
-        Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp)) {
-            Text(h.summary, style = MaterialTheme.typography.bodyMedium)
+    history.take(50).forEach { h ->
+        Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
             Text(
                 "${Fmt.dateTime(h.timestamp)} · ${h.userName}",
-                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary,
             )
+            // Tampilkan hanya field yang berubah (lama → baru); catatan tanpa rincian (mis. aset ditambahkan) memakai ringkasan.
+            if (h.changes.isNotEmpty()) ChangeList(h.changes) else Text(h.summary, style = MaterialTheme.typography.bodyMedium)
         }
+        HorizontalDivider(Modifier.padding(horizontal = 16.dp))
     }
 }

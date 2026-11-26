@@ -62,6 +62,16 @@ class MigrationTest {
         "CREATE INDEX IF NOT EXISTS `index_departments_name` ON `departments` (`name`)",
     )
 
+    private val v1Mutations = listOf(
+        "CREATE TABLE IF NOT EXISTS `asset_mutations` (`id` TEXT NOT NULL, `assetId` TEXT NOT NULL, `mutationDate` INTEGER NOT NULL, " +
+            "`fromLocationId` TEXT, `toLocationId` TEXT, `fromDepartmentId` TEXT, `toDepartmentId` TEXT, `fromPic` TEXT, `toPic` TEXT, " +
+            "`reason` TEXT NOT NULL, `approvedBy` TEXT, `createdByUserId` TEXT, `createdAt` INTEGER NOT NULL, `updatedAt` INTEGER NOT NULL, " +
+            "`deletedAt` INTEGER, `syncState` TEXT NOT NULL, PRIMARY KEY(`id`), " +
+            "FOREIGN KEY(`assetId`) REFERENCES `assets`(`id`) ON UPDATE NO ACTION ON DELETE RESTRICT )",
+        "CREATE INDEX IF NOT EXISTS `index_asset_mutations_assetId` ON `asset_mutations` (`assetId`)",
+        "CREATE INDEX IF NOT EXISTS `index_asset_mutations_mutationDate` ON `asset_mutations` (`mutationDate`)",
+    )
+
     @After fun cleanUp() {
         ctx.deleteDatabase(name)
     }
@@ -78,10 +88,12 @@ class MigrationTest {
         raw.execSQL("DROP TABLE assets")
         raw.execSQL("DROP TABLE departments")
         raw.execSQL("DROP TABLE divisions")
+        raw.execSQL("DROP TABLE asset_mutations")
         v1Departments.forEach(raw::execSQL)
         raw.execSQL(v1Assets)
         v1AssetIndices.forEach(raw::execSQL)
         if (version >= 2) v2AssetAdditions.forEach(raw::execSQL)
+        v1Mutations.forEach(raw::execSQL)
         raw.execSQL("INSERT INTO locations (id, name, address, isActive, createdAt, updatedAt, deletedAt, syncState) VALUES ('loc', 'Kantor', NULL, 1, 1, 1, NULL, 'PENDING')")
         insertSql(categoryId).forEach(raw::execSQL)
         raw.version = version
@@ -103,7 +115,7 @@ class MigrationTest {
         assertEquals(12_000_000L, asset.acquisitionCost)
         assertNull(asset.qrCode)
         assertNull(asset.divisionId)
-        assertEquals(4, db.openHelper.readableDatabase.version)
+        assertEquals(5, db.openHelper.readableDatabase.version)
         assertEquals(AssetStatus.DIGUNAKAN, asset.status)
         db.close()
     }
@@ -117,6 +129,8 @@ class MigrationTest {
                 "INSERT INTO assets ($assetCols, division) VALUES ('a3', 'IT-3', 'C', '$cat', 19723, 1, 'loc', 'RUSAK_BERAT', 'DIHAPUS_DIJUAL', 1, 1, 'PENDING', 'Keuangan')",
                 "INSERT INTO assets ($assetCols) VALUES ('a4', 'IT-4', 'D', '$cat', 19723, 1, 'loc', 'CUKUP', 'DISIMPAN', 1, 1, 'PENDING')",
                 "INSERT INTO assets ($assetCols) VALUES ('a5', 'IT-5', 'E', '$cat', 19723, 1, 'loc', 'RUSAK_RINGAN', 'DIPINJAM', 1, 1, 'PENDING')",
+                "INSERT INTO asset_mutations (id, assetId, mutationDate, fromLocationId, toLocationId, reason, createdAt, updatedAt, syncState) " +
+                    "VALUES ('m1', 'a1', 19723, 'loc', 'loc', 'Pindah', 1, 1, 'PENDING')",
             )
         }
         val db = open()
@@ -137,6 +151,11 @@ class MigrationTest {
             assertEquals(AssetCondition.RUSAK to AssetStatus.WRITE_OFF, cs("a3"))
             assertEquals(AssetCondition.BAIK to AssetStatus.TERSEDIA, cs("a4"))
             assertEquals(AssetCondition.RUSAK to AssetStatus.DIGUNAKAN, cs("a5"))
+
+            // v5: riwayat mutasi lama tetap ada, kolom pengguna / detail lokasi kosong.
+            val m = db.mutationDao().observeForAsset("a1").first().single()
+            assertEquals("Pindah", m.reason)
+            assertNull(m.toUserLocation)
         }
         db.close()
     }

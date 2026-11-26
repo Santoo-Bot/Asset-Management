@@ -21,15 +21,11 @@ object OperationValidator {
     const val FIELD_MIN = "minStock"
     const val FIELD_QTY = "qty"
 
-    /**
-     * Mutasi valid bila minimal satu dari lokasi/departemen/PIC berubah dan alasan diisi.
-     * [currentLocationId] dll. adalah nilai aset saat ini.
-     */
+    /** Mutasi valid bila lokasi atau pengguna / detail lokasi berubah. */
     fun validateMutation(
         input: MutationInput,
         currentLocationId: String,
-        currentDepartmentId: String?,
-        currentPic: String?,
+        currentUserLocation: String?,
         acquisitionDate: LocalDate,
         today: LocalDate,
     ): Map<String, String> = buildMap {
@@ -38,11 +34,12 @@ object OperationValidator {
             input.date.isAfter(today) -> put(FIELD_DATE, "Tanggal tidak boleh di masa depan")
             input.date.isBefore(acquisitionDate) -> put(FIELD_DATE, "Tanggal sebelum tanggal perolehan aset")
         }
+        if (input.toLocationId == null) put(FIELD_TARGET, "Pilih lokasi tujuan")
         val locChanged = input.toLocationId != null && input.toLocationId != currentLocationId
-        val deptChanged = input.toDepartmentId != currentDepartmentId
-        val picChanged = input.toPic.trim().ifEmpty { null } != currentPic
-        if (!locChanged && !deptChanged && !picChanged) put(FIELD_TARGET, "Ubah minimal lokasi, departemen, atau PIC tujuan")
-        if (input.reason.isBlank()) put(FIELD_REASON, "Alasan mutasi wajib diisi")
+        val userChanged = input.toUserLocation.trim().ifEmpty { null } != currentUserLocation
+        if (input.toLocationId != null && !locChanged && !userChanged) {
+            put(FIELD_TARGET, "Ubah lokasi atau pengguna / detail lokasi tujuan")
+        }
     }
 
     fun validateService(input: ServiceInput, today: LocalDate): Map<String, String> = buildMap {

@@ -100,6 +100,9 @@ data class AssetMutationEntity(
     val updatedAt: Long,
     val deletedAt: Long? = null,
     val syncState: SyncState = SyncState.PENDING,
+    /** Pengguna / detail lokasi sebelum & sesudah mutasi (skema v5). */
+    val fromUserLocation: String? = null,
+    val toUserLocation: String? = null,
 )
 
 @Entity(
