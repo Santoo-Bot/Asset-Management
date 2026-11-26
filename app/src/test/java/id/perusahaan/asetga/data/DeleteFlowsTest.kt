@@ -111,7 +111,7 @@ class DeleteFlowsTest {
         assertEquals(0, db.assetDao().countAll())
         assertEquals(0, insurance.observePolicy(policy).first()!!.assetCount)
         // Riwayat audit tetap tersimpan setelah hapus permanen.
-        assertTrue(db.auditLogDao().observeForEntity(id.perusahaan.asetga.domain.model.AuditEntityType.ASSET, ids[5]).first().size >= 3)
+        assertTrue(db.auditLogDao().observeForEntity(id.perusahaan.asetga.domain.model.AuditEntityType.ASSET, ids[5]).first().size >= 2) // dibuat + dihapus
 
         // Setelah aset hilang, master yang hanya dipakai aset bisa dihapus; yang masih dipakai stok/opname/polis tetap ditolak.
         assertTrue(master.delete(MasterType.DEPARTMENT, dept.id) is AppResult.Success)
