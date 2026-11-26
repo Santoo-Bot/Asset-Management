@@ -61,7 +61,7 @@ class LabelViewModel @Inject constructor(
         viewModelScope.launch {
             val items = assets.getListItems(ids)
             val labels = items.map { LabelData(it.code, it.categoryName, it.qrContent) }
-            val preview = withContext(Dispatchers.Default) { if (labels.isEmpty()) null else LabelRenderer.renderPage(labels, 0, 1.5f) }
+            val preview = withContext(Dispatchers.Default) { if (labels.isEmpty()) null else LabelRenderer.renderPage(labels, 0, 6f) }
             _state.value = LabelUiState(loading = false, labels = labels, preview = preview)
         }
     }
@@ -70,7 +70,7 @@ class LabelViewModel @Inject constructor(
         val s = _state.value
         if (page !in 0 until s.pageCount) return
         viewModelScope.launch {
-            val bmp = withContext(Dispatchers.Default) { LabelRenderer.renderPage(s.labels, page, 1.5f) }
+            val bmp = withContext(Dispatchers.Default) { LabelRenderer.renderPage(s.labels, page, 6f) }
             _state.update { it.copy(page = page, preview = bmp) }
         }
     }
@@ -96,14 +96,13 @@ class LabelViewModel @Inject constructor(
     fun print() = launchAction { LabelAction.Print(pdfFile(it)) }
     fun sharePdf() = launchAction { LabelAction.SharePdf(pdfFile(it)) }
 
-    /** 1 aset → PNG satu label; banyak aset → PNG per halaman A4. */
+    /** PNG per label, masing-masing 50 × 20 mm. */
     fun sharePng() = launchAction { s ->
         val dir = ShareHelper.sharedDir(context)
         val stamp = System.currentTimeMillis()
-        val files = if (s.labels.size == 1) {
-            listOf(writePng(LabelRenderer.renderSingle(s.labels.first()), File(dir, "label-${s.labels.first().code}-$stamp.png")))
-        } else {
-            (0 until s.pageCount).map { p -> writePng(LabelRenderer.renderPage(s.labels, p, 2f), File(dir, "label-aset-$stamp-hal${p + 1}.png")) }
+        val files = s.labels.mapIndexed { i, label ->
+            val safe = label.code.replace(Regex("[^A-Za-z0-9-]+"), "_")
+            writePng(LabelRenderer.renderSingle(label), File(dir, "label-$safe-$stamp-${i + 1}.png"))
         }
         LabelAction.SharePng(files)
     }

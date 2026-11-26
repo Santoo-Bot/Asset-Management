@@ -42,7 +42,7 @@ object ShareHelper {
     }
 
     /** Kirim PDF ke layanan cetak Android (printer Wi-Fi, simpan sebagai PDF, dll.). */
-    fun printPdf(context: Context, pdf: File, jobName: String) {
+    fun printPdf(context: Context, pdf: File, jobName: String, mediaSize: PrintAttributes.MediaSize = PrintAttributes.MediaSize.ISO_A4) {
         val manager = context.getSystemService(Context.PRINT_SERVICE) as PrintManager
         val adapter = object : PrintDocumentAdapter() {
             override fun onLayout(
@@ -76,6 +76,6 @@ object ShareHelper {
                 }
             }
         }
-        manager.print(jobName, adapter, PrintAttributes.Builder().setMediaSize(PrintAttributes.MediaSize.ISO_A4).build())
+        manager.print(jobName, adapter, PrintAttributes.Builder().setMediaSize(mediaSize).setMinMargins(PrintAttributes.Margins.NO_MARGINS).build())
     }
 }

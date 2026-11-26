@@ -21,23 +21,22 @@ import java.io.File
 data class LabelData(val code: String, val category: String, val qr: String = code)
 
 /**
- * Label aset ukuran 50 × 20 mm: simbol QR, teks kode QR, dan kategori.
- * Lembar A4 berisi grid [COLUMNS] × [ROWS] label; QR digambar sebagai vektor sehingga tajam saat dicetak.
- * PNG satu label berukuran persis 50 × 20 mm (cocok untuk printer label).
+ * Label aset ukuran cetak 50 × 20 mm: simbol QR, teks kode QR, dan kategori.
+ * PDF berisi satu label per halaman berukuran 50 × 20 mm; QR digambar sebagai vektor sehingga tajam saat dicetak.
  */
 object LabelRenderer {
-    const val PAGE_W = 595 // A4 dalam point (1/72 inci)
-    const val PAGE_H = 842
     private const val MM = 72f / 25.4f
     const val LABEL_W_MM = 50
     const val LABEL_H_MM = 20
     private val CELL_W = LABEL_W_MM * MM
     private val CELL_H = LABEL_H_MM * MM
-    const val COLUMNS = 4
-    const val ROWS = 14
-    const val PER_PAGE = COLUMNS * ROWS
-    private val MARGIN_X = (PAGE_W - COLUMNS * CELL_W) / 2
-    private val MARGIN_Y = (PAGE_H - ROWS * CELL_H) / 2
+    /** Ukuran halaman PDF dalam point (bilangan bulat), konten diskalakan pas ke halaman. */
+    private val PDF_W = Math.round(CELL_W)
+    private val PDF_H = Math.round(CELL_H)
+
+    /** Ukuran media untuk layanan cetak Android, dalam 1/1000 inci. */
+    val MEDIA_W_MILS = Math.round(LABEL_W_MM * 1000 / 25.4f)
+    val MEDIA_H_MILS = Math.round(LABEL_H_MM * 1000 / 25.4f)
 
     fun qrMatrix(content: String): BitMatrix = QRCodeWriter().encode(
         content, BarcodeFormat.QR_CODE, 0, 0,
@@ -68,7 +67,7 @@ object LabelRenderer {
             .setIncludePad(false).build()
 
     /** Gambar satu label 50 × 20 mm di (left, top). */
-    private fun drawLabel(canvas: Canvas, label: LabelData, left: Float, top: Float, border: Boolean = true) {
+    private fun drawLabel(canvas: Canvas, label: LabelData, left: Float, top: Float, border: Boolean = false) {
         val pad = 1.5f * MM
         if (border) {
             val p = Paint().apply { color = Color.rgb(210, 210, 210); style = Paint.Style.STROKE; strokeWidth = 0.4f }
@@ -97,23 +96,19 @@ object LabelRenderer {
         canvas.save(); canvas.translate(textLeft, y); cat.draw(canvas); canvas.restore()
     }
 
-    private fun drawPage(canvas: Canvas, labels: List<LabelData>) {
-        canvas.drawColor(Color.WHITE)
-        labels.forEachIndexed { i, label ->
-            val col = i % COLUMNS
-            val row = i / COLUMNS
-            drawLabel(canvas, label, MARGIN_X + col * CELL_W, MARGIN_Y + row * CELL_H)
-        }
-    }
+    /** Satu label per halaman, jadi jumlah halaman = jumlah label. */
+    fun pageCount(total: Int): Int = total
 
-    fun pageCount(total: Int): Int = (total + PER_PAGE - 1) / PER_PAGE
-
+    /** PDF dengan ukuran halaman 50 × 20 mm, satu label per halaman (untuk printer label). */
     fun writePdf(labels: List<LabelData>, out: File) {
         val doc = PdfDocument()
         try {
-            labels.chunked(PER_PAGE).forEachIndexed { index, chunk ->
-                val page = doc.startPage(PdfDocument.PageInfo.Builder(PAGE_W, PAGE_H, index + 1).create())
-                drawPage(page.canvas, chunk)
+            labels.forEachIndexed { index, label ->
+                val page = doc.startPage(PdfDocument.PageInfo.Builder(PDF_W, PDF_H, index + 1).create())
+                val canvas = page.canvas
+                canvas.scale(PDF_W / CELL_W, PDF_H / CELL_H)
+                canvas.drawColor(Color.WHITE)
+                drawLabel(canvas, label, 0f, 0f, border = false)
                 doc.finishPage(page)
             }
             out.outputStream().use { doc.writeTo(it) }
@@ -122,17 +117,11 @@ object LabelRenderer {
         }
     }
 
-    /** Render satu halaman ke bitmap (untuk pratinjau / PNG). [scale] 2 ≈ 144 dpi. */
-    fun renderPage(labels: List<LabelData>, page: Int, scale: Float): Bitmap {
-        val chunk = labels.chunked(PER_PAGE).getOrElse(page) { emptyList() }
-        val bmp = Bitmap.createBitmap((PAGE_W * scale).toInt(), (PAGE_H * scale).toInt(), Bitmap.Config.ARGB_8888)
-        val canvas = Canvas(bmp)
-        canvas.scale(scale, scale)
-        drawPage(canvas, chunk)
-        return bmp
-    }
+    /** Pratinjau label ke-[page]. */
+    fun renderPage(labels: List<LabelData>, page: Int, scale: Float): Bitmap =
+        renderSingle(labels.getOrElse(page) { labels.first() }, scale)
 
-    /** Render satu label saja, 50 × 20 mm (PNG untuk printer label). [scale] 4 ≈ 288 dpi. */
+    /** Render satu label 50 × 20 mm (PNG untuk printer label). [scale] 4 ≈ 288 dpi. */
     fun renderSingle(label: LabelData, scale: Float = 4f): Bitmap {
         val bmp = Bitmap.createBitmap((CELL_W * scale).toInt(), (CELL_H * scale).toInt(), Bitmap.Config.ARGB_8888)
         val canvas = Canvas(bmp)

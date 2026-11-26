@@ -60,7 +60,10 @@ fun LabelScreen(onBack: () -> Unit, vm: LabelViewModel = hiltViewModel()) {
     LaunchedEffect(vm) {
         vm.actions.collect { a ->
             when (a) {
-                is LabelAction.Print -> ShareHelper.printPdf(context, a.file, "Label aset")
+                is LabelAction.Print -> ShareHelper.printPdf(
+                    context, a.file, "Label aset",
+                    android.print.PrintAttributes.MediaSize("label_50x20", "Label 50 × 20 mm", LabelRenderer.MEDIA_W_MILS, LabelRenderer.MEDIA_H_MILS),
+                )
                 is LabelAction.SharePdf -> ShareHelper.share(context, listOf(a.file), "application/pdf", "Label QR aset")
                 is LabelAction.SharePng -> ShareHelper.share(context, a.files, "image/png", "Label QR aset")
                 is LabelAction.Message -> snackbar.showSnackbar(a.text)
@@ -104,18 +107,17 @@ fun LabelScreen(onBack: () -> Unit, vm: LabelViewModel = hiltViewModel()) {
             )
             else -> Column(Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState()).padding(16.dp)) {
                 Text(
-                    "${state.labels.size} label ${LabelRenderer.LABEL_W_MM}×${LabelRenderer.LABEL_H_MM} mm · ${state.pageCount} lembar A4 " +
-                        "(${LabelRenderer.COLUMNS}×${LabelRenderer.ROWS} per lembar)",
+                    "${state.labels.size} label · ukuran cetak ${LabelRenderer.LABEL_W_MM}×${LabelRenderer.LABEL_H_MM} mm (1 label per halaman)",
                     style = MaterialTheme.typography.titleSmall,
                 )
                 Text(
-                    "Isi label: QR, kode QR, dan kategori. PNG satu aset berukuran pas 50×20 mm untuk printer label.",
+                    "Isi label: QR, kode QR, dan kategori. Atur kertas printer ke 50×20 mm dan skala 100% (jangan \"fit to page\").",
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 Spacer(Modifier.height(12.dp))
                 state.preview?.let { bmp ->
                     Image(
-                        bitmap = bmp.asImageBitmap(), contentDescription = "Pratinjau halaman ${state.page + 1}",
+                        bitmap = bmp.asImageBitmap(), contentDescription = "Pratinjau label ${state.page + 1}",
                         contentScale = ContentScale.FillWidth,
                         modifier = Modifier.fillMaxWidth().background(Color.White).border(1.dp, MaterialTheme.colorScheme.outlineVariant),
                     )
@@ -125,7 +127,7 @@ fun LabelScreen(onBack: () -> Unit, vm: LabelViewModel = hiltViewModel()) {
                         IconButton(onClick = { vm.showPage(state.page - 1) }, enabled = state.page > 0) {
                             Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, contentDescription = "Sebelumnya")
                         }
-                        Text("Halaman ${state.page + 1} / ${state.pageCount}")
+                        Text("Label ${state.page + 1} / ${state.pageCount}")
                         IconButton(onClick = { vm.showPage(state.page + 1) }, enabled = state.page < state.pageCount - 1) {
                             Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = "Berikutnya")
                         }
