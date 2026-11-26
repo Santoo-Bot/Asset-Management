@@ -55,7 +55,6 @@ import id.perusahaan.asetga.ui.components.AppTopBar
 import id.perusahaan.asetga.ui.components.EmptyState
 import id.perusahaan.asetga.ui.components.ErrorBanner
 import id.perusahaan.asetga.ui.components.FormTextField
-import id.perusahaan.asetga.ui.components.OptionSheet
 import id.perusahaan.asetga.ui.components.SelectField
 import id.perusahaan.asetga.ui.components.StatusChip
 
@@ -63,10 +62,8 @@ import id.perusahaan.asetga.ui.components.StatusChip
 fun MasterListScreen(
     type: MasterType,
     onBack: () -> Unit,
-    onShowAssets: (MasterType, String, String) -> Unit = { _, _, _ -> },
     vm: MasterListViewModel = hiltViewModel(),
 ) {
-    val moveTargets by vm.moveTargets.collectAsStateWithLifecycle()
     val state by vm.uiState.collectAsStateWithLifecycle()
     val editor by vm.editor.collectAsStateWithLifecycle()
     val divisions by vm.divisions.collectAsStateWithLifecycle()
@@ -128,9 +125,6 @@ fun MasterListScreen(
             onChange = vm::updateForm,
             onSave = vm::save,
             onDelete = vm::delete,
-            moveTargets = moveTargets,
-            onShowAssets = { row -> vm.closeEditor(); onShowAssets(type, row.id, row.title) },
-            onMoveAndDelete = vm::moveAndDelete,
             onDismiss = vm::closeEditor,
         )
     }
@@ -146,14 +140,10 @@ private fun MasterEditorSheet(
     onChange: ((MasterForm) -> MasterForm) -> Unit,
     onSave: () -> Unit,
     onDelete: (MasterRow) -> Unit,
-    moveTargets: List<Pair<String, String>>,
-    onShowAssets: (MasterRow) -> Unit,
-    onMoveAndDelete: (MasterRow, String) -> Unit,
     onDismiss: () -> Unit,
 ) {
     var confirmDelete by remember { mutableStateOf(false) }
-    var pickTarget by remember { mutableStateOf(false) }
-    var target by remember { mutableStateOf<Pair<String, String>?>(null) }
+
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val f = state.form
     val e = state.errors
@@ -205,12 +195,6 @@ private fun MasterEditorSheet(
                 MasterType.DIVISION, MasterType.UNIT, MasterType.INSURANCE_TYPE -> Unit
             }
             state.message?.let { ErrorBanner(it) }
-            if (state.blockedByUsage && activeRow != null) {
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedButton(onClick = { onShowAssets(activeRow) }, modifier = Modifier.weight(1f)) { Text("Lihat aset") }
-                    OutlinedButton(onClick = { pickTarget = true }, enabled = !state.saving, modifier = Modifier.weight(1f)) { Text("Pindahkan lalu hapus") }
-                }
-            }
             Spacer(Modifier.height(8.dp))
             Button(onClick = onSave, enabled = !state.saving, modifier = Modifier.fillMaxWidth().height(52.dp)) {
                 Text(if (state.saving) "Menyimpan…" else "Simpan")
@@ -229,33 +213,6 @@ private fun MasterEditorSheet(
                 )
             }
             Spacer(Modifier.height(16.dp))
-        }
-    }
-
-    if (pickTarget && activeRow != null) {
-        OptionSheet(
-            title = "Pindahkan ke ${type.singular}",
-            options = moveTargets.filter { it.first != activeRow.id },
-            selected = null,
-            itemLabel = { it.second },
-            onDismiss = { pickTarget = false },
-            onSelect = { t -> pickTarget = false; target = t },
-        )
-    }
-    target?.let { t ->
-        if (activeRow != null) {
-            AlertDialog(
-                onDismissRequest = { target = null },
-                title = { Text("Pindahkan lalu hapus?") },
-                text = {
-                    Text(
-                        if (type == MasterType.DIVISION) "Semua departemen dan aset di divisi ${activeRow.title} dipindah ke ${t.second}, lalu divisi ${activeRow.title} dihapus."
-                        else "Semua aset di departemen ${activeRow.title} dipindah ke ${t.second} (divisi ikut menyesuaikan), lalu departemen ${activeRow.title} dihapus.",
-                    )
-                },
-                confirmButton = { TextButton(onClick = { target = null; onMoveAndDelete(activeRow, t.first) }) { Text("Pindahkan & hapus") } },
-                dismissButton = { TextButton(onClick = { target = null }) { Text("Batal") } },
-            )
         }
     }
 

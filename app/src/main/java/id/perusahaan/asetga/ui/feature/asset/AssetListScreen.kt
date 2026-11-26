@@ -77,8 +77,6 @@ fun AssetListScreen(
     onOpenAsset: (String) -> Unit,
     onAddAsset: () -> Unit,
     onPrintLabels: () -> Unit,
-    title: String = "Aset",
-    onBack: (() -> Unit)? = null,
     vm: AssetListViewModel = hiltViewModel(),
 ) {
     val filter by vm.filter.collectAsStateWithLifecycle()
@@ -101,7 +99,6 @@ fun AssetListScreen(
             if (selecting) {
                 AppTopBar(
                     title = "${selection.size} dipilih",
-                    onBack = onBack,
                     actions = {
                         if (count != null && selection.size < (count ?: 0)) {
                             IconButton(onClick = vm::selectAll) { Icon(Icons.Filled.SelectAll, contentDescription = "Pilih semua") }
@@ -119,8 +116,7 @@ fun AssetListScreen(
                 )
             } else {
                 AppTopBar(
-                    title = title + (count?.let { " (${Fmt.number(it.toLong())})" } ?: ""),
-                    onBack = onBack,
+                    title = "Aset" + (count?.let { " (${Fmt.number(it.toLong())})" } ?: ""),
                     actions = {
                         if ((count ?: 0) > 0) {
                             IconButton(onClick = vm::selectAll) { Icon(Icons.Filled.SelectAll, contentDescription = "Pilih semua aset") }

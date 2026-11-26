@@ -43,7 +43,6 @@ import javax.inject.Inject
 @OptIn(ExperimentalCoroutinesApi::class, FlowPreview::class)
 @HiltViewModel
 class AssetListViewModel @Inject constructor(
-    savedStateHandle: androidx.lifecycle.SavedStateHandle,
     private val repo: AssetRepository,
     master: MasterDataRepository,
     session: SessionManager,
@@ -80,10 +79,7 @@ class AssetListViewModel @Inject constructor(
         }
     }
 
-    /** Filter awal dari argumen navigasi (FilteredAssetsRoute); kosong untuk tab Aset biasa. */
-    private val _filter = MutableStateFlow(
-        AssetFilter(departmentId = savedStateHandle.get<String>("departmentId"), divisionId = savedStateHandle.get<String>("divisionId")),
-    )
+    private val _filter = MutableStateFlow(AssetFilter())
     val filter: StateFlow<AssetFilter> = _filter.asStateFlow()
 
     /** Pencarian di-debounce agar tidak query setiap ketikan. */

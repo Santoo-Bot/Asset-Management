@@ -76,12 +76,6 @@ interface MasterDataRepository {
      * ditolak dengan pesan rincian pemakaiannya.
      */
     suspend fun delete(type: MasterType, id: String): AppResult<Unit>
-
-    /**
-     * Departemen/divisi: pindahkan semua pemakainya (aset; untuk divisi juga departemennya) ke [targetId],
-     * lalu hapus data lama. Mengembalikan jumlah aset yang dipindah.
-     */
-    suspend fun moveUsersAndDelete(type: MasterType, id: String, targetId: String): AppResult<Int>
 }
 
 interface UserRepository {

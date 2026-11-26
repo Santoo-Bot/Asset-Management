@@ -167,48 +167,4 @@ class DeleteFlowsTest {
         // Riwayat mutasi aset lain tetap ada.
         assertEquals(1, ops.observeMutations(other.id).first().size)
     }
-
-    @Test fun `pindahkan aset lalu hapus departemen dan divisi`() = runTest {
-        session.login(User("adm", "admin", "Admin GA", Role.ADMIN, hasPin = false, isActive = true))
-        val audit = AuditLogRepositoryImpl(db.auditLogDao(), session, clock)
-        val master = MasterDataRepositoryImpl(
-            db, db.assetDao(), db.categoryDao(), db.locationDao(), db.divisionDao(), db.departmentDao(), db.vendorDao(), db.unitDao(),
-            db.masterUsageDao(), db.insuranceTypeDao(), db.insurerDao(), session, audit, clock,
-        )
-        val assets = AssetRepositoryImpl(
-            db, db.assetDao(), db.categoryDao(), db.locationDao(), db.departmentDao(), db.divisionDao(),
-            SettingsRepositoryImpl(db.settingsDao()), session, audit, clock,
-        )
-        fun <T> ok(r: AppResult<T>): T = (r as? AppResult.Success)?.value ?: error("Gagal: $r")
-        val loc = ok(master.saveLocation(Location("", "Gedung", null)))
-        val ops = ok(master.saveDivision(Division("", "Operasional")))
-        val kom = ok(master.saveDivision(Division("", "Komersial")))
-        val ga = ok(master.saveDepartment(Department("", "GA", ops.id)))
-        val it = ok(master.saveDepartment(Department("", "IT", ops.id)))
-        val mkt = ok(master.saveDepartment(Department("", "Pemasaran", kom.id)))
-        val cat = master.observeCategories().first().first { c -> c.codePrefix == "IT" }
-        val ids = (1..5).map { n ->
-            ok(
-                assets.save(
-                    AssetInput(code = "A-$n", qrCode = "A-$n", name = "A$n", categoryId = cat.id, locationId = loc.id,
-                        departmentId = if (n <= 3) mkt.id else ga.id, acquisitionDate = LocalDate.of(2024, 1, 1), acquisitionCost = 1),
-                ),
-            ).id
-        }
-        // Lihat aset: filter departemen.
-        assertEquals(3, assets.filteredIds(AssetFilter(departmentId = mkt.id)).size)
-
-        // Departemen Pemasaran (3 aset) → pindah ke GA lalu hapus; divisi aset ikut menjadi Operasional.
-        assertEquals(3, ok(master.moveUsersAndDelete(MasterType.DEPARTMENT, mkt.id, ga.id)))
-        assertEquals(null, db.departmentDao().getById(mkt.id))
-        assertTrue(ids.all { db.assetDao().getById(it)!!.departmentId == ga.id })
-        assertTrue(ids.all { db.assetDao().getById(it)!!.divisionId == ops.id })
-
-        // Divisi Operasional (2 departemen, 5 aset) → pindah ke Komersial lalu hapus.
-        assertEquals(5, ok(master.moveUsersAndDelete(MasterType.DIVISION, ops.id, kom.id)))
-        assertEquals(null, db.divisionDao().getById(ops.id))
-        assertEquals(kom.id, db.departmentDao().getById(it.id)!!.divisionId)
-        assertTrue(ids.all { db.assetDao().getById(it)!!.divisionId == kom.id })
-        assertTrue(master.moveUsersAndDelete(MasterType.DIVISION, kom.id, kom.id) is AppResult.Failure)
-    }
 }

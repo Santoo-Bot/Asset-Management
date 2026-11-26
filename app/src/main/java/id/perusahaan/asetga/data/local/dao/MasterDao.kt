@@ -188,16 +188,6 @@ interface MasterUsageDao {
     @Query("UPDATE assets SET divisionId = NULL WHERE divisionId = :id AND deletedAt IS NOT NULL")
     suspend fun detachDivisionFromTrashedAssets(id: String)
 
-    /** Pindahkan semua aset dari departemen [id] ke [target] (divisi mengikuti departemen tujuan). */
-    @Query("UPDATE assets SET departmentId = :target, divisionId = :targetDivision, updatedAt = :now, syncState = 'PENDING' WHERE departmentId = :id")
-    suspend fun moveDepartmentAssets(id: String, target: String, targetDivision: String?, now: Long): Int
-
-    @Query("UPDATE departments SET divisionId = :target, updatedAt = :now, syncState = 'PENDING' WHERE divisionId = :id")
-    suspend fun moveDepartmentsToDivision(id: String, target: String, now: Long): Int
-
-    @Query("UPDATE assets SET divisionId = :target, updatedAt = :now, syncState = 'PENDING' WHERE divisionId = :id")
-    suspend fun moveDivisionAssets(id: String, target: String, now: Long): Int
-
     @Query("SELECT COUNT(*) FROM service_records WHERE vendorId = :id")
     suspend fun servicesWithVendor(id: String): Int
 
