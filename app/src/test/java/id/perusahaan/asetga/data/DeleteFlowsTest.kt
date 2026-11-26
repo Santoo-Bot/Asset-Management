@@ -129,4 +129,49 @@ class DeleteFlowsTest {
         assertTrue(reset.reset(ResetScope.EVERYTHING) is AppResult.Success)
         assertEquals(0, db.userDao().count())
     }
+
+    @Test fun `departemen dan divisi bisa dihapus walau asetnya masih di Aset terhapus dan punya riwayat mutasi`() = runTest {
+        session.login(User("adm", "admin", "Admin GA", Role.ADMIN, hasPin = false, isActive = true))
+        val audit = AuditLogRepositoryImpl(db.auditLogDao(), session, clock)
+        val master = MasterDataRepositoryImpl(
+            db, db.assetDao(), db.categoryDao(), db.locationDao(), db.divisionDao(), db.departmentDao(), db.vendorDao(), db.unitDao(),
+            db.masterUsageDao(), db.insuranceTypeDao(), db.insurerDao(), session, audit, clock,
+        )
+        val assets = AssetRepositoryImpl(
+            db, db.assetDao(), db.categoryDao(), db.locationDao(), db.departmentDao(), db.divisionDao(),
+            SettingsRepositoryImpl(db.settingsDao()), session, audit, clock,
+        )
+        val ops = OperationRepositoryImpl(db, db.assetDao(), db.mutationDao(), db.serviceDao(), db.locationDao(), db.departmentDao(), db.vendorDao(), session, audit, clock)
+        fun <T> ok(r: AppResult<T>): T = (r as? AppResult.Success)?.value ?: error("Gagal: $r")
+
+        val locA = ok(master.saveLocation(Location("", "Gedung A", null)))
+        val locB = ok(master.saveLocation(Location("", "Gedung B", null)))
+        val div = ok(master.saveDivision(Division("", "Operasional")))
+        val dept = ok(master.saveDepartment(Department("", "GA", div.id)))
+        val cat = master.observeCategories().first().first { it.codePrefix == "IT" }
+        val asset = ok(
+            assets.save(
+                AssetInput(code = "IT-1", qrCode = "IT-1", name = "Laptop", categoryId = cat.id, locationId = locA.id, departmentId = dept.id,
+                    acquisitionDate = LocalDate.of(2024, 1, 1), acquisitionCost = 1),
+            ),
+        )
+        ok(ops.recordMutation(MutationInput(asset.id, toLocationId = locB.id)))
+        // Data lama (sebelum perbaikan) yang mencatat departemen di riwayat mutasi.
+        db.openHelper.writableDatabase.execSQL("UPDATE asset_mutations SET fromDepartmentId = '${dept.id}', toDepartmentId = '${dept.id}'")
+
+        // Aset aktif masih menahan.
+        assertTrue((master.delete(MasterType.DEPARTMENT, dept.id) as AppResult.Failure).message.contains("1 aset aktif"))
+        // Setelah aset masuk Aset terhapus, departemen lalu divisi bisa dihapus.
+        ok(assets.delete(listOf(asset.id), "salah input"))
+        assertTrue((master.delete(MasterType.DIVISION, div.id) as AppResult.Failure).message.contains("1 departemen"))
+        assertTrue(master.delete(MasterType.DEPARTMENT, dept.id) is AppResult.Success)
+        assertTrue(master.delete(MasterType.DIVISION, div.id) is AppResult.Success)
+
+        val trashed = db.assetDao().getById(asset.id)!!
+        assertEquals(null, trashed.departmentId)
+        assertEquals(null, trashed.divisionId)
+        // Aset terhapus masih bisa dipulihkan, riwayat mutasinya tetap ada.
+        assertTrue(assets.restore(asset.id) is AppResult.Success)
+        assertEquals(1, ops.observeMutations(asset.id).first().size)
+    }
 }

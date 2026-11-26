@@ -334,8 +334,9 @@ class MasterDataRepositoryImpl @Inject constructor(
         val usage = usageOf(type, id)
         if (usage.isNotEmpty()) {
             val hint = when (type) {
-                MasterType.DIVISION -> "Pindahkan departemen & aset ke divisi lain dulu."
-                MasterType.CATEGORY, MasterType.LOCATION, MasterType.DEPARTMENT -> "Pindahkan dulu ke ${type.singular} lain (ubah aset / mutasi)."
+                MasterType.DIVISION -> "Hapus atau pindahkan dulu departemen di bawahnya, dan ubah divisi aset aktif tersebut."
+                MasterType.DEPARTMENT -> "Ubah departemen aset aktif tersebut dulu."
+                MasterType.CATEGORY, MasterType.LOCATION -> "Pindahkan dulu ke ${type.singular} lain (ubah aset / mutasi)."
                 MasterType.VENDOR -> "Ubah vendor pada catatan servis tersebut dulu."
                 MasterType.UNIT -> "Ubah satuan barang tersebut dulu."
                 MasterType.INSURANCE_TYPE, MasterType.INSURER -> "Ubah atau hapus polis tersebut dulu."
@@ -348,8 +349,16 @@ class MasterDataRepositoryImpl @Inject constructor(
             when (type) {
                 MasterType.CATEGORY -> usageDao.deleteCategory(id)
                 MasterType.LOCATION -> usageDao.deleteLocation(id)
-                MasterType.DIVISION -> usageDao.deleteDivision(id)
-                MasterType.DEPARTMENT -> usageDao.deleteDepartment(id)
+                MasterType.DIVISION -> {
+                    usageDao.detachDivisionFromTrashedAssets(id)
+                    usageDao.deleteDivision(id)
+                }
+                MasterType.DEPARTMENT -> {
+                    usageDao.detachDepartmentFromTrashedAssets(id)
+                    usageDao.detachDepartmentFromMutationsFrom(id)
+                    usageDao.detachDepartmentFromMutationsTo(id)
+                    usageDao.deleteDepartment(id)
+                }
                 MasterType.VENDOR -> usageDao.deleteVendor(id)
                 MasterType.UNIT -> usageDao.deleteUnit(id)
                 MasterType.INSURANCE_TYPE -> {
@@ -386,13 +395,12 @@ class MasterDataRepositoryImpl @Inject constructor(
                 }
                 MasterType.DIVISION -> {
                     addIfUsed(usageDao.departmentsInDivision(id), "departemen")
-                    addIfUsed(usageDao.assetsInDivision(id), "aset")
-                    addIfUsed(usageDao.deletedAssetsInDivision(id), TRASH_LABEL)
+                    // Aset di Aset terhapus tidak menghalangi; divisinya dikosongkan saat divisi dihapus.
+                    addIfUsed(usageDao.assetsInDivision(id), "aset aktif")
                 }
                 MasterType.DEPARTMENT -> {
-                    addIfUsed(usageDao.assetsInDepartment(id), "aset")
-                    addIfUsed(usageDao.deletedAssetsInDepartment(id), TRASH_LABEL)
-                    addIfUsed(usageDao.mutationsWithDepartment(id), "riwayat mutasi")
+                    // Aset di Aset terhapus & riwayat mutasi tidak menghalangi; dikosongkan saat departemen dihapus.
+                    addIfUsed(usageDao.assetsInDepartment(id), "aset aktif")
                 }
                 MasterType.VENDOR -> addIfUsed(usageDao.servicesWithVendor(id), "catatan servis")
                 MasterType.UNIT -> addIfUsed(usageDao.itemsWithUnit(id), "barang stok")

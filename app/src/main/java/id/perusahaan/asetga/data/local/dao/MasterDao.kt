@@ -187,6 +187,19 @@ interface MasterUsageDao {
     @Query("SELECT COUNT(*) FROM asset_mutations WHERE fromDepartmentId = :id OR toDepartmentId = :id")
     suspend fun mutationsWithDepartment(id: String): Int
 
+    /** Lepas departemen dari aset di Aset terhapus & riwayat mutasi agar departemen bisa dihapus. */
+    @Query("UPDATE assets SET departmentId = NULL WHERE departmentId = :id AND deletedAt IS NOT NULL")
+    suspend fun detachDepartmentFromTrashedAssets(id: String)
+
+    @Query("UPDATE asset_mutations SET fromDepartmentId = NULL WHERE fromDepartmentId = :id")
+    suspend fun detachDepartmentFromMutationsFrom(id: String)
+
+    @Query("UPDATE asset_mutations SET toDepartmentId = NULL WHERE toDepartmentId = :id")
+    suspend fun detachDepartmentFromMutationsTo(id: String)
+
+    @Query("UPDATE assets SET divisionId = NULL WHERE divisionId = :id AND deletedAt IS NOT NULL")
+    suspend fun detachDivisionFromTrashedAssets(id: String)
+
     @Query("SELECT COUNT(*) FROM service_records WHERE vendorId = :id")
     suspend fun servicesWithVendor(id: String): Int
 
