@@ -1,37 +1,49 @@
 # Aset GA — Sistem Manajemen Aset & Inventaris
 
-Aplikasi Android offline-first untuk tim General Affair: register aset, scan QR, mutasi, servis, stok barang habis pakai, dashboard, notifikasi, import/export Excel, dan backup terenkripsi.
+Aplikasi Android **offline-first** untuk tim General Affair: register aset dengan penyusutan otomatis, scan QR, label QR, mutasi, servis, stok barang habis pakai, dashboard, pengingat harian, import/export Excel, backup terenkripsi, audit log, dan stock opname.
 
-Kotlin · Jetpack Compose (Material 3) · MVVM + Clean Architecture ringan · Hilt · Room · Navigation Compose · WorkManager.
+Kotlin · Jetpack Compose (Material 3) · MVVM + Clean Architecture ringan · Hilt · Room · Paging 3 · Navigation Compose · CameraX + ML Kit · ZXing · Coil · WorkManager · BiometricPrompt. minSdk 26, targetSdk 36.
 
-## Status pengerjaan
+---
 
-| Tahap | Isi | Status |
-|---|---|---|
-| a | Setup proyek, tema terang/gelap, navigasi, master data, pengguna & peran, login + biometrik/PIN, konfigurasi release | ✅ selesai |
-| b | Register aset + foto | ⏳ |
-| c | Scan QR/barcode + label QR | ⏳ |
-| d | Mutasi + servis | ⏳ |
-| e | Stok barang habis pakai | ⏳ |
-| f | Dashboard + notifikasi | ⏳ |
-| g | Import/export, backup, audit log, stock opname | ⏳ |
+## 1. Memasang APK (tanpa Android Studio)
 
-## Mendapatkan APK siap install (tanpa Android Studio)
+Setiap push ke `main` dibuild otomatis oleh GitHub Actions. Seluruh unit test dijalankan, lalu **APK debug diterbitkan ke tab Releases**.
 
-Repo ini dilengkapi GitHub Actions (`.github/workflows/android.yml`). Setiap push akan:
-1. menjalankan seluruh unit test (termasuk test DAO Room lewat Robolectric),
-2. mem-build **APK debug** dan mengunggahnya sebagai artifact `aset-ga-debug-apk`.
+**Dari HP (GitHub Mobile atau browser):**
+1. Buka repo → **Releases** → rilis paling atas (`Aset GA build N`).
+2. Unduh `aset-ga-debug-N.apk`, lalu buka file itu.
+3. Izinkan "Instal dari sumber ini" bila diminta. Jika Play Protect memperingatkan, pilih **Tetap instal**.
 
-Unduh APK: tab **Actions** → run terbaru → bagian **Artifacts** → `aset-ga-debug-apk` (ZIP berisi `.apk`). Salin ke HP, buka, dan izinkan "Instal dari sumber tidak dikenal".
+Versi baru dipasang di atas versi lama tanpa menghapus data (selama keduanya build debug).
 
-## Build di komputer sendiri
+### Pertama kali dibuka
+1. Buat akun **Admin GA** pertama.
+2. (Opsional) **Lainnya → Pengaturan**: isi *Nama perusahaan pada label*, atur PIN, jam pengingat.
+3. **Lainnya → Master data**: tambah lokasi, departemen, vendor. Kategori awal sudah terisi:
+
+   | Kategori | Kode | Umur ekonomis |
+   |---|---|---|
+   | Elektronik & IT | IT | 4 th |
+   | Furnitur | FUR | 8 th |
+   | Kendaraan | KND | 8 th |
+   | Peralatan Kantor | PK | 4 th |
+   | Mesin & Peralatan | MSN | 8 th |
+   | Bangunan & Instalasi | BGN | 20 th |
+   | Lainnya | LN | 4 th |
+
+4. **Lainnya → Pengguna & peran**: tambah Staf GA / Viewer.
+
+Build **debug** otomatis berisi data contoh (6 lokasi, 7 departemen, 4 vendor, **5.000 aset**) untuk mencoba dan menguji performa. Build **release** tidak pernah berisi data contoh.
+
+## 2. Build & menjalankan di emulator/HP
 
 Prasyarat: Android Studio terbaru (berisi Android SDK) dan JDK 17+.
 
-1. Buka folder proyek di Android Studio, tunggu Gradle sync selesai.
-2. Pilih emulator atau HP (aktifkan *USB debugging*), lalu tekan **Run**.
+1. `File → Open` folder repo, tunggu Gradle sync.
+2. Pilih emulator (API 26+) atau HP dengan *USB debugging* aktif, lalu tekan **Run**.
 
-Atau lewat terminal:
+Lewat terminal:
 
 ```bash
 ./gradlew testDebugUnitTest
@@ -41,50 +53,126 @@ Atau lewat terminal:
 ./gradlew installDebug
 ```
 
-Build debug memakai `applicationId` berakhiran `.debug` dan otomatis mengisi data contoh (lokasi, departemen, vendor; aset menyusul di tahap b). Build release tidak pernah berisi data contoh.
+Kamera di emulator: aktifkan *Virtual scene* / webcam di pengaturan AVD untuk mencoba scan QR. Uji paling akurat di HP fisik.
 
-### Pertama kali dibuka
-Aplikasi meminta pembuatan akun **Admin GA** pertama. Setelah itu Admin dapat menambah pengguna lain (Staf GA / Viewer) dari **Lainnya → Pengguna & peran**.
+## 3. Membuat APK / AAB release
 
-## Build release (APK/AAB)
+Keystore **tidak pernah** di-commit (`*.jks`, `*.keystore`, `keystore.properties` ada di `.gitignore`). Signing dibaca dari variabel lingkungan.
 
-Keystore **tidak pernah** di-commit (`*.jks`, `*.keystore` ada di `.gitignore`). Signing dibaca dari variabel lingkungan.
-
-1. Buat keystore sekali saja, lalu simpan di tempat aman (di luar repo):
+1. Buat keystore sekali, simpan di luar repo dan buat cadangannya. Kehilangan keystore berarti tidak bisa memperbarui aplikasi:
    ```bash
    keytool -genkeypair -v -keystore ~/keys/aset-ga-release.jks -alias asetga -keyalg RSA -keysize 4096 -validity 10000
    ```
-2. Set variabel lingkungan lalu build:
+2. Set variabel lingkungan:
    ```bash
    export ASETGA_KEYSTORE_PATH=~/keys/aset-ga-release.jks ASETGA_KEYSTORE_PASSWORD='***' ASETGA_KEY_ALIAS=asetga ASETGA_KEY_PASSWORD='***'
    ```
+3. Build:
    ```bash
    ./gradlew assembleRelease bundleRelease
    ```
-   Hasil: `app/build/outputs/apk/release/app-release.apk` dan `app/build/outputs/bundle/release/app-release.aab`.
+   Hasil: `app/build/outputs/apk/release/app-release.apk` (pasang langsung) dan `app/build/outputs/bundle/release/app-release.aab` (unggah ke Play Console).
 
-Untuk build release di GitHub Actions, isi secret repo: `ASETGA_KEYSTORE_BASE64` (hasil `base64 -w0 aset-ga-release.jks`), `ASETGA_KEYSTORE_PASSWORD`, `ASETGA_KEY_ALIAS`, `ASETGA_KEY_PASSWORD`. Job `release` lalu mengunggah APK & AAB bertanda tangan.
+Release memakai R8 (minify + shrink resources). `ASETGA_VERSION_CODE` (opsional) mengatur versionCode.
 
-Release memakai R8 (minify + shrink resources).
+**Release lewat GitHub Actions:** isi secret repo (*Settings → Secrets and variables → Actions*):
 
-## Struktur kode
+| Secret | Isi |
+|---|---|
+| `ASETGA_KEYSTORE_BASE64` | hasil `base64 -w0 aset-ga-release.jks` |
+| `ASETGA_KEYSTORE_PASSWORD` | password keystore |
+| `ASETGA_KEY_ALIAS` | alias key, mis. `asetga` |
+| `ASETGA_KEY_PASSWORD` | password key |
+
+Job `release` lalu mengunggah APK & AAB bertanda tangan sebagai artifact. Tanpa secret, job ini dilewati.
+
+> APK release memakai `applicationId` berbeda dari debug (`id.perusahaan.asetga` vs `…asetga.debug`), jadi keduanya bisa terpasang bersamaan, dan datanya terpisah. Pindahkan data antar-keduanya lewat Backup & restore.
+
+## 4. Backup & restore data
+
+Semua data tersimpan **hanya di HP** (database Room + folder foto). Backup otomatis Android sengaja dimatikan. Lakukan backup rutin:
+
+1. **Lainnya → Backup & restore → Buat backup.**
+2. Isi passphrase (min. 8 karakter) dua kali.
+3. Ketuk **Simpan backup…**, lalu pilih lokasi:
+   - **Google Drive**: pilih *Drive* di panel kiri jendela simpan.
+   - Penyimpanan HP / kartu SD / folder Download.
+4. File `aset-ga-backup-YYYYMMDD-HHMM.gabak` berisi database + semua foto, terenkripsi **AES-256-GCM** (kunci dari passphrase lewat PBKDF2-HMAC-SHA256, 210.000 iterasi).
+
+**Restore** (khusus Admin GA): *Restore dari backup → pilih file → masukkan passphrase*. File didekripsi dan diperiksa dulu. Data lama baru diganti bila backup valid, lalu aplikasi dimulai ulang. Masuk dengan akun yang ada di dalam backup.
+
+> Passphrase tidak bisa dipulihkan. Simpan di pengelola kata sandi perusahaan.
+
+## 5. Fitur
+
+| Modul | Isi |
+|---|---|
+| **Beranda** | Total aset, nilai perolehan, nilai buku, aset rusak, garansi habis ≤90 hari, servis terlambat & jatuh tempo, barang perlu reorder; grafik per kategori & kondisi; daftar *Perlu tindakan* yang bisa diketuk |
+| **Aset** | Daftar Paging 3 (cepat untuk 5.000+ aset) dengan pencarian, filter kategori/lokasi/kondisi/status, urutan; kode otomatis `KATEGORI-TAHUN-NOMOR`; foto kamera/galeri dikompres; umur berjalan, penyusutan garis lurus, akumulasi, nilai buku, status garansi; riwayat perubahan |
+| **Scan** | Scan QR/barcode membuka detail aset; input kode manual; izin kamera diminta saat dibutuhkan, termasuk saat izin ditolak permanen |
+| **Label QR** | Tekan lama di daftar aset untuk memilih banyak aset → PDF A4 (3×8 label per lembar), PNG, cetak lewat layanan cetak Android, atau bagikan |
+| **Mutasi** | Pindah lokasi/departemen/PIC dengan alasan & penyetuju; data aset ikut diperbarui |
+| **Servis** | Preventif/Korektif/Kalibrasi/Inspeksi, vendor, biaya, foto, jadwal berikutnya; status Terlambat / Jatuh tempo ≤30 hari / Terjadwal |
+| **Stok** | Master barang, transaksi masuk/keluar (keluar tidak boleh melebihi stok), stok akhir = awal + masuk − keluar, status Reorder, scan barcode untuk memilih barang |
+| **Stock opname** | Pilih lokasi, scan aset berurutan, lalu lihat yang ditemukan / tidak ditemukan / tidak terdaftar di lokasi itu; laporan tersimpan & bisa diexport |
+| **Import/Export** | Template Excel + import dengan validasi per baris (baris bermasalah ditampilkan); export aset/servis/stok ke XLSX atau CSV (pemisah `;`) lalu bagikan |
+| **Notifikasi** | Cek harian (default 08:00, bisa diubah) untuk garansi, servis, dan stok; izin notifikasi Android 13+ |
+| **Keamanan** | Kata sandi & PIN di-hash PBKDF2; kunci biometrik / kunci layar / PIN; kunci otomatis setelah 1 menit di latar belakang |
+| **Audit log** | Siapa mengubah apa dan kapan pada aset, stok, master, pengguna, beserta nilai lama → baru |
+
+### Peran
+
+| | Admin GA | Staf GA | Viewer |
+|---|:-:|:-:|:-:|
+| Lihat semua data, scan, label, export | ✓ | ✓ | ✓ |
+| Tambah/ubah aset, mutasi, servis, stok, opname, import, backup | ✓ | ✓ | – |
+| Master data, nilai residu, nama perusahaan, restore | ✓ | – | – |
+| Kelola pengguna & peran | ✓ | – | – |
+
+Peran dicek di UI (tombol disembunyikan) **dan** di lapisan repository.
+
+### Rumus
+
+- Penyusutan per tahun = harga × (1 − residu%) ÷ umur ekonomis kategori
+- Akumulasi = prorata per bulan penuh sejak perolehan, tidak melebihi harga × (1 − residu%); berhenti pada tanggal penghapusan untuk aset Dihapus/Dijual
+- Nilai buku = harga − akumulasi
+- Residu: diatur per kategori; bila kosong memakai *Nilai residu default* di Pengaturan (awal 0%)
+- Garansi: Aktif / Segera habis (≤90 hari) / Habis · Servis: Terlambat / Jatuh tempo (≤30 hari) / Terjadwal
+- Stok akhir = stok awal + Σ masuk − Σ keluar; Reorder bila stok ≤ minimum
+
+Data tidak pernah dihapus permanen: master data dan barang **dinonaktifkan**, aset diberi status **Dihapus/Dijual**.
+
+## 6. Struktur kode
 
 ```
 app/src/main/java/id/perusahaan/asetga/
-├─ data/      local (Room: entity, dao, database), repository (implementasi), seed
-├─ domain/    model, repository (interface), security, session, validation
-├─ ui/        theme, navigation, components, feature/<layar>
-├─ di/        modul Hilt
-└─ util/      format Rupiah & tanggal Indonesia
-app/src/debug/    data contoh (debug saja)
-app/src/release/  pengganti no-op untuk data contoh
+├─ domain/        model, repository (interface), calc (penyusutan, garansi, servis, stok, kode),
+│                 validation, security (hash, enkripsi backup), session, excel (XLSX/CSV/import)
+├─ data/
+│  ├─ local/      Room: entity, dao, AppDatabase (+ data awal)
+│  ├─ repository/ implementasi interface domain + audit log
+│  ├─ file/       foto, label QR/PDF, share & print, export/import, backup
+│  └─ worker/     pengingat harian (WorkManager)
+├─ ui/            theme (biru BCA), navigation, components, feature/<layar>
+├─ di/            modul Hilt
+└─ util/          format Rupiah & tanggal Indonesia (dd MMM yyyy)
+app/src/debug/    data contoh (debug saja) · app/src/release/  pengganti no-op
+app/schemas/      skema Room (untuk migrasi)
 ```
 
-Lapisan UI hanya bergantung pada interface di `domain/repository`. Untuk sinkronisasi multi-pengguna (Supabase/Firebase) di fase lanjutan, cukup tambah implementasi repository baru; setiap tabel sudah memakai UUID, `updatedAt`, `deletedAt`, dan `syncState`.
+### Persiapan sinkronisasi multi-pengguna (fase lanjutan)
 
-## Keamanan
-- Kata sandi & PIN di-hash PBKDF2-HMAC-SHA256 dengan salt acak; tidak ada plaintext.
-- Kunci aplikasi: biometrik / kunci layar HP / PIN aplikasi, otomatis terkunci setelah 1 menit di latar belakang.
-- Peran diperiksa di UI **dan** di lapisan repository.
-- Backup otomatis Android dimatikan; gunakan fitur Backup terenkripsi di aplikasi (tahap g).
-- Data tidak pernah dihapus permanen: master data dinonaktifkan, aset berstatus Dihapus/Dijual.
+- UI hanya bergantung pada interface di `domain/repository`. Untuk Supabase/Firebase, tambah sumber data remote + `SyncWorker` di `data/`, lalu ganti binding di `di/AppModule.kt`. Layar tidak perlu diubah.
+- Semua tabel memakai primary key **UUID**, kolom `createdAt`, `updatedAt`, `deletedAt` (soft delete), dan `syncState` (`PENDING`/`SYNCED`), siap untuk sinkronisasi dua arah.
+- Audit log hanya bertambah (append-only), cocok untuk resolusi konflik.
+
+## 7. Test
+
+```bash
+./gradlew testDebugUnitTest
+```
+
+- **Logika murni (JVM):** penyusutan & akumulasi, umur berjalan, status garansi/servis, stok & reorder, kode aset otomatis, validasi, hash kata sandi, kunci sesi, format Indonesia, XLSX tulis/baca, parser import per baris, CSV, enkripsi backup, jadwal pengingat.
+- **Room (Robolectric):** DAO master & aset (filter, paging, unique code), repository pengguna/master/aset, mutasi, jadwal servis, transaksi stok, stock opname, ringkasan dashboard.
+
+Laporan test tersedia sebagai artifact `test-reports` di setiap run GitHub Actions.
