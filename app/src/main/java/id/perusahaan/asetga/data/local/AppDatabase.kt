@@ -68,7 +68,7 @@ import java.util.UUID
         InsurancePolicyEntity::class,
         InsuranceItemEntity::class,
     ],
-    version = 6,
+    version = 7,
     exportSchema = true,
 )
 @TypeConverters(Converters::class)
@@ -201,7 +201,40 @@ object Migrations {
         }
     }
 
-    val ALL = arrayOf(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6)
+    /**
+     * v7: membersihkan data master nonaktif (fitur nonaktifkan sudah diganti hapus).
+     * Yang tidak dipakai dihapus; yang masih dipakai diaktifkan kembali agar data terkait tetap utuh.
+     * Catatan: subquery memakai "IS NOT NULL" karena NOT IN dengan NULL tidak menghapus apa pun.
+     */
+    val MIGRATION_6_7 = object : Migration(6, 7) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            val used = mapOf(
+                "categories" to listOf("SELECT categoryId FROM assets"),
+                "locations" to listOf(
+                    "SELECT locationId FROM assets", "SELECT storageLocationId FROM items", "SELECT locationId FROM audit_sessions",
+                    "SELECT fromLocationId FROM asset_mutations", "SELECT toLocationId FROM asset_mutations",
+                ),
+                "divisions" to listOf("SELECT divisionId FROM departments", "SELECT divisionId FROM assets"),
+                "departments" to listOf(
+                    "SELECT departmentId FROM assets", "SELECT fromDepartmentId FROM asset_mutations", "SELECT toDepartmentId FROM asset_mutations",
+                ),
+                "vendors" to listOf("SELECT vendorId FROM service_records"),
+                "units" to listOf("SELECT unitId FROM items"),
+                "insurance_types" to listOf("SELECT typeId FROM insurance_policies"),
+                "insurers" to listOf("SELECT insurerId FROM insurance_policies"),
+            )
+            used.forEach { (table, refs) ->
+                val notUsed = refs.joinToString(" AND ") { q ->
+                    val col = q.substringAfter("SELECT ").substringBefore(" FROM")
+                    "id NOT IN ($q WHERE $col IS NOT NULL)"
+                }
+                db.execSQL("DELETE FROM `$table` WHERE isActive = 0 AND $notUsed")
+                db.execSQL("UPDATE `$table` SET isActive = 1, syncState = 'PENDING' WHERE isActive = 0")
+            }
+        }
+    }
+
+    val ALL = arrayOf(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7)
 }
 
 /** Data awal wajib (semua build): kategori dengan umur ekonomis, satuan, dan pengaturan default. */

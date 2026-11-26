@@ -45,7 +45,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -106,15 +105,8 @@ fun MasterListScreen(
                             leadingContent = row.badge?.let { b ->
                                 { StatusChip(b, MaterialTheme.colorScheme.secondaryContainer, MaterialTheme.colorScheme.onSecondaryContainer) }
                             },
-                            headlineContent = {
-                                Text(
-                                    row.title,
-                                    textDecoration = if (row.isActive) null else TextDecoration.LineThrough,
-                                    color = if (row.isActive) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.outline,
-                                )
-                            },
+                            headlineContent = { Text(row.title) },
                             supportingContent = row.subtitle?.let { s -> { Text(s) } },
-                            trailingContent = if (!row.isActive) ({ Text("Nonaktif", style = MaterialTheme.typography.labelSmall) }) else null,
                         )
                         HorizontalDivider()
                     }
@@ -131,7 +123,6 @@ fun MasterListScreen(
             divisions = divisions,
             onChange = vm::updateForm,
             onSave = vm::save,
-            onToggleActive = vm::toggleActive,
             onDelete = vm::delete,
             onDismiss = vm::closeEditor,
         )
@@ -147,7 +138,6 @@ private fun MasterEditorSheet(
     divisions: List<Division>,
     onChange: ((MasterForm) -> MasterForm) -> Unit,
     onSave: () -> Unit,
-    onToggleActive: (MasterRow) -> Unit,
     onDelete: (MasterRow) -> Unit,
     onDismiss: () -> Unit,
 ) {
@@ -207,11 +197,6 @@ private fun MasterEditorSheet(
                 Text(if (state.saving) "Menyimpan…" else "Simpan")
             }
             if (activeRow != null) {
-                if (!activeRow.isActive) {
-                    OutlinedButton(onClick = { onToggleActive(activeRow) }, modifier = Modifier.fillMaxWidth().height(52.dp)) {
-                        Text("Aktifkan kembali")
-                    }
-                }
                 OutlinedButton(
                     onClick = { confirmDelete = true },
                     modifier = Modifier.fillMaxWidth().height(52.dp),

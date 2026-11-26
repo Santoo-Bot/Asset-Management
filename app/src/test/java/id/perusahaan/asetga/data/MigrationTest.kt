@@ -119,7 +119,7 @@ class MigrationTest {
         assertEquals(12_000_000L, asset.acquisitionCost)
         assertNull(asset.qrCode)
         assertNull(asset.divisionId)
-        assertEquals(6, db.openHelper.readableDatabase.version)
+        assertEquals(7, db.openHelper.readableDatabase.version)
         assertEquals(AssetStatus.DIGUNAKAN, asset.status)
         db.close()
     }
@@ -128,6 +128,10 @@ class MigrationTest {
         legacyDb(2) { cat ->
             listOf(
                 "INSERT INTO departments (id, name, isActive, createdAt, updatedAt, deletedAt, syncState) VALUES ('dep', 'GA', 1, 1, 1, NULL, 'PENDING')",
+                // Data nonaktif sisa versi lama: 'dep-off' tidak dipakai, lokasi 'loc' dipakai aset tetapi nonaktif.
+                "INSERT INTO departments (id, name, isActive, createdAt, updatedAt, deletedAt, syncState) VALUES ('dep-off', 'Lama', 0, 1, 1, NULL, 'PENDING')",
+                "INSERT INTO locations (id, name, address, isActive, createdAt, updatedAt, deletedAt, syncState) VALUES ('loc-off', 'Gudang lama', NULL, 0, 1, 1, NULL, 'PENDING')",
+                "UPDATE locations SET isActive = 0 WHERE id = 'loc'",
                 "INSERT INTO assets ($assetCols, division, departmentId) VALUES ('a1', 'IT-1', 'A', '$cat', 19723, 1, 'loc', 'BAIK', 'AKTIF', 1, 1, 'PENDING', 'Operasional', 'dep')",
                 "INSERT INTO assets ($assetCols, division) VALUES ('a2', 'IT-2', 'B', '$cat', 19723, 1, 'loc', 'BAIK', 'AKTIF', 1, 1, 'PENDING', ' operasional ')",
                 "INSERT INTO assets ($assetCols, division) VALUES ('a3', 'IT-3', 'C', '$cat', 19723, 1, 'loc', 'RUSAK_BERAT', 'DIHAPUS_DIJUAL', 1, 1, 'PENDING', 'Keuangan')",
@@ -160,6 +164,12 @@ class MigrationTest {
             val m = db.mutationDao().observeForAsset("a1").first().single()
             assertEquals("Pindah", m.reason)
             assertNull(m.toUserLocation)
+
+            // v7: data master nonaktif yang tidak dipakai dihapus, yang dipakai diaktifkan kembali.
+            assertNull(db.departmentDao().getById("dep-off"))
+            assertNull(db.locationDao().getById("loc-off"))
+            assertEquals(true, db.locationDao().getById("loc")!!.isActive)
+            assertEquals(true, db.departmentDao().getById("dep")!!.isActive)
         }
         db.close()
     }
