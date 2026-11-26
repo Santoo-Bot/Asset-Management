@@ -11,6 +11,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.Logout
+import androidx.compose.material.icons.outlined.Business
 import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material.icons.outlined.Palette
 import androidx.compose.material.icons.outlined.Password
@@ -47,7 +48,7 @@ import id.perusahaan.asetga.ui.components.SectionHeader
 import id.perusahaan.asetga.util.Fmt
 import kotlinx.coroutines.launch
 
-private enum class SettingsDialog { PIN, PASSWORD, RESIDUAL, LOGOUT }
+private enum class SettingsDialog { PIN, PASSWORD, RESIDUAL, COMPANY, LOGOUT }
 
 @Composable
 fun SettingsScreen(onBack: () -> Unit, vm: SettingsViewModel = hiltViewModel()) {
@@ -93,6 +94,13 @@ fun SettingsScreen(onBack: () -> Unit, vm: SettingsViewModel = hiltViewModel()) 
             )
 
             if (user?.role?.canManageMaster == true) {
+                SectionHeader("Label QR")
+                ListItem(
+                    modifier = Modifier.clickable { dialog = SettingsDialog.COMPANY },
+                    leadingContent = { Icon(Icons.Outlined.Business, contentDescription = null) },
+                    headlineContent = { Text("Nama perusahaan pada label") },
+                    supportingContent = { Text(settings.companyName.ifBlank { "Belum diisi" }) },
+                )
                 SectionHeader("Penyusutan")
                 ListItem(
                     modifier = Modifier.clickable { dialog = SettingsDialog.RESIDUAL },
@@ -118,6 +126,13 @@ fun SettingsScreen(onBack: () -> Unit, vm: SettingsViewModel = hiltViewModel()) 
         SettingsDialog.RESIDUAL -> ResidualDialog(
             initial = Fmt.qty(settings.defaultResidualPercent),
             onSave = { vm.setDefaultResidual(it); dialog = null },
+            onDismiss = { dialog = null },
+        )
+        SettingsDialog.COMPANY -> TextInputDialog(
+            title = "Nama perusahaan",
+            initial = settings.companyName,
+            label = "Mis. PT BCA Life",
+            onSave = { vm.setCompanyName(it); dialog = null },
             onDismiss = { dialog = null },
         )
         SettingsDialog.LOGOUT -> AlertDialog(
@@ -211,6 +226,18 @@ private fun ResidualDialog(initial: String, onSave: (String) -> Unit, onDismiss:
                 )
             }
         },
+        confirmButton = { TextButton(onClick = { onSave(text) }) { Text("Simpan") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Batal") } },
+    )
+}
+
+@Composable
+private fun TextInputDialog(title: String, initial: String, label: String, onSave: (String) -> Unit, onDismiss: () -> Unit) {
+    var text by remember { mutableStateOf(initial) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(title) },
+        text = { FormTextField(text, { text = it.take(60) }, label) },
         confirmButton = { TextButton(onClick = { onSave(text) }) { Text("Simpan") } },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Batal") } },
     )

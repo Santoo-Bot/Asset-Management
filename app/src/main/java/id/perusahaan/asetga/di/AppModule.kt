@@ -10,10 +10,12 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import id.perusahaan.asetga.data.local.AppDatabase
 import id.perusahaan.asetga.data.local.DefaultData
+import id.perusahaan.asetga.data.repository.AssetRepositoryImpl
 import id.perusahaan.asetga.data.repository.AuditLogRepositoryImpl
 import id.perusahaan.asetga.data.repository.MasterDataRepositoryImpl
 import id.perusahaan.asetga.data.repository.SettingsRepositoryImpl
 import id.perusahaan.asetga.data.repository.UserRepositoryImpl
+import id.perusahaan.asetga.domain.repository.AssetRepository
 import id.perusahaan.asetga.domain.repository.AuditLogRepository
 import id.perusahaan.asetga.domain.repository.MasterDataRepository
 import id.perusahaan.asetga.domain.repository.SettingsRepository
@@ -41,6 +43,7 @@ object AppModule {
     @Provides fun unitDao(db: AppDatabase) = db.unitDao()
     @Provides fun settingsDao(db: AppDatabase) = db.settingsDao()
     @Provides fun auditLogDao(db: AppDatabase) = db.auditLogDao()
+    @Provides fun assetDao(db: AppDatabase) = db.assetDao()
 
     @Provides
     @Singleton
@@ -58,4 +61,5 @@ abstract class RepositoryModule {
     @Binds abstract fun users(impl: UserRepositoryImpl): UserRepository
     @Binds abstract fun settings(impl: SettingsRepositoryImpl): SettingsRepository
     @Binds abstract fun auditLog(impl: AuditLogRepositoryImpl): AuditLogRepository
+    @Binds abstract fun assets(impl: AssetRepositoryImpl): AssetRepository
 }

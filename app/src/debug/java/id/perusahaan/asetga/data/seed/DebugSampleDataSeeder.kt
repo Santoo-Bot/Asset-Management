@@ -3,10 +3,17 @@ package id.perusahaan.asetga.data.seed
 import androidx.room.withTransaction
 import id.perusahaan.asetga.data.local.AppDatabase
 import id.perusahaan.asetga.data.local.entity.AppSettingEntity
+import id.perusahaan.asetga.data.local.entity.AssetEntity
 import id.perusahaan.asetga.data.local.entity.DepartmentEntity
 import id.perusahaan.asetga.data.local.entity.LocationEntity
 import id.perusahaan.asetga.data.local.entity.VendorEntity
+import id.perusahaan.asetga.domain.calc.AssetCodeGenerator
+import id.perusahaan.asetga.domain.model.AssetCondition
+import id.perusahaan.asetga.domain.model.AssetStatus
+import kotlinx.coroutines.flow.first
+import java.time.LocalDate
 import java.util.UUID
+import kotlin.random.Random
 import javax.inject.Inject
 
 /** Data contoh untuk build debug saja. Dijalankan sekali (ditandai di app_settings). */
@@ -15,6 +22,11 @@ class DebugSampleDataSeeder @Inject constructor(
 ) : SampleDataSeeder {
 
     override suspend fun seedIfNeeded() {
+        seedMasters()
+        seedAssets()
+    }
+
+    private suspend fun seedMasters() {
         if (db.settingsDao().get(KEY) != null) return
         val now = System.currentTimeMillis()
         fun id() = UUID.randomUUID().toString()
@@ -42,7 +54,81 @@ class DebugSampleDataSeeder @Inject constructor(
         }
     }
 
+    /** 5.000 aset contoh untuk menguji performa daftar (Paging 3) dan dashboard. */
+    private suspend fun seedAssets() {
+        if (db.settingsDao().get(KEY_ASSETS) != null) return
+        val categories = db.categoryDao().observeAll(false).first()
+        val locations = db.locationDao().observeAll(false).first()
+        val departments = db.departmentDao().observeAll(false).first()
+        if (categories.isEmpty() || locations.isEmpty()) return
+
+        val names = mapOf(
+            "IT" to listOf("Laptop Dell Latitude 5440", "Laptop Lenovo ThinkPad E14", "PC Desktop HP ProDesk", "Monitor LG 24\"", "Printer Epson L3210", "Proyektor Epson EB-X51", "Router MikroTik", "Switch Cisco 24 Port", "Scanner Canon", "UPS APC 1200VA"),
+            "FUR" to listOf("Meja Kerja", "Kursi Ergonomis", "Lemari Arsip Besi", "Meja Rapat 8 Orang", "Sofa Tamu", "Rak Buku", "Filing Cabinet 4 Laci"),
+            "KND" to listOf("Toyota Avanza", "Honda Vario 125", "Mitsubishi L300", "Toyota Innova Zenix", "Daihatsu Gran Max"),
+            "PK" to listOf("Mesin Fotokopi Canon", "Mesin Penghancur Kertas", "Telepon IP", "Brankas", "Mesin Absensi Sidik Jari", "Dispenser Air"),
+            "MSN" to listOf("Genset 20 kVA", "AC Split Daikin 1 PK", "AC Split Panasonic 2 PK", "Pompa Air", "Kompresor"),
+            "BGN" to listOf("Instalasi Listrik Lt. 1", "Partisi Ruang Rapat", "CCTV System", "Instalasi Jaringan LAN"),
+            "LN" to listOf("Kamera Dokumentasi", "Papan Tulis Kaca", "Tangga Lipat Aluminium"),
+        )
+        val pics = listOf("Andi", "Budi", "Citra", "Dewi", "Eko", "Fajar", "Gita", "Hendra", "Indah", "Joko", null)
+        val conditions = AssetCondition.entries
+        val rnd = Random(42)
+        val today = LocalDate.now()
+        val now = System.currentTimeMillis()
+        val sequences = mutableMapOf<String, Int>()
+
+        val all = (1..TOTAL_ASSETS).map {
+            val cat = categories[rnd.nextInt(categories.size)]
+            val acq = today.minusDays(rnd.nextLong(15, 365L * 9))
+            val key = "${cat.codePrefix}-${acq.year}"
+            val seq = (sequences[key] ?: 0) + 1
+            sequences[key] = seq
+            val baseCost = when (cat.codePrefix) {
+                "KND" -> 150_000_000L; "BGN" -> 80_000_000L; "MSN" -> 25_000_000L; "IT" -> 12_000_000L; else -> 3_000_000L
+            }
+            val roll = rnd.nextInt(100)
+            AssetEntity(
+                id = UUID.randomUUID().toString(),
+                code = AssetCodeGenerator.format(cat.codePrefix, acq.year, seq),
+                name = names[cat.codePrefix].orEmpty().ifEmpty { listOf(cat.name) }.let { it[rnd.nextInt(it.size)] },
+                categoryId = cat.id,
+                brandModel = null,
+                serialNumber = if (cat.codePrefix == "IT") "SN" + rnd.nextInt(10_000_000, 99_999_999) else null,
+                acquisitionDate = acq,
+                acquisitionCost = (baseCost * (0.5 + rnd.nextDouble())).toLong() / 1000 * 1000,
+                locationId = locations[rnd.nextInt(locations.size)].id,
+                departmentId = departments.getOrNull(rnd.nextInt(departments.size + 1))?.id,
+                picName = pics[rnd.nextInt(pics.size)],
+                condition = when {
+                    roll < 70 -> AssetCondition.BAIK
+                    roll < 88 -> AssetCondition.CUKUP
+                    roll < 96 -> AssetCondition.RUSAK_RINGAN
+                    else -> conditions.last()
+                },
+                status = when {
+                    roll < 85 -> AssetStatus.AKTIF
+                    roll < 90 -> AssetStatus.DISIMPAN
+                    roll < 94 -> AssetStatus.DIPINJAM
+                    roll < 97 -> AssetStatus.DALAM_PERBAIKAN
+                    else -> AssetStatus.DIHAPUS_DIJUAL
+                },
+                // Sebagian aset garansinya segera habis agar dashboard & notifikasi punya data.
+                warrantyUntil = if (rnd.nextInt(3) == 0) today.plusDays(rnd.nextLong(-200, 400)) else null,
+                createdAt = now,
+                updatedAt = now,
+            )
+        }.map { if (it.status == AssetStatus.DIHAPUS_DIJUAL) it.copy(disposalDate = today.minusDays(rnd.nextLong(1, 300))) else it }
+
+        db.withTransaction {
+            all.chunked(500).forEach { db.assetDao().insertAll(it) }
+            db.settingsDao().put(AppSettingEntity(KEY_ASSETS, now.toString()))
+        }
+    }
+
     private companion object {
         const val KEY = "debug_seed_v1"
+        const val KEY_ASSETS = "debug_seed_assets_v1"
+        const val TOTAL_ASSETS = 5_000
     }
 }

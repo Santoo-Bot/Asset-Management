@@ -59,6 +59,12 @@ class SettingsViewModel @Inject constructor(
         }
     }
 
+    fun setCompanyName(name: String) = viewModelScope.launch {
+        if (session.currentUser?.role?.canManageMaster != true) return@launch
+        settingsRepo.setCompanyName(name)
+        _messages.send("Nama perusahaan disimpan")
+    }
+
     /** Mengembalikan pesan error, atau null bila sukses. */
     suspend fun setPin(pin: String?): String? {
         val id = session.currentUser?.id ?: return "Sesi berakhir"

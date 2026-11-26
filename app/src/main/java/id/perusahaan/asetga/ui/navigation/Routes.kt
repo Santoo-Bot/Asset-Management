@@ -14,3 +14,8 @@ import kotlinx.serialization.Serializable
 @Serializable data class MasterListRoute(val type: String)
 @Serializable data object UsersRoute
 @Serializable data object SettingsRoute
+
+@Serializable data class AssetDetailRoute(val id: String)
+/** [id] null = tambah aset baru. */
+@Serializable data class AssetFormRoute(val id: String? = null)
+@Serializable data object LabelRoute

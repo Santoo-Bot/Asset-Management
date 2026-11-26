@@ -124,8 +124,7 @@ dependencies {
     implementation(libs.mlkit.barcode)
     implementation(libs.zxing.core)
     implementation(libs.coil.compose)
-    implementation(libs.fastexcel.writer)
-    implementation(libs.fastexcel.reader)
+    implementation(libs.androidx.exifinterface)
 
     testImplementation(libs.junit)
     testImplementation(libs.robolectric)

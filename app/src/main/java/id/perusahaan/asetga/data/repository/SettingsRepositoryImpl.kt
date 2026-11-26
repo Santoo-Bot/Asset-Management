@@ -32,6 +32,8 @@ class SettingsRepositoryImpl @Inject constructor(
     override suspend fun setReminderHour(hour: Int) = put(SettingKeys.REMINDER_HOUR, hour.coerceIn(0, 23).toString())
     override suspend fun setNotificationsEnabled(enabled: Boolean) = put(SettingKeys.NOTIFICATIONS_ENABLED, enabled.toString())
 
+    override suspend fun setCompanyName(name: String) = put(SettingKeys.COMPANY_NAME, name.trim().take(60))
+
     override suspend fun setDefaultResidualPercent(percent: Double): AppResult<Unit> {
         MasterValidator.validateResidualPercent(percent)?.let { return AppResult.Failure(it) }
         put(SettingKeys.DEFAULT_RESIDUAL_PERCENT, percent.toString())
@@ -50,6 +52,7 @@ class SettingsRepositoryImpl @Inject constructor(
                 defaultResidualPercent = map[SettingKeys.DEFAULT_RESIDUAL_PERCENT]?.toDoubleOrNull() ?: d.defaultResidualPercent,
                 reminderHour = map[SettingKeys.REMINDER_HOUR]?.toIntOrNull() ?: d.reminderHour,
                 notificationsEnabled = map[SettingKeys.NOTIFICATIONS_ENABLED]?.toBooleanStrictOrNull() ?: d.notificationsEnabled,
+                companyName = map[SettingKeys.COMPANY_NAME].orEmpty(),
             )
         }
     }

@@ -40,7 +40,12 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.toRoute
 import id.perusahaan.asetga.domain.model.MasterType
 import id.perusahaan.asetga.domain.model.User
+import id.perusahaan.asetga.ui.feature.asset.AssetDetailScreen
+import id.perusahaan.asetga.ui.feature.asset.AssetFormScreen
+import id.perusahaan.asetga.ui.feature.asset.AssetListScreen
 import id.perusahaan.asetga.ui.feature.home.PlaceholderScreen
+import id.perusahaan.asetga.ui.feature.label.LabelScreen
+import id.perusahaan.asetga.ui.feature.scan.ScanScreen
 import id.perusahaan.asetga.ui.feature.master.MasterListScreen
 import id.perusahaan.asetga.ui.feature.master.MasterMenuScreen
 import id.perusahaan.asetga.ui.feature.more.MoreScreen
@@ -85,11 +90,36 @@ fun MainScaffold(user: User) {
                 PlaceholderScreen("Beranda", "Dashboard ringkasan aset, nilai buku, dan daftar perlu tindakan hadir pada tahap (f).")
             }
             composable<AssetsRoute> {
-                PlaceholderScreen("Aset", "Register aset, pencarian, filter, dan foto hadir pada tahap (b).")
+                AssetListScreen(
+                    onOpenAsset = { nav.navigate(AssetDetailRoute(it)) },
+                    onAddAsset = { nav.navigate(AssetFormRoute()) },
+                    onPrintLabels = { nav.navigate(LabelRoute) },
+                )
             }
             composable<ScanRoute> {
-                PlaceholderScreen("Scan", "Scan QR/barcode dan stock opname hadir pada tahap (c) dan (g).")
+                ScanScreen(onOpenAsset = { nav.navigate(AssetDetailRoute(it)) })
             }
+            composable<AssetDetailRoute> {
+                AssetDetailScreen(
+                    onBack = nav::navigateUp,
+                    onEdit = { nav.navigate(AssetFormRoute(it)) },
+                    onPrintLabel = { nav.navigate(LabelRoute) },
+                )
+            }
+            composable<AssetFormRoute> { entry ->
+                val isEdit = entry.toRoute<AssetFormRoute>().id != null
+                AssetFormScreen(
+                    onBack = nav::navigateUp,
+                    onSaved = { id ->
+                        if (isEdit) {
+                            nav.popBackStack()
+                        } else {
+                            nav.navigate(AssetDetailRoute(id)) { popUpTo<AssetFormRoute> { inclusive = true } }
+                        }
+                    },
+                )
+            }
+            composable<LabelRoute> { LabelScreen(onBack = nav::navigateUp) }
             composable<StockRoute> {
                 PlaceholderScreen("Stok", "Stok barang habis pakai hadir pada tahap (e).")
             }

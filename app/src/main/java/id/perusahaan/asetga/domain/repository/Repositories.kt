@@ -2,6 +2,11 @@ package id.perusahaan.asetga.domain.repository
 
 import androidx.paging.PagingData
 import id.perusahaan.asetga.domain.model.AppResult
+import id.perusahaan.asetga.domain.model.Asset
+import id.perusahaan.asetga.domain.model.AssetDetail
+import id.perusahaan.asetga.domain.model.AssetFilter
+import id.perusahaan.asetga.domain.model.AssetInput
+import id.perusahaan.asetga.domain.model.AssetListItem
 import id.perusahaan.asetga.domain.model.AuditAction
 import id.perusahaan.asetga.domain.model.AuditEntityType
 import id.perusahaan.asetga.domain.model.AuditLogEntry
@@ -58,6 +63,8 @@ data class AppSettings(
     val defaultResidualPercent: Double = 0.0,
     val reminderHour: Int = 8,
     val notificationsEnabled: Boolean = true,
+    /** Ditampilkan pada label QR, mis. "Milik PT ...". */
+    val companyName: String = "",
 )
 
 interface SettingsRepository {
@@ -69,6 +76,7 @@ interface SettingsRepository {
     suspend fun setDefaultResidualPercent(percent: Double): AppResult<Unit>
     suspend fun setReminderHour(hour: Int)
     suspend fun setNotificationsEnabled(enabled: Boolean)
+    suspend fun setCompanyName(name: String)
 }
 
 interface AuditLogRepository {
@@ -82,4 +90,16 @@ interface AuditLogRepository {
 
     fun paging(entityType: AuditEntityType?, query: String): Flow<PagingData<AuditLogEntry>>
     fun observeForEntity(entityType: AuditEntityType, entityId: String): Flow<List<AuditLogEntry>>
+}
+
+interface AssetRepository {
+    fun paging(filter: AssetFilter): Flow<PagingData<AssetListItem>>
+    fun count(filter: AssetFilter): Flow<Int>
+    fun observeDetail(id: String): Flow<AssetDetail?>
+    suspend fun get(id: String): Asset?
+    suspend fun findByCode(code: String): Asset?
+    suspend fun getListItems(ids: List<String>): List<AssetListItem>
+    /** Usulan kode otomatis PREFIX-TAHUN-NNN berdasarkan kategori & tahun perolehan. */
+    suspend fun suggestCode(categoryId: String, year: Int): String
+    suspend fun save(input: AssetInput): AppResult<Asset>
 }

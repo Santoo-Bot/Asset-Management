@@ -4,6 +4,7 @@ import androidx.room.Database
 import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
 import androidx.sqlite.db.SupportSQLiteDatabase
+import id.perusahaan.asetga.data.local.dao.AssetDao
 import id.perusahaan.asetga.data.local.dao.AuditLogDao
 import id.perusahaan.asetga.data.local.dao.CategoryDao
 import id.perusahaan.asetga.data.local.dao.DepartmentDao
@@ -60,6 +61,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun unitDao(): UnitDao
     abstract fun settingsDao(): SettingsDao
     abstract fun auditLogDao(): AuditLogDao
+    abstract fun assetDao(): AssetDao
 
     companion object {
         const val NAME = "aset_ga.db"
@@ -115,6 +117,7 @@ object SettingKeys {
     const val DEFAULT_RESIDUAL_PERCENT = "default_residual_percent"
     const val REMINDER_HOUR = "reminder_hour"
     const val NOTIFICATIONS_ENABLED = "notifications_enabled"
+    const val COMPANY_NAME = "company_name"
 
     val defaults = mapOf(
         THEME_MODE to "SYSTEM",
@@ -122,5 +125,6 @@ object SettingKeys {
         DEFAULT_RESIDUAL_PERCENT to "0",
         REMINDER_HOUR to "8",
         NOTIFICATIONS_ENABLED to "true",
+        COMPANY_NAME to "",
     )
 }
