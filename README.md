@@ -84,7 +84,7 @@ Release memakai R8 (minify + shrink resources). `ASETGA_VERSION_CODE` (opsional)
 | `ASETGA_KEY_ALIAS` | alias key, mis. `asetga` |
 | `ASETGA_KEY_PASSWORD` | password key |
 
-Job `release` lalu mengunggah APK & AAB bertanda tangan sebagai artifact. Tanpa secret, job ini dilewati.
+Workflow lalu ikut membuat APK & AAB bertanda tangan dan mengunggahnya sebagai artifact `aset-ga-release`. Tanpa secret, langkah ini dilewati.
 
 > APK release memakai `applicationId` berbeda dari debug (`id.perusahaan.asetga` vs `…asetga.debug`), jadi keduanya bisa terpasang bersamaan, dan datanya terpisah. Pindahkan data antar-keduanya lewat Backup & restore.
 

@@ -73,6 +73,7 @@ class OpnameAndDashboardTest {
         assertTrue(opname.scan(id, "IT-2024-004") is OpnameScanOutcome.OtherLocation)
         assertTrue(opname.scan(id, "TIDAK-ADA") is OpnameScanOutcome.Unknown)
         assertTrue(opname.finish(id, "Ruang server terkunci") is AppResult.Success)
+        assertTrue(opname.finish(id, "Diselesaikan dua kali") is AppResult.Failure)
 
         s = opname.observeSession(id).first()!!
         assertEquals(1, s.found)

@@ -19,6 +19,7 @@ import id.perusahaan.asetga.data.local.entity.ServiceRecordEntity
 import id.perusahaan.asetga.domain.calc.ServiceDueCalc
 import id.perusahaan.asetga.domain.model.AppResult
 import id.perusahaan.asetga.domain.model.AssetMutation
+import id.perusahaan.asetga.domain.model.AssetStatus
 import id.perusahaan.asetga.domain.model.AuditAction
 import id.perusahaan.asetga.domain.model.AuditEntityType
 import id.perusahaan.asetga.domain.model.MutationInput
@@ -71,6 +72,7 @@ class OperationRepositoryImpl @Inject constructor(
         session.denyUnless { it.canEditData }?.let { return it }
         return db.withTransaction {
             val asset = assetDao.getById(input.assetId) ?: return@withTransaction AppResult.Failure("Aset tidak ditemukan")
+            if (asset.status == AssetStatus.WRITE_OFF) return@withTransaction AppResult.Failure("Aset berstatus Write Off tidak dapat dimutasi")
             val errors = OperationValidator.validateMutation(input, asset.locationId, asset.userLocationDetail, asset.acquisitionDate, today())
             if (errors.isNotEmpty()) return@withTransaction AppResult.Failure("Periksa kembali isian", errors)
             val toLocation = input.toLocationId!!
@@ -133,6 +135,8 @@ class OperationRepositoryImpl @Inject constructor(
 
         val now = clock.millis()
         val old = input.id?.let { serviceDao.getById(it) }
+        // Catatan lama tetap bisa dikoreksi, tetapi aset Write Off tidak lagi menerima servis baru.
+        if (old == null && asset.status == AssetStatus.WRITE_OFF) return AppResult.Failure("Aset berstatus Write Off tidak dapat dicatat servis baru")
         val entity = ServiceRecordEntity(
             id = old?.id ?: UUID.randomUUID().toString(),
             assetId = asset.id,

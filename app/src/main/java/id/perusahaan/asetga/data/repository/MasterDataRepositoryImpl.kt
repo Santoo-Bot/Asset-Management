@@ -319,28 +319,16 @@ class MasterDataRepositoryImpl @Inject constructor(
             when (type) {
                 MasterType.CATEGORY -> usageDao.deleteCategory(id)
                 MasterType.LOCATION -> usageDao.deleteLocation(id)
-                MasterType.DIVISION -> {
-                    usageDao.detachDivisionFromTrashedAssets(id)
-                    usageDao.deleteDivision(id)
-                }
+                MasterType.DIVISION -> usageDao.deleteDivision(id)
                 MasterType.DEPARTMENT -> {
-                    usageDao.detachDepartmentFromTrashedAssets(id)
                     usageDao.detachDepartmentFromMutationsFrom(id)
                     usageDao.detachDepartmentFromMutationsTo(id)
                     usageDao.deleteDepartment(id)
                 }
                 MasterType.VENDOR -> usageDao.deleteVendor(id)
                 MasterType.UNIT -> usageDao.deleteUnit(id)
-                MasterType.INSURANCE_TYPE -> {
-                    insuranceTypeDao.purgeDeletedPolicyItems(id)
-                    insuranceTypeDao.purgeDeletedPolicies(id)
-                    insuranceTypeDao.delete(id)
-                }
-                MasterType.INSURER -> {
-                    insurerDao.purgeDeletedPolicyItems(id)
-                    insurerDao.purgeDeletedPolicies(id)
-                    insurerDao.delete(id)
-                }
+                MasterType.INSURANCE_TYPE -> insuranceTypeDao.delete(id)
+                MasterType.INSURER -> insurerDao.delete(id)
             }
             audit.log(AuditEntityType.MASTER, id, AuditAction.DELETE, "${type.label} $name dihapus")
         }

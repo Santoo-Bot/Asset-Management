@@ -65,9 +65,6 @@ interface DivisionDao {
     @Query("SELECT COUNT(*) FROM divisions WHERE name = :name COLLATE NOCASE AND id != :excludeId AND deletedAt IS NULL")
     suspend fun countByName(name: String, excludeId: String): Int
 
-    @Query("SELECT COUNT(*) FROM departments WHERE divisionId = :divisionId AND isActive = 1 AND deletedAt IS NULL")
-    suspend fun countActiveDepartments(divisionId: String): Int
-
     @Insert(onConflict = OnConflictStrategy.ABORT)
     suspend fun insert(entity: DivisionEntity)
 
@@ -139,14 +136,8 @@ interface MasterUsageDao {
     @Query("SELECT COUNT(*) FROM assets WHERE categoryId = :id")
     suspend fun assetsInCategory(id: String): Int
 
-    @Query("SELECT COUNT(*) FROM assets WHERE categoryId = :id AND deletedAt IS NOT NULL")
-    suspend fun deletedAssetsInCategory(id: String): Int
-
     @Query("SELECT COUNT(*) FROM assets WHERE locationId = :id")
     suspend fun assetsInLocation(id: String): Int
-
-    @Query("SELECT COUNT(*) FROM assets WHERE locationId = :id AND deletedAt IS NOT NULL")
-    suspend fun deletedAssetsInLocation(id: String): Int
 
     @Query("SELECT COUNT(*) FROM items WHERE storageLocationId = :id")
     suspend fun itemsInLocation(id: String): Int
@@ -163,30 +154,14 @@ interface MasterUsageDao {
     @Query("SELECT COUNT(*) FROM assets WHERE divisionId = :id")
     suspend fun assetsInDivision(id: String): Int
 
-    @Query("SELECT COUNT(*) FROM assets WHERE divisionId = :id AND deletedAt IS NOT NULL")
-    suspend fun deletedAssetsInDivision(id: String): Int
-
     @Query("SELECT COUNT(*) FROM assets WHERE departmentId = :id")
     suspend fun assetsInDepartment(id: String): Int
-
-    @Query("SELECT COUNT(*) FROM assets WHERE departmentId = :id AND deletedAt IS NOT NULL")
-    suspend fun deletedAssetsInDepartment(id: String): Int
-
-    @Query("SELECT COUNT(*) FROM asset_mutations WHERE fromDepartmentId = :id OR toDepartmentId = :id")
-    suspend fun mutationsWithDepartment(id: String): Int
-
-    /** Lepas departemen dari riwayat mutasi (data lama) agar departemen bisa dihapus. */
-    @Query("UPDATE assets SET departmentId = NULL WHERE departmentId = :id AND deletedAt IS NOT NULL")
-    suspend fun detachDepartmentFromTrashedAssets(id: String)
 
     @Query("UPDATE asset_mutations SET fromDepartmentId = NULL WHERE fromDepartmentId = :id")
     suspend fun detachDepartmentFromMutationsFrom(id: String)
 
     @Query("UPDATE asset_mutations SET toDepartmentId = NULL WHERE toDepartmentId = :id")
     suspend fun detachDepartmentFromMutationsTo(id: String)
-
-    @Query("UPDATE assets SET divisionId = NULL WHERE divisionId = :id AND deletedAt IS NOT NULL")
-    suspend fun detachDivisionFromTrashedAssets(id: String)
 
     /** Pindahkan semua aset dari departemen [id] ke [target] (divisi mengikuti departemen tujuan). */
     @Query("UPDATE assets SET departmentId = :target, divisionId = :targetDivision, updatedAt = :now, syncState = 'PENDING' WHERE departmentId = :id")

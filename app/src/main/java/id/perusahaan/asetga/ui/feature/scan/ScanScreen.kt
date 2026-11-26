@@ -16,6 +16,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -39,6 +40,8 @@ import id.perusahaan.asetga.ui.components.ManualCodeButton
 fun ScanScreen(
     onOpenAsset: (String) -> Unit,
     onOpenOpname: (() -> Unit)? = null,
+    /** Diisi bila pengguna boleh menambah aset: kode yang belum terdaftar bisa langsung didaftarkan. */
+    onAddAsset: ((String) -> Unit)? = null,
     vm: ScanViewModel = hiltViewModel(),
 ) {
     val busy by vm.busy.collectAsStateWithLifecycle()
@@ -48,7 +51,13 @@ fun ScanScreen(
         vm.events.collect { e ->
             when (e) {
                 is ScanEvent.OpenAsset -> onOpenAsset(e.id)
-                is ScanEvent.NotFound -> snackbar.showSnackbar("Kode \"${e.code}\" tidak terdaftar sebagai aset")
+                is ScanEvent.NotFound -> {
+                    val result = snackbar.showSnackbar(
+                        "Kode \"${e.code}\" tidak terdaftar sebagai aset",
+                        actionLabel = if (onAddAsset != null) "Daftarkan" else null,
+                    )
+                    if (result == SnackbarResult.ActionPerformed) onAddAsset?.invoke(e.code)
+                }
             }
         }
     }

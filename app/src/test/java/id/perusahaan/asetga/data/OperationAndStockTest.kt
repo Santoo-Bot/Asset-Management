@@ -136,4 +136,31 @@ class OperationAndStockTest {
         val item = stock.findByCodeOrBarcode("ATK-001")!!
         assertTrue(stock.recordTxn(StockTxnInput(item.id, StockTxnType.IN, "1", today)) is AppResult.Failure)
     }
+
+    @Test fun `stok awal tidak boleh diturunkan sampai stok akhir minus`() = runTest {
+        val unit = db.unitDao().observeAll(false).first().first().id
+        val input = ItemInput(code = "ATK-002", name = "Tinta", unitId = unit, initialStock = "10")
+        val id = (stock.saveItem(input) as AppResult.Success).value
+        assertTrue(stock.recordTxn(StockTxnInput(id, StockTxnType.OUT, "8", today)) is AppResult.Success)
+
+        val negative = stock.saveItem(input.copy(id = id, initialStock = "5")) as AppResult.Failure
+        assertTrue(OperationValidator.FIELD_INITIAL in negative.fieldErrors)
+        assertEquals(2.0, stock.observeItem(id).first()!!.currentStock, 0.0)
+
+        assertTrue(stock.saveItem(input.copy(id = id, initialStock = "8")) is AppResult.Success)
+        assertEquals(0.0, stock.observeItem(id).first()!!.currentStock, 0.0)
+    }
+
+    @Test fun `aset Write Off tidak bisa dimutasi atau diberi servis baru`() = runTest {
+        val service = ServiceInput(assetId = "as1", serviceDate = today, description = "Servis rutin")
+        assertTrue(ops.saveService(service) is AppResult.Success)
+        val existing = ops.observeServices("as1").first().single()
+        db.assetDao().update(db.assetDao().getById("as1")!!.copy(status = AssetStatus.WRITE_OFF, disposalDate = today))
+
+        assertTrue(ops.recordMutation(MutationInput("as1", toLocationId = "B")) is AppResult.Failure)
+        assertEquals("A", db.assetDao().getById("as1")!!.locationId)
+        assertTrue(ops.saveService(service) is AppResult.Failure)
+        // Catatan servis lama tetap bisa dikoreksi.
+        assertTrue(ops.saveService(service.copy(id = existing.id, description = "Servis rutin (koreksi)")) is AppResult.Success)
+    }
 }

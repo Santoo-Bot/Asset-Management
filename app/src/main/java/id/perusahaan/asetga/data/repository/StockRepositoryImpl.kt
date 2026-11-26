@@ -79,6 +79,17 @@ class StockRepositoryImpl @Inject constructor(
         val min = Fmt.parseDecimal(input.minStock.ifBlank { "0" })!!
         val now = clock.millis()
         val old = input.id?.let { dao.getById(it) }
+        if (old != null) {
+            // Stok awal yang diturunkan tidak boleh membuat stok akhir minus (barang sudah terlanjur keluar).
+            val current = dao.getItemRow(old.id)?.currentStock ?: old.initialStock
+            val after = StockCalc.round2(current - old.initialStock + StockCalc.round2(initial))
+            if (after < 0) {
+                return AppResult.Failure(
+                    "Periksa kembali isian",
+                    mapOf(OperationValidator.FIELD_INITIAL to "Stok akhir menjadi minus (${Fmt.qty(after)}). Minimal ${Fmt.qty(StockCalc.round2(old.initialStock - current))}"),
+                )
+            }
+        }
         val entity = ItemEntity(
             id = old?.id ?: UUID.randomUUID().toString(),
             code = code,

@@ -1,9 +1,15 @@
 name: Build & Test
 
+# Setiap push (semua branch) dites & dibuild. Tidak memakai trigger pull_request agar commit yang sama
+# tidak dibuild dua kali; status run push tetap tampil di pull request.
 on:
   push:
-  pull_request:
   workflow_dispatch:
+
+# Push baru ke branch yang sama membatalkan run lama, kecuali di main (setiap build main diterbitkan).
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 jobs:
   build:
@@ -11,6 +17,12 @@ jobs:
     permissions:
       contents: write
     timeout-minutes: 45
+    env:
+      # versionCode naik setiap build sehingga Android menerima APK baru sebagai update.
+      ASETGA_VERSION_CODE: ${{ github.run_number }}
+      # Build release bertanda tangan hanya bila secret keystore sudah diatur
+      # (Settings > Secrets and variables > Actions).
+      HAS_KEYSTORE: ${{ secrets.ASETGA_KEYSTORE_BASE64 != '' }}
     steps:
       - uses: actions/checkout@v5
 
@@ -21,14 +33,8 @@ jobs:
 
       - uses: gradle/actions/setup-gradle@v4
 
-      - name: Unit test (domain + Room via Robolectric)
-        run: ./gradlew testDebugUnitTest --stacktrace
-
-      - name: Build APK debug
-        env:
-          # versionCode naik setiap build sehingga Android menerima APK baru sebagai update.
-          ASETGA_VERSION_CODE: ${{ github.run_number }}
-        run: ./gradlew assembleDebug
+      - name: Unit test (domain + Room via Robolectric) & build APK debug
+        run: ./gradlew testDebugUnitTest assembleDebug --stacktrace
 
       - name: Upload APK debug
         uses: actions/upload-artifact@v4
@@ -37,7 +43,7 @@ jobs:
           path: app/build/outputs/apk/debug/*.apk
 
       - name: Terbitkan APK ke Releases (bisa diunduh dari GitHub Mobile)
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        if: github.ref == 'refs/heads/main'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -48,45 +54,30 @@ jobs:
             --title "Aset GA build $N (debug)" \
             --notes "APK debug otomatis dari commit ${{ github.sha }}. Unduh file .apk di bawah lalu pasang di HP."
 
+      - name: Build APK & AAB release (bertanda tangan)
+        if: env.HAS_KEYSTORE == 'true'
+        env:
+          ASETGA_KEYSTORE_PASSWORD: ${{ secrets.ASETGA_KEYSTORE_PASSWORD }}
+          ASETGA_KEY_ALIAS: ${{ secrets.ASETGA_KEY_ALIAS }}
+          ASETGA_KEY_PASSWORD: ${{ secrets.ASETGA_KEY_PASSWORD }}
+          KEYSTORE_BASE64: ${{ secrets.ASETGA_KEYSTORE_BASE64 }}
+        run: |
+          echo "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/release.jks"
+          export ASETGA_KEYSTORE_PATH="$RUNNER_TEMP/release.jks"
+          ./gradlew assembleRelease bundleRelease
+
+      - name: Upload APK & AAB release
+        if: env.HAS_KEYSTORE == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: aset-ga-release
+          path: |
+            app/build/outputs/apk/release/*.apk
+            app/build/outputs/bundle/release/*.aab
+
       - name: Upload laporan test
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: test-reports
           path: app/build/reports/tests/
-
-  release:
-    # Hanya berjalan bila secret keystore sudah diatur di Settings > Secrets and variables > Actions.
-    if: github.event_name != 'pull_request'
-    needs: build
-    runs-on: ubuntu-latest
-    env:
-      HAS_KEYSTORE: ${{ secrets.ASETGA_KEYSTORE_BASE64 != '' }}
-    steps:
-      - uses: actions/checkout@v5
-        if: env.HAS_KEYSTORE == 'true'
-      - uses: actions/setup-java@v5
-        if: env.HAS_KEYSTORE == 'true'
-        with:
-          distribution: temurin
-          java-version: 17
-      - uses: gradle/actions/setup-gradle@v4
-        if: env.HAS_KEYSTORE == 'true'
-      - name: Build APK & AAB release
-        if: env.HAS_KEYSTORE == 'true'
-        env:
-          ASETGA_KEYSTORE_PASSWORD: ${{ secrets.ASETGA_KEYSTORE_PASSWORD }}
-          ASETGA_KEY_ALIAS: ${{ secrets.ASETGA_KEY_ALIAS }}
-          ASETGA_KEY_PASSWORD: ${{ secrets.ASETGA_KEY_PASSWORD }}
-          ASETGA_VERSION_CODE: ${{ github.run_number }}
-        run: |
-          echo "${{ secrets.ASETGA_KEYSTORE_BASE64 }}" | base64 -d > "$RUNNER_TEMP/release.jks"
-          export ASETGA_KEYSTORE_PATH="$RUNNER_TEMP/release.jks"
-          ./gradlew assembleRelease bundleRelease
-      - uses: actions/upload-artifact@v4
-        if: env.HAS_KEYSTORE == 'true'
-        with:
-          name: aset-ga-release
-          path: |
-            app/build/outputs/apk/release/*.apk
-            app/build/outputs/bundle/release/*.aab

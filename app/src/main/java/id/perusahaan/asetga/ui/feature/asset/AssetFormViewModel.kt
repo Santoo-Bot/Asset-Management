@@ -61,7 +61,8 @@ class AssetFormViewModel @Inject constructor(
     master: MasterDataRepository,
     private val photos: PhotoStorage,
 ) : ViewModel() {
-    private val editId: String? = savedStateHandle.toRoute<AssetFormRoute>().id
+    private val route = savedStateHandle.toRoute<AssetFormRoute>()
+    private val editId: String? = route.id
 
     private val _state = MutableStateFlow(AssetFormState())
     val state: StateFlow<AssetFormState> = _state.asStateFlow()
@@ -117,7 +118,8 @@ class AssetFormViewModel @Inject constructor(
                     )
                 }
             } else {
-                _state.update { it.copy(loading = false) }
+                // Dari hasil scan yang belum terdaftar: kode label dipakai sebagai kode QR aset baru.
+                _state.update { it.copy(loading = false, input = it.input.copy(qrCode = route.qrCode?.trim().orEmpty())) }
             }
         }
     }

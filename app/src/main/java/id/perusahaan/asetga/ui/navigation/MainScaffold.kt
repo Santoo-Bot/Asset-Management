@@ -129,6 +129,7 @@ fun MainScaffold(user: User) {
                 ScanScreen(
                     onOpenAsset = { nav.navigate(AssetDetailRoute(it)) },
                     onOpenOpname = { nav.navigate(OpnameListRoute) },
+                    onAddAsset = if (user.role.canEditData) { code -> nav.navigate(AssetFormRoute(qrCode = code)) } else null,
                 )
             }
             composable<AssetDetailRoute> {

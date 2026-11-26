@@ -108,7 +108,9 @@ fun AssetDetailScreen(
             if (state is AssetDetailState.Loaded) {
                 Surface(tonalElevation = 3.dp) {
                     Column(Modifier.navigationBarsPadding().padding(horizontal = 16.dp, vertical = 10.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        extraActions(vm.assetId, vm.canEdit)
+                        // Aset Write Off tidak lagi bisa dimutasi atau diberi servis baru.
+                        val writtenOff = (state as? AssetDetailState.Loaded)?.detail?.asset?.status == AssetStatus.WRITE_OFF
+                        extraActions(vm.assetId, vm.canEdit && !writtenOff)
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             OutlinedButton(
                                 onClick = { vm.prepareLabel(); onPrintLabel() },

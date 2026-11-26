@@ -16,8 +16,8 @@ import kotlinx.serialization.Serializable
 @Serializable data object SettingsRoute
 
 @Serializable data class AssetDetailRoute(val id: String)
-/** [id] null = tambah aset baru. */
-@Serializable data class AssetFormRoute(val id: String? = null)
+/** [id] null = tambah aset baru. [qrCode] diisi bila berasal dari hasil scan yang belum terdaftar. */
+@Serializable data class AssetFormRoute(val id: String? = null, val qrCode: String? = null)
 @Serializable data object LabelRoute
 /** Daftar aset dengan filter awal (mis. dari master data "Lihat aset"). */
 @Serializable data class FilteredAssetsRoute(val title: String, val departmentId: String? = null, val divisionId: String? = null)

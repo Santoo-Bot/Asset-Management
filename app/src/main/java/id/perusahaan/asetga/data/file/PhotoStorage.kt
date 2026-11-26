@@ -32,6 +32,8 @@ class PhotoStorage @Inject constructor(
     /** Uri sementara untuk kamera (ActivityResultContracts.TakePicture). */
     fun newCameraUri(): Uri {
         val dir = File(context.cacheDir, "camera").apply { mkdirs() }
+        // Foto mentah kamera (beberapa MB) sudah dikompres ke folder foto; buang sisa jepretan sebelumnya.
+        dir.listFiles()?.forEach { it.delete() }
         val file = File(dir, "capture-${UUID.randomUUID()}.jpg")
         return FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
     }

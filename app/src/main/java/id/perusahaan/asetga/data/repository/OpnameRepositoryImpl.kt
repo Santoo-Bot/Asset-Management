@@ -51,8 +51,8 @@ class OpnameRepositoryImpl @Inject constructor(
         val id = UUID.randomUUID().toString()
         db.withTransaction {
             dao.insertSession(AuditSessionEntity(id, locationId, now, null, session.currentUser?.id, null, now, now))
-            val items = dao.assetIdsAt(locationId).map { assetId ->
-                AuditItemEntity(UUID.randomUUID().toString(), id, assetId, dao.assetCode(assetId).orEmpty(), AuditResult.TIDAK_DITEMUKAN, null, now, now)
+            val items = dao.assetsAt(locationId).map { a ->
+                AuditItemEntity(UUID.randomUUID().toString(), id, a.id, a.code, AuditResult.TIDAK_DITEMUKAN, null, now, now)
             }
             items.chunked(500).forEach { dao.insertItems(it) }
         }
@@ -91,6 +91,7 @@ class OpnameRepositoryImpl @Inject constructor(
     override suspend fun finish(sessionId: String, note: String): AppResult<Unit> {
         session.denyUnless { it.canEditData }?.let { return it }
         val s = dao.getSession(sessionId) ?: return AppResult.Failure("Sesi tidak ditemukan")
+        if (s.finishedAt != null) return AppResult.Failure("Sesi sudah selesai")
         dao.finish(sessionId, clock.millis(), note.trimToNull())
         audit.log(
             AuditEntityType.ASSET, sessionId, AuditAction.UPDATE,
