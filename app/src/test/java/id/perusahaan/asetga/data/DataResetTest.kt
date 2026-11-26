@@ -38,7 +38,7 @@ class DataResetTest {
     @Before fun setUp() = runTest {
         db = inMemoryDb()
         reset = DataResetManager(ApplicationProvider.getApplicationContext(), db, AuditLogRepositoryImpl(db.auditLogDao(), session, clock), session)
-        db.userDao().insert(UserEntity("adm", "admin", "Admin GA", Role.ADMIN, "pbkdf2-sha256$1$AA==$AA==", createdAt = 1, updatedAt = 1))
+        db.userDao().insert(UserEntity("adm", "admin", "Admin GA", Role.ADMIN, "hash-uji", createdAt = 1, updatedAt = 1))
         db.locationDao().insert(LocationEntity("L", "Kantor", null, true, 1, 1))
         val cat = db.categoryDao().observeAll(false).first().first().id
         db.assetDao().insert(
