@@ -101,12 +101,12 @@ class AssetDaoTest {
         dao.insert(entity("2", "IT-2024-002", "Printer Epson", condition = AssetCondition.RUSAK))
         dao.insert(entity("3", "IT-2024-003", "Laptop Lama", status = AssetStatus.WRITE_OFF))
 
-        assertEquals(2, dao.count("", null, null, null, null, null).first()) // default: tanpa Write Off
-        assertEquals(1, dao.count("laptop", null, null, null, null, null).first())
-        assertEquals(1, dao.count("", null, null, "RUSAK", null, null).first())
-        assertEquals(1, dao.count("", null, null, null, "WRITE_OFF", null).first())
+        assertEquals(2, dao.count("", null, null, null, null, null, null).first()) // default: tanpa Write Off
+        assertEquals(1, dao.count("laptop", null, null, null, null, null, null).first())
+        assertEquals(1, dao.count("", null, null, "RUSAK", null, null, null).first())
+        assertEquals(1, dao.count("", null, null, null, "WRITE_OFF", null, null).first())
 
-        val page = dao.paging("", null, null, null, null, "NAME", null)
+        val page = dao.paging("", null, null, null, null, "NAME", null, null)
             .load(PagingSource.LoadParams.Refresh(key = null, loadSize = 20, placeholdersEnabled = false))
         val names = (page as PagingSource.LoadResult.Page).data.map { it.name }
         assertEquals(listOf("Laptop Dell", "Printer Epson"), names)

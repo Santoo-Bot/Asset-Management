@@ -67,6 +67,7 @@ private const val FILTER_WHERE = """
     AND (:categoryId IS NULL OR a.categoryId = :categoryId)
     AND (:locationId IS NULL OR a.locationId = :locationId)
     AND (:divisionId IS NULL OR a.divisionId = :divisionId)
+    AND (:departmentId IS NULL OR a.departmentId = :departmentId)
     AND (:condition IS NULL OR a.condition = :condition)
     AND ((:status IS NULL AND a.status != 'WRITE_OFF') OR a.status = :status)
 """
@@ -92,15 +93,20 @@ interface AssetDao {
         status: String?,
         sort: String,
         divisionId: String?,
+        departmentId: String?,
     ): PagingSource<Int, AssetListRow>
 
     @Query("SELECT a.id FROM assets a WHERE $FILTER_WHERE")
-    suspend fun filteredIds(query: String, categoryId: String?, locationId: String?, condition: String?, status: String?, divisionId: String?): List<String>
+    suspend fun filteredIds(
+        query: String, categoryId: String?, locationId: String?, condition: String?, status: String?, divisionId: String?, departmentId: String?,
+    ): List<String>
 
     @Query(
         "SELECT COUNT(*) FROM assets a WHERE $FILTER_WHERE",
     )
-    fun count(query: String, categoryId: String?, locationId: String?, condition: String?, status: String?, divisionId: String?): Flow<Int>
+    fun count(
+        query: String, categoryId: String?, locationId: String?, condition: String?, status: String?, divisionId: String?, departmentId: String?,
+    ): Flow<Int>
 
     @Query(
         """SELECT a.*, c.name AS categoryName, c.usefulLifeYears AS usefulLifeYears,

@@ -72,11 +72,11 @@ class AssetRepositoryImpl @Inject constructor(
 
     override fun paging(filter: AssetFilter): Flow<PagingData<AssetListItem>> =
         Pager(PagingConfig(pageSize = 40, prefetchDistance = 20, enablePlaceholders = false)) {
-            dao.paging(filter.query.trim(), filter.categoryId, filter.locationId, filter.condition?.name, filter.status?.name, filter.sort.name, filter.divisionId)
+            dao.paging(filter.query.trim(), filter.categoryId, filter.locationId, filter.condition?.name, filter.status?.name, filter.sort.name, filter.divisionId, filter.departmentId)
         }.flow.map { page -> page.map { it.toDomain() } }
 
     override fun count(filter: AssetFilter): Flow<Int> =
-        dao.count(filter.query.trim(), filter.categoryId, filter.locationId, filter.condition?.name, filter.status?.name, filter.divisionId)
+        dao.count(filter.query.trim(), filter.categoryId, filter.locationId, filter.condition?.name, filter.status?.name, filter.divisionId, filter.departmentId)
 
     override fun observeDetail(id: String): Flow<AssetDetail?> =
         combine(dao.observeDetail(id), settings.settings) { row, s -> row?.toDetail(s.defaultResidualPercent) }
@@ -108,7 +108,7 @@ class AssetRepositoryImpl @Inject constructor(
         ids.chunked(500).flatMap { dao.listItemsByIds(it) }.map { it.toDomain() }.sortedBy { it.code }
 
     override suspend fun filteredIds(filter: AssetFilter): List<String> =
-        dao.filteredIds(filter.query.trim(), filter.categoryId, filter.locationId, filter.condition?.name, filter.status?.name, filter.divisionId)
+        dao.filteredIds(filter.query.trim(), filter.categoryId, filter.locationId, filter.condition?.name, filter.status?.name, filter.divisionId, filter.departmentId)
 
     override suspend fun suggestCode(categoryId: String, year: Int): String {
         val prefix = categoryDao.getById(categoryId)?.codePrefix ?: "AST"

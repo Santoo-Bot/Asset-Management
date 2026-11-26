@@ -70,13 +70,15 @@ import id.perusahaan.asetga.ui.components.OptionSheet
 import id.perusahaan.asetga.util.Fmt
 import java.io.File
 
-private enum class FilterSheet { CATEGORY, LOCATION, DIVISION, CONDITION, STATUS, SORT }
+private enum class FilterSheet { CATEGORY, LOCATION, DIVISION, DEPARTMENT, CONDITION, STATUS, SORT }
 
 @Composable
 fun AssetListScreen(
     onOpenAsset: (String) -> Unit,
     onAddAsset: () -> Unit,
     onPrintLabels: () -> Unit,
+    title: String = "Aset",
+    onBack: (() -> Unit)? = null,
     vm: AssetListViewModel = hiltViewModel(),
 ) {
     val filter by vm.filter.collectAsStateWithLifecycle()
@@ -84,6 +86,7 @@ fun AssetListScreen(
     val categories by vm.categories.collectAsStateWithLifecycle()
     val locations by vm.locations.collectAsStateWithLifecycle()
     val divisions by vm.divisions.collectAsStateWithLifecycle()
+    val departments by vm.departments.collectAsStateWithLifecycle()
     val selection by vm.selection.collectAsStateWithLifecycle()
     val busy by vm.busy.collectAsStateWithLifecycle()
     val items = vm.assets.collectAsLazyPagingItems()
@@ -98,6 +101,7 @@ fun AssetListScreen(
             if (selecting) {
                 AppTopBar(
                     title = "${selection.size} dipilih",
+                    onBack = onBack,
                     actions = {
                         if (count != null && selection.size < (count ?: 0)) {
                             IconButton(onClick = vm::selectAll) { Icon(Icons.Filled.SelectAll, contentDescription = "Pilih semua") }
@@ -115,7 +119,8 @@ fun AssetListScreen(
                 )
             } else {
                 AppTopBar(
-                    title = "Aset" + (count?.let { " (${Fmt.number(it.toLong())})" } ?: ""),
+                    title = title + (count?.let { " (${Fmt.number(it.toLong())})" } ?: ""),
+                    onBack = onBack,
                     actions = {
                         if ((count ?: 0) > 0) {
                             IconButton(onClick = vm::selectAll) { Icon(Icons.Filled.SelectAll, contentDescription = "Pilih semua aset") }
@@ -167,6 +172,10 @@ fun AssetListScreen(
                 FilterChip(
                     selected = filter.divisionId != null, onClick = { sheet = FilterSheet.DIVISION },
                     label = { Text(divisions.firstOrNull { it.id == filter.divisionId }?.name ?: "Divisi") },
+                )
+                FilterChip(
+                    selected = filter.departmentId != null, onClick = { sheet = FilterSheet.DEPARTMENT },
+                    label = { Text(departments.firstOrNull { it.id == filter.departmentId }?.name ?: "Departemen") },
                 )
                 FilterChip(
                     selected = filter.condition != null, onClick = { sheet = FilterSheet.CONDITION },
@@ -253,6 +262,11 @@ fun AssetListScreen(
         FilterSheet.DIVISION -> OptionSheet(
             "Divisi", divisions, divisions.firstOrNull { it.id == filter.divisionId }, { it.name },
             onDismiss = { sheet = null }, onSelect = { vm.setDivision(it?.id); sheet = null }, noneLabel = "Semua divisi",
+        )
+        FilterSheet.DEPARTMENT -> OptionSheet(
+            "Departemen", departments, departments.firstOrNull { it.id == filter.departmentId },
+            { d -> d.name + (d.divisionName?.let { " · $it" } ?: "") },
+            onDismiss = { sheet = null }, onSelect = { vm.setDepartment(it?.id); sheet = null }, noneLabel = "Semua departemen",
         )
         FilterSheet.CONDITION -> OptionSheet(
             "Kondisi", AssetCondition.entries, filter.condition, { it.label },

@@ -43,6 +43,7 @@ import javax.inject.Inject
 @OptIn(ExperimentalCoroutinesApi::class, FlowPreview::class)
 @HiltViewModel
 class AssetListViewModel @Inject constructor(
+    savedStateHandle: androidx.lifecycle.SavedStateHandle,
     private val repo: AssetRepository,
     master: MasterDataRepository,
     session: SessionManager,
@@ -79,7 +80,10 @@ class AssetListViewModel @Inject constructor(
         }
     }
 
-    private val _filter = MutableStateFlow(AssetFilter())
+    /** Filter awal dari argumen navigasi (FilteredAssetsRoute); kosong untuk tab Aset biasa. */
+    private val _filter = MutableStateFlow(
+        AssetFilter(departmentId = savedStateHandle.get<String>("departmentId"), divisionId = savedStateHandle.get<String>("divisionId")),
+    )
     val filter: StateFlow<AssetFilter> = _filter.asStateFlow()
 
     /** Pencarian di-debounce agar tidak query setiap ketikan. */
@@ -101,6 +105,8 @@ class AssetListViewModel @Inject constructor(
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
     val divisions: StateFlow<List<Division>> = master.observeDivisions(includeInactive = true)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+    val departments: StateFlow<List<id.perusahaan.asetga.domain.model.Department>> = master.observeDepartments(includeInactive = true)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     private val _selection = MutableStateFlow<Set<String>>(emptySet())
     val selection: StateFlow<Set<String>> = _selection.asStateFlow()
@@ -109,6 +115,7 @@ class AssetListViewModel @Inject constructor(
     fun setCategory(id: String?) = _filter.update { it.copy(categoryId = id) }
     fun setLocation(id: String?) = _filter.update { it.copy(locationId = id) }
     fun setDivision(id: String?) = _filter.update { it.copy(divisionId = id) }
+    fun setDepartment(id: String?) = _filter.update { it.copy(departmentId = id) }
     fun setCondition(c: AssetCondition?) = _filter.update { it.copy(condition = c) }
     fun setStatus(s: AssetStatus?) = _filter.update { it.copy(status = s) }
     fun setSort(s: AssetSort) = _filter.update { it.copy(sort = s) }

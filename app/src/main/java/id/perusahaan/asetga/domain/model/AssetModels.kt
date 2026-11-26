@@ -117,12 +117,13 @@ data class AssetFilter(
     val categoryId: String? = null,
     val locationId: String? = null,
     val divisionId: String? = null,
+    val departmentId: String? = null,
     val condition: AssetCondition? = null,
     /** null = semua kecuali Write Off. */
     val status: AssetStatus? = null,
     val sort: AssetSort = AssetSort.CODE,
 ) {
-    val activeFilterCount: Int get() = listOfNotNull(categoryId, locationId, divisionId, condition, status).size
+    val activeFilterCount: Int get() = listOfNotNull(categoryId, locationId, divisionId, departmentId, condition, status).size
 }
 
 /** Hasil hapus aset (selalu permanen); [photoPaths] = file foto yang perlu dihapus dari penyimpanan. */

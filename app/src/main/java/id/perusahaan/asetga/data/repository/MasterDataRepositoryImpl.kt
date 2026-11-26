@@ -347,6 +347,47 @@ class MasterDataRepositoryImpl @Inject constructor(
         return AppResult.Success(Unit)
     }
 
+    override suspend fun moveUsersAndDelete(type: MasterType, id: String, targetId: String): AppResult<Int> {
+        session.denyUnless { it.canManageMaster }?.let { return it }
+        if (id == targetId) return AppResult.Failure("Pilih tujuan yang berbeda")
+        val now = clock.millis()
+        return try {
+            moveInTransaction(type, id, targetId, now)
+        } catch (e: MoveAbortedException) {
+            AppResult.Failure(e.message ?: "Gagal memindahkan")
+        }
+    }
+
+    private suspend fun moveInTransaction(type: MasterType, id: String, targetId: String, now: Long): AppResult<Int> =
+        db.withTransaction {
+            val moved: Int
+            val summary: String
+            when (type) {
+                MasterType.DEPARTMENT -> {
+                    val from = departmentDao.getById(id) ?: return@withTransaction AppResult.Failure("Departemen tidak ditemukan")
+                    val to = departmentDao.getById(targetId) ?: return@withTransaction AppResult.Failure("Departemen tujuan tidak ditemukan")
+                    moved = usageDao.moveDepartmentAssets(id, to.id, to.divisionId, now)
+                    summary = "$moved aset dipindah dari departemen ${from.name} ke ${to.name}"
+                }
+                MasterType.DIVISION -> {
+                    val from = divisionDao.getById(id) ?: return@withTransaction AppResult.Failure("Divisi tidak ditemukan")
+                    val to = divisionDao.getById(targetId) ?: return@withTransaction AppResult.Failure("Divisi tujuan tidak ditemukan")
+                    val depts = usageDao.moveDepartmentsToDivision(id, to.id, now)
+                    moved = usageDao.moveDivisionAssets(id, to.id, now)
+                    summary = "$depts departemen & $moved aset dipindah dari divisi ${from.name} ke ${to.name}"
+                }
+                else -> return@withTransaction AppResult.Failure("Tidak didukung untuk ${type.label}")
+            }
+            audit.log(AuditEntityType.MASTER, id, AuditAction.UPDATE, summary)
+            when (val r = delete(type, id)) {
+                is AppResult.Success -> AppResult.Success(moved)
+                // Masih ada pemakai lain (mis. riwayat); batalkan pemindahan agar tidak setengah jadi.
+                is AppResult.Failure -> throw MoveAbortedException(r.message)
+            }
+        }
+
+    private class MoveAbortedException(message: String) : RuntimeException(message)
+
     /** Daftar pemakaian, mis. ["12 aset", "2 riwayat mutasi"]. Kosong = aman dihapus. */
     private suspend fun usageOf(type: MasterType, id: String): List<String> {
         fun MutableList<String>.addIfUsed(count: Int, label: String) { if (count > 0) add("$count $label") }

@@ -65,6 +65,8 @@ data class MasterEditorState(
     val saving: Boolean = false,
     /** Pesan galat ditampilkan DI DALAM panel (snackbar tertutup oleh bottom sheet). */
     val message: String? = null,
+    /** Hapus ditolak karena masih dipakai: tampilkan tombol Lihat aset / Pindahkan lalu hapus. */
+    val blockedByUsage: Boolean = false,
 ) {
     val isNew: Boolean get() = form.id.isEmpty()
 }
@@ -158,6 +160,30 @@ class MasterListViewModel @Inject constructor(
         }
     }
 
+    /** Pindah-lalu-hapus hanya untuk departemen & divisi. */
+    val canMove: Boolean = type == MasterType.DEPARTMENT || type == MasterType.DIVISION
+
+    /** Pilihan tujuan pemindahan (selain data yang sedang dihapus). */
+    val moveTargets: StateFlow<List<Pair<String, String>>> = when (type) {
+        MasterType.DEPARTMENT -> repo.observeDepartments().map { l -> l.map { it.id to (it.name + (it.divisionName?.let { d -> " · $d" } ?: "")) } }
+        MasterType.DIVISION -> repo.observeDivisions().map { l -> l.map { it.id to it.name } }
+        else -> kotlinx.coroutines.flow.flowOf(emptyList())
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    fun moveAndDelete(row: MasterRow, targetId: String) {
+        if (_editor.value?.saving == true) return
+        _editor.update { it?.copy(saving = true, message = null) }
+        viewModelScope.launch {
+            when (val r = repo.moveUsersAndDelete(type, row.id, targetId)) {
+                is AppResult.Success -> {
+                    _editor.value = null
+                    _messages.send("${r.value} aset dipindahkan, ${row.title} dihapus")
+                }
+                is AppResult.Failure -> _editor.update { it?.copy(saving = false, message = r.message) }
+            }
+        }
+    }
+
     fun delete(row: MasterRow) {
         if (_editor.value?.saving == true) return
         _editor.update { it?.copy(saving = true, message = null) }
@@ -168,7 +194,7 @@ class MasterListViewModel @Inject constructor(
                     _messages.send("${row.title} dihapus")
                 }
                 // Alasan penolakan (mis. masih dipakai aset) ditampilkan di panel agar terlihat.
-                is AppResult.Failure -> _editor.update { it?.copy(saving = false, message = r.message) }
+                is AppResult.Failure -> _editor.update { it?.copy(saving = false, message = r.message, blockedByUsage = canMove) }
             }
         }
     }

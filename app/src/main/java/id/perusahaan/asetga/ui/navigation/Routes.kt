@@ -19,6 +19,8 @@ import kotlinx.serialization.Serializable
 /** [id] null = tambah aset baru. */
 @Serializable data class AssetFormRoute(val id: String? = null)
 @Serializable data object LabelRoute
+/** Daftar aset dengan filter awal (mis. dari master data "Lihat aset"). */
+@Serializable data class FilteredAssetsRoute(val title: String, val departmentId: String? = null, val divisionId: String? = null)
 
 @Serializable data class MutationFormRoute(val assetId: String)
 /** [serviceId] null = catatan servis baru. */

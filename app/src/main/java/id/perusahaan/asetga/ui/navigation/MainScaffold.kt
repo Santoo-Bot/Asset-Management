@@ -166,6 +166,15 @@ fun MainScaffold(user: User) {
                 )
             }
             composable<LabelRoute> { LabelScreen(onBack = nav::navigateUp) }
+            composable<FilteredAssetsRoute> { entry ->
+                AssetListScreen(
+                    title = entry.toRoute<FilteredAssetsRoute>().title,
+                    onBack = nav::navigateUp,
+                    onOpenAsset = { nav.navigate(AssetDetailRoute(it)) },
+                    onAddAsset = { nav.navigate(AssetFormRoute()) },
+                    onPrintLabels = { nav.navigate(LabelRoute) },
+                )
+            }
             composable<ImportExportRoute> { ImportExportScreen(onBack = nav::navigateUp) }
             composable<BackupRoute> { BackupScreen(onBack = nav::navigateUp) }
             composable<AuditLogRoute> { AuditLogScreen(onBack = nav::navigateUp) }
@@ -274,7 +283,19 @@ fun MainScaffold(user: User) {
             }
             composable<MasterListRoute> { entry ->
                 val type = MasterType.valueOf(entry.toRoute<MasterListRoute>().type)
-                MasterListScreen(type = type, onBack = nav::navigateUp)
+                MasterListScreen(
+                    type = type,
+                    onBack = nav::navigateUp,
+                    onShowAssets = { t, id, name ->
+                        nav.navigate(
+                            FilteredAssetsRoute(
+                                title = "Aset · $name",
+                                departmentId = id.takeIf { t == MasterType.DEPARTMENT },
+                                divisionId = id.takeIf { t == MasterType.DIVISION },
+                            ),
+                        )
+                    },
+                )
             }
             composable<UsersRoute> { UsersScreen(onBack = nav::navigateUp) }
             composable<SettingsRoute> { SettingsScreen(onBack = nav::navigateUp) }
