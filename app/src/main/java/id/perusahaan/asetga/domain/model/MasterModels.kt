@@ -17,10 +17,20 @@ data class Location(
     val isActive: Boolean = true,
 )
 
-data class Department(
+data class Division(
     val id: String,
     val name: String,
     val isActive: Boolean = true,
+)
+
+/** Departemen berada di bawah satu Divisi. */
+data class Department(
+    val id: String,
+    val name: String,
+    val divisionId: String? = null,
+    val isActive: Boolean = true,
+    /** Diisi saat dibaca dari repository (untuk tampilan). */
+    val divisionName: String? = null,
 )
 
 data class Vendor(

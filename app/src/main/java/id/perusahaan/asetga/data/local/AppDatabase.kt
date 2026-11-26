@@ -9,6 +9,7 @@ import id.perusahaan.asetga.data.local.dao.AssetDao
 import id.perusahaan.asetga.data.local.dao.AuditLogDao
 import id.perusahaan.asetga.data.local.dao.CategoryDao
 import id.perusahaan.asetga.data.local.dao.DepartmentDao
+import id.perusahaan.asetga.data.local.dao.DivisionDao
 import id.perusahaan.asetga.data.local.dao.LocationDao
 import id.perusahaan.asetga.data.local.dao.MutationDao
 import id.perusahaan.asetga.data.local.dao.OpnameDao
@@ -26,6 +27,7 @@ import id.perusahaan.asetga.data.local.entity.AuditLogEntity
 import id.perusahaan.asetga.data.local.entity.AuditSessionEntity
 import id.perusahaan.asetga.data.local.entity.CategoryEntity
 import id.perusahaan.asetga.data.local.entity.DepartmentEntity
+import id.perusahaan.asetga.data.local.entity.DivisionEntity
 import id.perusahaan.asetga.data.local.entity.ItemEntity
 import id.perusahaan.asetga.data.local.entity.LocationEntity
 import id.perusahaan.asetga.data.local.entity.ServiceRecordEntity
@@ -40,6 +42,7 @@ import java.util.UUID
         UserEntity::class,
         CategoryEntity::class,
         LocationEntity::class,
+        DivisionEntity::class,
         DepartmentEntity::class,
         VendorEntity::class,
         UnitEntity::class,
@@ -53,7 +56,7 @@ import java.util.UUID
         AuditItemEntity::class,
         AuditLogEntity::class,
     ],
-    version = 2,
+    version = 3,
     exportSchema = true,
 )
 @TypeConverters(Converters::class)
@@ -61,6 +64,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun userDao(): UserDao
     abstract fun categoryDao(): CategoryDao
     abstract fun locationDao(): LocationDao
+    abstract fun divisionDao(): DivisionDao
     abstract fun departmentDao(): DepartmentDao
     abstract fun vendorDao(): VendorDao
     abstract fun unitDao(): UnitDao
@@ -93,7 +97,36 @@ object Migrations {
         }
     }
 
-    val ALL = arrayOf(MIGRATION_1_2)
+    /**
+     * v3: master Divisi; Departemen terhubung ke Divisi; aset menyimpan divisionId.
+     * Teks divisi yang sempat diisi di v2 dijadikan master Divisi lalu ditautkan ke aset.
+     */
+    val MIGRATION_2_3 = object : Migration(2, 3) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL(
+                "CREATE TABLE IF NOT EXISTS `divisions` (`id` TEXT NOT NULL, `name` TEXT NOT NULL, `isActive` INTEGER NOT NULL, " +
+                    "`createdAt` INTEGER NOT NULL, `updatedAt` INTEGER NOT NULL, `deletedAt` INTEGER, `syncState` TEXT NOT NULL, PRIMARY KEY(`id`))",
+            )
+            db.execSQL("CREATE INDEX IF NOT EXISTS `index_divisions_name` ON `divisions` (`name`)")
+            db.execSQL("ALTER TABLE `departments` ADD COLUMN `divisionId` TEXT")
+            db.execSQL("CREATE INDEX IF NOT EXISTS `index_departments_divisionId` ON `departments` (`divisionId`)")
+            db.execSQL("ALTER TABLE `assets` ADD COLUMN `divisionId` TEXT")
+            db.execSQL("CREATE INDEX IF NOT EXISTS `index_assets_divisionId` ON `assets` (`divisionId`)")
+
+            val now = System.currentTimeMillis()
+            db.execSQL(
+                "INSERT INTO `divisions` (id, name, isActive, createdAt, updatedAt, deletedAt, syncState) " +
+                    "SELECT lower(hex(randomblob(16))), name, 1, $now, $now, NULL, 'PENDING' FROM " +
+                    "(SELECT TRIM(division) AS name FROM assets WHERE TRIM(COALESCE(division, '')) != '' GROUP BY TRIM(division) COLLATE NOCASE)",
+            )
+            db.execSQL(
+                "UPDATE assets SET divisionId = (SELECT d.id FROM divisions d WHERE d.name = TRIM(assets.division) COLLATE NOCASE) " +
+                    "WHERE TRIM(COALESCE(division, '')) != ''",
+            )
+        }
+    }
+
+    val ALL = arrayOf(MIGRATION_1_2, MIGRATION_2_3)
 }
 
 /** Data awal wajib (semua build): kategori dengan umur ekonomis, satuan, dan pengaturan default. */

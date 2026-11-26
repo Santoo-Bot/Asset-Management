@@ -11,6 +11,7 @@ import id.perusahaan.asetga.domain.model.AppResult
 import id.perusahaan.asetga.domain.model.AssetInput
 import id.perusahaan.asetga.domain.model.Category
 import id.perusahaan.asetga.domain.model.Department
+import id.perusahaan.asetga.domain.model.Division
 import id.perusahaan.asetga.domain.model.Location
 import id.perusahaan.asetga.domain.repository.AssetRepository
 import id.perusahaan.asetga.domain.repository.MasterDataRepository
@@ -45,6 +46,7 @@ data class AssetFormOptions(
     val categories: List<Category> = emptyList(),
     val locations: List<Location> = emptyList(),
     val departments: List<Department> = emptyList(),
+    val divisions: List<Division> = emptyList(),
 )
 
 sealed interface AssetFormEvent {
@@ -72,12 +74,16 @@ class AssetFormViewModel @Inject constructor(
         master.observeCategories(includeInactive = true),
         master.observeLocations(includeInactive = true),
         master.observeDepartments(includeInactive = true),
+        master.observeDivisions(includeInactive = true),
         _state,
-    ) { cats, locs, deps, s ->
+    ) { cats, locs, deps, divs, s ->
+        val divisionId = s.input.divisionId
         AssetFormOptions(
             categories = cats.filter { it.isActive || it.id == s.input.categoryId },
             locations = locs.filter { it.isActive || it.id == s.input.locationId },
-            departments = deps.filter { it.isActive || it.id == s.input.departmentId },
+            // Departemen tersaring sesuai divisi yang dipilih.
+            departments = deps.filter { (it.isActive || it.id == s.input.departmentId) && (divisionId == null || it.divisionId == divisionId) },
+            divisions = divs.filter { it.isActive || it.id == divisionId },
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), AssetFormOptions())
 
@@ -104,7 +110,7 @@ class AssetFormViewModel @Inject constructor(
                             notes = a.notes.orEmpty(), photoPath = a.photoPath,
                             disposalDate = a.disposalDate, disposalValue = a.disposalValue,
                             qrCode = a.qrCode.orEmpty(), userLocationDetail = a.userLocationDetail.orEmpty(),
-                            division = a.division.orEmpty(), prNumber = a.prNumber.orEmpty(), poNumber = a.poNumber.orEmpty(),
+                            divisionId = a.divisionId, prNumber = a.prNumber.orEmpty(), poNumber = a.poNumber.orEmpty(),
                             grNumber = a.grNumber.orEmpty(), requester = a.requester.orEmpty(), memoNumber = a.memoNumber.orEmpty(),
                             memoDate = a.memoDate, followUp = a.followUp.orEmpty(), handoverDoc = a.handoverDoc.orEmpty(),
                         ),
@@ -114,6 +120,17 @@ class AssetFormViewModel @Inject constructor(
                 _state.update { it.copy(loading = false) }
             }
         }
+    }
+
+    /** Pilih divisi: departemen dikosongkan bila bukan bagian dari divisi baru. */
+    fun selectDivision(division: Division?) {
+        val deptDivision = options.value.departments.firstOrNull { it.id == _state.value.input.departmentId }?.divisionId
+        update { it.copy(divisionId = division?.id, departmentId = if (division != null && deptDivision == division.id) it.departmentId else null) }
+    }
+
+    /** Pilih departemen: divisi otomatis mengikuti divisi induk departemen. */
+    fun selectDepartment(department: Department?) {
+        update { it.copy(departmentId = department?.id, divisionId = department?.divisionId ?: it.divisionId) }
     }
 
     fun update(transform: (AssetInput) -> AssetInput) {

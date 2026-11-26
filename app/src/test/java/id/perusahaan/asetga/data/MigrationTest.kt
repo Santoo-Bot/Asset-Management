@@ -8,7 +8,9 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import id.perusahaan.asetga.data.local.AppDatabase
 import id.perusahaan.asetga.data.local.DefaultData
 import id.perusahaan.asetga.data.local.Migrations
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
+import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
@@ -16,11 +18,14 @@ import org.junit.Test
 import org.junit.runner.RunWith
 
 /**
- * Mensimulasikan database yang sudah terpasang di HP (skema v1) lalu membukanya dengan aplikasi baru (v2).
+ * Mensimulasikan database yang sudah terpasang di HP (skema lama), lalu membukanya dengan aplikasi baru.
  * Room memvalidasi seluruh skema setelah migrasi; bila migrasi tidak cocok, test ini gagal.
  */
 @RunWith(AndroidJUnit4::class)
 class MigrationTest {
+    private val ctx = ApplicationProvider.getApplicationContext<Context>()
+    private val name = "migrasi-test.db"
+
     private val v1Assets = """
         CREATE TABLE IF NOT EXISTS `assets` (`id` TEXT NOT NULL, `code` TEXT NOT NULL, `name` TEXT NOT NULL, `categoryId` TEXT NOT NULL,
         `brandModel` TEXT, `serialNumber` TEXT, `acquisitionDate` INTEGER NOT NULL, `acquisitionCost` INTEGER NOT NULL, `locationId` TEXT NOT NULL,
@@ -32,7 +37,7 @@ class MigrationTest {
         FOREIGN KEY(`departmentId`) REFERENCES `departments`(`id`) ON UPDATE NO ACTION ON DELETE RESTRICT )
     """.trimIndent()
 
-    private val v1Indices = listOf(
+    private val v1AssetIndices = listOf(
         "CREATE UNIQUE INDEX IF NOT EXISTS `index_assets_code` ON `assets` (`code`)",
         "CREATE INDEX IF NOT EXISTS `index_assets_name` ON `assets` (`name`)",
         "CREATE INDEX IF NOT EXISTS `index_assets_categoryId` ON `assets` (`categoryId`)",
@@ -43,40 +48,85 @@ class MigrationTest {
         "CREATE INDEX IF NOT EXISTS `index_assets_serialNumber` ON `assets` (`serialNumber`)",
     )
 
-    @Test fun `migrasi 1 ke 2 mempertahankan data aset`() {
-        val ctx = ApplicationProvider.getApplicationContext<Context>()
-        val name = "migrasi-test.db"
-        ctx.deleteDatabase(name)
+    /** Tambahan kolom v2 persis seperti MIGRATION_1_2. */
+    private val v2AssetAdditions = listOf(
+        "qrCode TEXT", "userLocationDetail TEXT", "division TEXT", "prNumber TEXT", "poNumber TEXT",
+        "grNumber TEXT", "requester TEXT", "memoNumber TEXT", "memoDate INTEGER", "followUp TEXT", "handoverDoc TEXT",
+    ).map { "ALTER TABLE `assets` ADD COLUMN $it" } + "CREATE UNIQUE INDEX IF NOT EXISTS `index_assets_qrCode` ON `assets` (`qrCode`)"
 
-        // 1. Buat database lengkap, lalu kembalikan tabel aset ke bentuk v1 + isi satu aset.
+    private val v1Departments = listOf(
+        "CREATE TABLE IF NOT EXISTS `departments` (`id` TEXT NOT NULL, `name` TEXT NOT NULL, `isActive` INTEGER NOT NULL, " +
+            "`createdAt` INTEGER NOT NULL, `updatedAt` INTEGER NOT NULL, `deletedAt` INTEGER, `syncState` TEXT NOT NULL, PRIMARY KEY(`id`))",
+        "CREATE INDEX IF NOT EXISTS `index_departments_name` ON `departments` (`name`)",
+    )
+
+    @After fun cleanUp() {
+        ctx.deleteDatabase(name)
+    }
+
+    /** Buat database versi lama: tabel lain mengikuti skema terbaru, tabel yang berubah dikembalikan ke bentuk lama. */
+    private fun legacyDb(version: Int, insertSql: (categoryId: String) -> List<String>) {
+        ctx.deleteDatabase(name)
         Room.databaseBuilder(ctx, AppDatabase::class.java, name).addCallback(DefaultData.callback).build().apply {
             openHelper.writableDatabase
             close()
         }
         val raw = SQLiteDatabase.openDatabase(ctx.getDatabasePath(name).path, null, SQLiteDatabase.OPEN_READWRITE)
         val categoryId = raw.rawQuery("SELECT id FROM categories LIMIT 1", null).use { it.moveToFirst(); it.getString(0) }
-        raw.execSQL("INSERT INTO locations (id, name, address, isActive, createdAt, updatedAt, deletedAt, syncState) VALUES ('loc', 'Kantor', NULL, 1, 1, 1, NULL, 'PENDING')")
         raw.execSQL("DROP TABLE assets")
+        raw.execSQL("DROP TABLE departments")
+        raw.execSQL("DROP TABLE divisions")
+        v1Departments.forEach(raw::execSQL)
         raw.execSQL(v1Assets)
-        v1Indices.forEach(raw::execSQL)
-        raw.execSQL(
-            "INSERT INTO assets (id, code, name, categoryId, acquisitionDate, acquisitionCost, locationId, condition, status, createdAt, updatedAt, syncState) " +
-                "VALUES ('a1', 'IT-2024-001', 'Laptop lama', ?, 19723, 12000000, 'loc', 'BAIK', 'AKTIF', 1, 1, 'PENDING')",
-            arrayOf(categoryId),
-        )
-        raw.version = 1
+        v1AssetIndices.forEach(raw::execSQL)
+        if (version >= 2) v2AssetAdditions.forEach(raw::execSQL)
+        raw.execSQL("INSERT INTO locations (id, name, address, isActive, createdAt, updatedAt, deletedAt, syncState) VALUES ('loc', 'Kantor', NULL, 1, 1, 1, NULL, 'PENDING')")
+        insertSql(categoryId).forEach(raw::execSQL)
+        raw.version = version
         raw.close()
+    }
 
-        // 2. Buka dengan aplikasi versi baru.
-        val db = Room.databaseBuilder(ctx, AppDatabase::class.java, name).addMigrations(*Migrations.ALL).build()
+    private fun open(): AppDatabase = Room.databaseBuilder(ctx, AppDatabase::class.java, name).addMigrations(*Migrations.ALL).build()
+
+    private val assetCols = "id, code, name, categoryId, acquisitionDate, acquisitionCost, locationId, condition, status, createdAt, updatedAt, syncState"
+
+    @Test fun `migrasi 1 ke 3 mempertahankan data aset`() {
+        legacyDb(1) { cat ->
+            listOf("INSERT INTO assets ($assetCols) VALUES ('a1', 'IT-2024-001', 'Laptop lama', '$cat', 19723, 12000000, 'loc', 'BAIK', 'AKTIF', 1, 1, 'PENDING')")
+        }
+        val db = open()
         val asset = runBlocking { db.assetDao().getById("a1") }
         assertNotNull(asset)
         assertEquals("Laptop lama", asset!!.name)
         assertEquals(12_000_000L, asset.acquisitionCost)
         assertNull(asset.qrCode)
-        assertNull(asset.prNumber)
-        assertEquals(2, db.openHelper.readableDatabase.version)
+        assertNull(asset.divisionId)
+        assertEquals(3, db.openHelper.readableDatabase.version)
         db.close()
-        ctx.deleteDatabase(name)
+    }
+
+    @Test fun `migrasi 2 ke 3 mengubah teks divisi menjadi master divisi`() {
+        legacyDb(2) { cat ->
+            listOf(
+                "INSERT INTO departments (id, name, isActive, createdAt, updatedAt, deletedAt, syncState) VALUES ('dep', 'GA', 1, 1, 1, NULL, 'PENDING')",
+                "INSERT INTO assets ($assetCols, division, departmentId) VALUES ('a1', 'IT-1', 'A', '$cat', 19723, 1, 'loc', 'BAIK', 'AKTIF', 1, 1, 'PENDING', 'Operasional', 'dep')",
+                "INSERT INTO assets ($assetCols, division) VALUES ('a2', 'IT-2', 'B', '$cat', 19723, 1, 'loc', 'BAIK', 'AKTIF', 1, 1, 'PENDING', ' operasional ')",
+                "INSERT INTO assets ($assetCols, division) VALUES ('a3', 'IT-3', 'C', '$cat', 19723, 1, 'loc', 'BAIK', 'AKTIF', 1, 1, 'PENDING', 'Keuangan')",
+                "INSERT INTO assets ($assetCols) VALUES ('a4', 'IT-4', 'D', '$cat', 19723, 1, 'loc', 'BAIK', 'AKTIF', 1, 1, 'PENDING')",
+            )
+        }
+        val db = open()
+        runBlocking {
+            val divisions = db.divisionDao().observeAll(true).first()
+            assertEquals(2, divisions.size) // "Operasional" & " operasional " jadi satu
+            val a1 = db.assetDao().getById("a1")!!
+            val a2 = db.assetDao().getById("a2")!!
+            assertNotNull(a1.divisionId)
+            assertEquals(a1.divisionId, a2.divisionId)
+            assertEquals("Keuangan", divisions.first { it.id == db.assetDao().getById("a3")!!.divisionId }.name)
+            assertNull(db.assetDao().getById("a4")!!.divisionId)
+            assertNull(db.departmentDao().getById("dep")!!.divisionId)
+        }
+        db.close()
     }
 }

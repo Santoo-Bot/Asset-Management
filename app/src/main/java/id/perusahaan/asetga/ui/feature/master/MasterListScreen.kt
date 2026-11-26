@@ -45,11 +45,13 @@ import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import id.perusahaan.asetga.domain.model.Division
 import id.perusahaan.asetga.domain.model.MasterType
 import id.perusahaan.asetga.domain.validation.MasterValidator
 import id.perusahaan.asetga.ui.components.AppTopBar
 import id.perusahaan.asetga.ui.components.EmptyState
 import id.perusahaan.asetga.ui.components.FormTextField
+import id.perusahaan.asetga.ui.components.SelectField
 import id.perusahaan.asetga.ui.components.StatusChip
 
 @Composable
@@ -60,6 +62,7 @@ fun MasterListScreen(
 ) {
     val state by vm.uiState.collectAsStateWithLifecycle()
     val editor by vm.editor.collectAsStateWithLifecycle()
+    val divisions by vm.divisions.collectAsStateWithLifecycle()
     val snackbar = remember { SnackbarHostState() }
     LaunchedEffect(vm) { vm.messages.collect { snackbar.showSnackbar(it) } }
 
@@ -128,6 +131,7 @@ fun MasterListScreen(
             type = type,
             state = ed,
             activeRow = state.rows.firstOrNull { it.id == ed.form.id },
+            divisions = divisions,
             onChange = vm::updateForm,
             onSave = vm::save,
             onToggleActive = vm::toggleActive,
@@ -142,6 +146,7 @@ private fun MasterEditorSheet(
     type: MasterType,
     state: MasterEditorState,
     activeRow: MasterRow?,
+    divisions: List<Division>,
     onChange: ((MasterForm) -> MasterForm) -> Unit,
     onSave: () -> Unit,
     onToggleActive: (MasterRow) -> Unit,
@@ -188,7 +193,14 @@ private fun MasterEditorSheet(
                     FormTextField(f.email, { v -> onChange { it.copy(email = v.trim()) } }, "Email", error = e[MasterValidator.FIELD_EMAIL], keyboardType = KeyboardType.Email)
                     FormTextField(f.address, { v -> onChange { it.copy(address = v) } }, "Alamat", singleLine = false, minLines = 2)
                 }
-                MasterType.DEPARTMENT, MasterType.UNIT -> Unit
+                MasterType.DEPARTMENT -> SelectField(
+                    label = "Divisi induk", options = divisions,
+                    selected = divisions.firstOrNull { it.id == f.divisionId }, itemLabel = { it.name },
+                    onSelect = { d -> onChange { it.copy(divisionId = d?.id) } }, required = true,
+                    error = e[MasterValidator.FIELD_DIVISION],
+                    supporting = if (divisions.isEmpty()) "Belum ada divisi. Tambahkan dulu di Master data → Divisi." else null,
+                )
+                MasterType.DIVISION, MasterType.UNIT -> Unit
             }
             Spacer(Modifier.height(8.dp))
             Button(onClick = onSave, enabled = !state.saving, modifier = Modifier.fillMaxWidth().height(52.dp)) {

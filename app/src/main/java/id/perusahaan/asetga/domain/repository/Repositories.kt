@@ -27,6 +27,7 @@ import id.perusahaan.asetga.domain.model.StockItem
 import id.perusahaan.asetga.domain.model.StockTxn
 import id.perusahaan.asetga.domain.model.StockTxnInput
 import id.perusahaan.asetga.domain.model.Department
+import id.perusahaan.asetga.domain.model.Division
 import id.perusahaan.asetga.domain.model.Location
 import id.perusahaan.asetga.domain.model.MasterType
 import id.perusahaan.asetga.domain.model.MeasureUnit
@@ -46,12 +47,14 @@ import java.time.LocalDate
 interface MasterDataRepository {
     fun observeCategories(includeInactive: Boolean = false): Flow<List<Category>>
     fun observeLocations(includeInactive: Boolean = false): Flow<List<Location>>
+    fun observeDivisions(includeInactive: Boolean = false): Flow<List<Division>>
     fun observeDepartments(includeInactive: Boolean = false): Flow<List<Department>>
     fun observeVendors(includeInactive: Boolean = false): Flow<List<Vendor>>
     fun observeUnits(includeInactive: Boolean = false): Flow<List<MeasureUnit>>
 
     suspend fun saveCategory(category: Category): AppResult<Category>
     suspend fun saveLocation(location: Location): AppResult<Location>
+    suspend fun saveDivision(division: Division): AppResult<Division>
     suspend fun saveDepartment(department: Department): AppResult<Department>
     suspend fun saveVendor(vendor: Vendor): AppResult<Vendor>
     suspend fun saveUnit(unit: MeasureUnit): AppResult<MeasureUnit>

@@ -45,6 +45,10 @@ data class ImportLookups(
     val categories: Map<String, String>,
     val locations: Map<String, String>,
     val departments: Map<String, String>,
+    /** nama divisi (huruf kecil) → id. */
+    val divisions: Map<String, String> = emptyMap(),
+    /** id departemen → id divisi induknya. */
+    val departmentDivision: Map<String, String> = emptyMap(),
     /** Kode aset & kode QR yang sudah ada di database (huruf besar). */
     val existingCodes: Set<String>,
 )
@@ -130,6 +134,14 @@ object AssetImportParser {
             val deptRaw = cell(ImportColumn.DEPARTMENT)
             val departmentId = deptRaw.lowercase().takeIf { it.isNotEmpty() }?.let { lookups.departments[it] }
             if (deptRaw.isNotEmpty() && departmentId == null) errors += "Departemen \"$deptRaw\" tidak dikenal"
+            val divRaw = cell(ImportColumn.DIVISION)
+            val chosenDivision = divRaw.lowercase().takeIf { it.isNotEmpty() }?.let { lookups.divisions[it] }
+            if (divRaw.isNotEmpty() && chosenDivision == null) errors += "Divisi \"$divRaw\" tidak dikenal"
+            val deptDivision = departmentId?.let { lookups.departmentDivision[it] }
+            if (chosenDivision != null && deptDivision != null && chosenDivision != deptDivision) {
+                errors += "Departemen \"$deptRaw\" bukan bagian dari divisi \"$divRaw\""
+            }
+            val divisionId = deptDivision ?: chosenDivision
 
             val qr = cell(ImportColumn.QR)
             if (qr.isNotEmpty() && !qr.equals(code, ignoreCase = true)) {
@@ -162,7 +174,7 @@ object AssetImportParser {
                 serialNumber = cell(ImportColumn.SERIAL), acquisitionDate = acq, acquisitionCost = cost, locationId = locationId,
                 departmentId = departmentId, picName = cell(ImportColumn.PIC), condition = condition ?: AssetCondition.BAIK,
                 status = status ?: AssetStatus.AKTIF, warrantyUntil = warranty, notes = cell(ImportColumn.NOTES),
-                qrCode = qr, userLocationDetail = cell(ImportColumn.USER_LOCATION), division = cell(ImportColumn.DIVISION),
+                qrCode = qr, userLocationDetail = cell(ImportColumn.USER_LOCATION), divisionId = divisionId,
                 prNumber = cell(ImportColumn.PR), poNumber = cell(ImportColumn.PO), grNumber = cell(ImportColumn.GR),
                 requester = cell(ImportColumn.REQUESTER), memoNumber = cell(ImportColumn.MEMO_NO), memoDate = memoDate,
                 followUp = cell(ImportColumn.FOLLOW_UP), handoverDoc = cell(ImportColumn.HANDOVER),

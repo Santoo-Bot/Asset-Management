@@ -12,6 +12,7 @@ import id.perusahaan.asetga.domain.model.AssetListItem
 import id.perusahaan.asetga.domain.model.AssetSort
 import id.perusahaan.asetga.domain.model.AssetStatus
 import id.perusahaan.asetga.domain.model.Category
+import id.perusahaan.asetga.domain.model.Division
 import id.perusahaan.asetga.domain.model.Location
 import id.perusahaan.asetga.domain.repository.AssetRepository
 import id.perusahaan.asetga.domain.repository.MasterDataRepository
@@ -88,6 +89,8 @@ class AssetListViewModel @Inject constructor(
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
     val locations: StateFlow<List<Location>> = master.observeLocations(includeInactive = true)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+    val divisions: StateFlow<List<Division>> = master.observeDivisions(includeInactive = true)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     private val _selection = MutableStateFlow<Set<String>>(emptySet())
     val selection: StateFlow<Set<String>> = _selection.asStateFlow()
@@ -95,6 +98,7 @@ class AssetListViewModel @Inject constructor(
     fun setQuery(q: String) = _filter.update { it.copy(query = q) }
     fun setCategory(id: String?) = _filter.update { it.copy(categoryId = id) }
     fun setLocation(id: String?) = _filter.update { it.copy(locationId = id) }
+    fun setDivision(id: String?) = _filter.update { it.copy(divisionId = id) }
     fun setCondition(c: AssetCondition?) = _filter.update { it.copy(condition = c) }
     fun setStatus(s: AssetStatus?) = _filter.update { it.copy(status = s) }
     fun setSort(s: AssetSort) = _filter.update { it.copy(sort = s) }

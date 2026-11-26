@@ -121,11 +121,17 @@ fun AssetFormScreen(
                 onSelect = { l -> vm.update { it.copy(locationId = l?.id) } }, required = true, error = err[AssetValidator.FIELD_LOCATION],
             )
             SelectField(
-                label = "Departemen", options = options.departments,
-                selected = options.departments.firstOrNull { it.id == input.departmentId }, itemLabel = { it.name },
-                onSelect = { d -> vm.update { it.copy(departmentId = d?.id) } }, noneLabel = "Tidak ada",
+                label = "Divisi", options = options.divisions,
+                selected = options.divisions.firstOrNull { it.id == input.divisionId }, itemLabel = { it.name },
+                onSelect = vm::selectDivision, noneLabel = "Tidak ada",
             )
-            FormTextField(input.division, { v -> vm.update { it.copy(division = v) } }, "Divisi")
+            SelectField(
+                label = "Departemen", options = options.departments,
+                selected = options.departments.firstOrNull { it.id == input.departmentId },
+                itemLabel = { d -> if (input.divisionId == null && d.divisionName != null) "${d.name} · ${d.divisionName}" else d.name },
+                onSelect = vm::selectDepartment, noneLabel = "Tidak ada",
+                supporting = if (input.divisionId != null) "Hanya departemen di divisi terpilih" else "Memilih departemen otomatis mengisi divisi",
+            )
             FormTextField(input.picName, { v -> vm.update { it.copy(picName = v) } }, "PIC (penanggung jawab)")
             FormTextField(
                 input.userLocationDetail, { v -> vm.update { it.copy(userLocationDetail = v) } }, "Pengguna / detail lokasi",

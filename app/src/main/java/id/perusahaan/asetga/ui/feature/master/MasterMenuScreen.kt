@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.outlined.AccountTree
 import androidx.compose.material.icons.outlined.Apartment
 import androidx.compose.material.icons.outlined.Category
 import androidx.compose.material.icons.outlined.LocalShipping
@@ -24,6 +25,7 @@ import id.perusahaan.asetga.ui.components.AppTopBar
 fun MasterType.icon(): ImageVector = when (this) {
     MasterType.CATEGORY -> Icons.Outlined.Category
     MasterType.LOCATION -> Icons.Outlined.Place
+    MasterType.DIVISION -> Icons.Outlined.AccountTree
     MasterType.DEPARTMENT -> Icons.Outlined.Apartment
     MasterType.VENDOR -> Icons.Outlined.LocalShipping
     MasterType.UNIT -> Icons.Outlined.Straighten
@@ -32,7 +34,8 @@ fun MasterType.icon(): ImageVector = when (this) {
 private fun MasterType.description(): String = when (this) {
     MasterType.CATEGORY -> "Kode prefix, umur ekonomis, nilai residu"
     MasterType.LOCATION -> "Gedung, lantai, ruangan, gudang"
-    MasterType.DEPARTMENT -> "Unit kerja pemakai aset"
+    MasterType.DIVISION -> "Induk dari beberapa departemen"
+    MasterType.DEPARTMENT -> "Unit kerja pemakai aset, berada di bawah divisi"
     MasterType.VENDOR -> "Pemasok & penyedia jasa servis"
     MasterType.UNIT -> "Satuan barang habis pakai"
 }

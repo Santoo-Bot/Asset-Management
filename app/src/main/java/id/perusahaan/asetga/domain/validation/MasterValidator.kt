@@ -11,6 +11,7 @@ object MasterValidator {
     const val FIELD_RESIDUAL = "residualPercent"
     const val FIELD_EMAIL = "email"
     const val FIELD_PHONE = "phone"
+    const val FIELD_DIVISION = "division"
 
     private val prefixRegex = Regex("^[A-Z]{2,5}$")
     private val emailRegex = Regex("^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$")

@@ -253,7 +253,7 @@ private fun DetailBody(d: AssetDetail, photo: File?) {
         LabeledValue("No. seri", a.serialNumber ?: "-")
         LabeledValue("Lokasi", d.locationName)
         LabeledValue("Departemen", d.departmentName ?: "-")
-        LabeledValue("Divisi", a.division ?: "-")
+        LabeledValue("Divisi", d.divisionName ?: "-")
         LabeledValue("PIC", a.picName ?: "-")
         LabeledValue("Pengguna / detail lokasi", a.userLocationDetail ?: "-")
         LabeledValue("Tgl perolehan", Fmt.date(a.acquisitionDate))

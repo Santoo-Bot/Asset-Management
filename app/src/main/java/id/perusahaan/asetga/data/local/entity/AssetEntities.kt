@@ -1,5 +1,6 @@
 package id.perusahaan.asetga.data.local.entity
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.ForeignKey
 import androidx.room.Index
@@ -27,6 +28,7 @@ import java.time.LocalDate
         Index(value = ["status"]),
         Index(value = ["serialNumber"]),
         Index(value = ["qrCode"], unique = true),
+        Index(value = ["divisionId"]),
     ],
 )
 data class AssetEntity(
@@ -55,7 +57,10 @@ data class AssetEntity(
     val qrCode: String? = null,
     /** Pengguna / detail lokasi, mis. "Budi · Ruang 301". */
     val userLocationDetail: String? = null,
-    val division: String? = null,
+    /** Kolom teks divisi dari skema v2; sejak v3 diganti [divisionId] (master Divisi). Tidak dipakai lagi. */
+    @ColumnInfo(name = "division") val legacyDivisionText: String? = null,
+    /** Divisi aset; mengikuti divisi dari departemen bila departemen diisi. (skema v3) */
+    val divisionId: String? = null,
     val prNumber: String? = null,
     val poNumber: String? = null,
     val grNumber: String? = null,

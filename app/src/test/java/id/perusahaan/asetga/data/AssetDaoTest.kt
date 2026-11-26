@@ -5,6 +5,8 @@ import androidx.paging.PagingSource
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import id.perusahaan.asetga.data.local.AppDatabase
 import id.perusahaan.asetga.data.local.entity.AssetEntity
+import id.perusahaan.asetga.data.local.entity.DepartmentEntity
+import id.perusahaan.asetga.data.local.entity.DivisionEntity
 import id.perusahaan.asetga.data.local.entity.LocationEntity
 import id.perusahaan.asetga.data.repository.AssetRepositoryImpl
 import id.perusahaan.asetga.data.repository.AuditLogRepositoryImpl
@@ -44,7 +46,7 @@ class AssetDaoTest {
         itCategoryId = db.categoryDao().observeAll(false).first().first { it.codePrefix == "IT" }.id
         val audit = AuditLogRepositoryImpl(db.auditLogDao(), session, clock)
         repo = AssetRepositoryImpl(
-            db, db.assetDao(), db.categoryDao(), db.locationDao(), db.departmentDao(),
+            db, db.assetDao(), db.categoryDao(), db.locationDao(), db.departmentDao(), db.divisionDao(),
             SettingsRepositoryImpl(db.settingsDao()), session, audit, clock,
         )
         session.login(User("u1", "staf", "Staf GA", Role.STAFF, hasPin = false, isActive = true))
@@ -95,12 +97,12 @@ class AssetDaoTest {
         dao.insert(entity("2", "IT-2024-002", "Printer Epson", condition = AssetCondition.RUSAK_BERAT))
         dao.insert(entity("3", "IT-2024-003", "Laptop Lama", status = AssetStatus.DIHAPUS_DIJUAL))
 
-        assertEquals(2, dao.count("", null, null, null, null).first()) // default: tanpa Dihapus/Dijual
-        assertEquals(1, dao.count("laptop", null, null, null, null).first())
-        assertEquals(1, dao.count("", null, null, "RUSAK_BERAT", null).first())
-        assertEquals(1, dao.count("", null, null, null, "DIHAPUS_DIJUAL").first())
+        assertEquals(2, dao.count("", null, null, null, null, null).first()) // default: tanpa Dihapus/Dijual
+        assertEquals(1, dao.count("laptop", null, null, null, null, null).first())
+        assertEquals(1, dao.count("", null, null, "RUSAK_BERAT", null, null).first())
+        assertEquals(1, dao.count("", null, null, null, "DIHAPUS_DIJUAL", null).first())
 
-        val page = dao.paging("", null, null, null, null, "NAME")
+        val page = dao.paging("", null, null, null, null, "NAME", null)
             .load(PagingSource.LoadParams.Refresh(key = null, loadSize = 20, placeholdersEnabled = false))
         val names = (page as PagingSource.LoadResult.Page).data.map { it.name }
         assertEquals(listOf("Laptop Dell", "Printer Epson"), names)
@@ -137,14 +139,14 @@ class AssetDaoTest {
         assertEquals(2, (repo.delete(listOf(a.id, b.id), "data ganda") as AppResult.Success).value)
 
         val dao = db.assetDao()
-        assertEquals(0, dao.count("", null, null, null, null).first())
+        assertEquals(0, dao.count("", null, null, null, null, null).first())
         assertEquals(null, repo.findByCode(a.code))
         assertEquals(2, repo.observeDeleted().first().size)
         // Kode lama tetap terpakai agar tidak dobel dengan aset lain.
         assertEquals("IT-2024-003", (repo.save(input("Laptop C")) as AppResult.Success).value.code)
 
         assertTrue(repo.restore(a.id) is AppResult.Success)
-        assertEquals(2, dao.count("", null, null, null, null).first())
+        assertEquals(2, dao.count("", null, null, null, null, null).first())
         assertEquals(1, repo.observeDeleted().first().size)
         assertTrue(repo.restore(a.id) is AppResult.Failure) // sudah aktif
     }
@@ -153,7 +155,7 @@ class AssetDaoTest {
         val a = (
             repo.save(
                 input("Laptop").copy(
-                    qrCode = "QR-LAMA-0001", userLocationDetail = "Budi · Ruang 301", division = "Operasional",
+                    qrCode = "QR-LAMA-0001", userLocationDetail = "Budi · Ruang 301",
                     prNumber = "PR-1", poNumber = "PO-2", grNumber = "GR-3", requester = "Citra",
                     memoNumber = "MEMO/7", memoDate = LocalDate.of(2024, 1, 10), followUp = "Diserahkan", handoverDoc = "BAST/15",
                 ),
@@ -166,7 +168,7 @@ class AssetDaoTest {
         assertEquals("BAST/15", saved.handoverDoc)
         assertEquals(a.id, repo.findByCode("QR-LAMA-0001")?.id)
         assertEquals(a.id, repo.findByCode(a.code)?.id)
-        assertEquals(1, db.assetDao().count("PO-2", null, null, null, null).first())
+        assertEquals(1, db.assetDao().count("PO-2", null, null, null, null, null).first())
 
         // Kode QR tidak boleh sama dengan kode/QR aset lain.
         val dupQr = repo.save(input("Lain").copy(qrCode = "qr-lama-0001")) as AppResult.Failure
@@ -176,5 +178,30 @@ class AssetDaoTest {
         // Tanpa kode QR, isi QR = kode aset.
         val b = (repo.save(input("Mouse")) as AppResult.Success).value
         assertEquals(b.code, b.qrContent)
+    }
+
+    @Test fun `divisi aset mengikuti departemen, termasuk saat departemen dipindah divisi`() = runTest {
+        val now = 1L
+        db.divisionDao().insert(DivisionEntity("divA", "Operasional", true, now, now))
+        db.divisionDao().insert(DivisionEntity("divB", "Komersial", true, now, now))
+        db.departmentDao().insert(DepartmentEntity("dep1", "General Affair", true, now, now, divisionId = "divA"))
+
+        // Divisi dipilih "divB" tetapi departemen milik "divA" → yang dipakai divisi departemen.
+        val a = (repo.save(input("Laptop").copy(departmentId = "dep1", divisionId = "divB")) as AppResult.Success).value
+        assertEquals("divA", a.divisionId)
+        assertEquals("Operasional", repo.observeDetail(a.id).first()!!.divisionName)
+        // Tanpa departemen, divisi pilihan dipakai.
+        val b = (repo.save(input("Meja").copy(divisionId = "divB")) as AppResult.Success).value
+        assertEquals("divB", b.divisionId)
+        assertEquals(1, db.assetDao().count("", null, null, null, null, "divB").first())
+
+        // Admin memindah departemen ke divisi lain → aset ikut.
+        session.login(User("adm", "admin", "Admin GA", Role.ADMIN, hasPin = false, isActive = true))
+        val master = id.perusahaan.asetga.data.repository.MasterDataRepositoryImpl(
+            db, db.assetDao(), db.categoryDao(), db.locationDao(), db.divisionDao(), db.departmentDao(), db.vendorDao(), db.unitDao(),
+            session, AuditLogRepositoryImpl(db.auditLogDao(), session, clock), clock,
+        )
+        assertTrue(master.saveDepartment(id.perusahaan.asetga.domain.model.Department("dep1", "General Affair", "divB")) is AppResult.Success)
+        assertEquals("divB", db.assetDao().getById(a.id)!!.divisionId)
     }
 }

@@ -69,7 +69,7 @@ import id.perusahaan.asetga.ui.components.OptionSheet
 import id.perusahaan.asetga.util.Fmt
 import java.io.File
 
-private enum class FilterSheet { CATEGORY, LOCATION, CONDITION, STATUS, SORT }
+private enum class FilterSheet { CATEGORY, LOCATION, DIVISION, CONDITION, STATUS, SORT }
 
 @Composable
 fun AssetListScreen(
@@ -82,6 +82,7 @@ fun AssetListScreen(
     val count by vm.count.collectAsStateWithLifecycle()
     val categories by vm.categories.collectAsStateWithLifecycle()
     val locations by vm.locations.collectAsStateWithLifecycle()
+    val divisions by vm.divisions.collectAsStateWithLifecycle()
     val selection by vm.selection.collectAsStateWithLifecycle()
     val items = vm.assets.collectAsLazyPagingItems()
     var sheet by remember { mutableStateOf<FilterSheet?>(null) }
@@ -150,6 +151,10 @@ fun AssetListScreen(
                 FilterChip(
                     selected = filter.locationId != null, onClick = { sheet = FilterSheet.LOCATION },
                     label = { Text(locations.firstOrNull { it.id == filter.locationId }?.name ?: "Lokasi") },
+                )
+                FilterChip(
+                    selected = filter.divisionId != null, onClick = { sheet = FilterSheet.DIVISION },
+                    label = { Text(divisions.firstOrNull { it.id == filter.divisionId }?.name ?: "Divisi") },
                 )
                 FilterChip(
                     selected = filter.condition != null, onClick = { sheet = FilterSheet.CONDITION },
@@ -223,6 +228,10 @@ fun AssetListScreen(
         FilterSheet.LOCATION -> OptionSheet(
             "Lokasi", locations, locations.firstOrNull { it.id == filter.locationId }, { it.name },
             onDismiss = { sheet = null }, onSelect = { vm.setLocation(it?.id); sheet = null }, noneLabel = "Semua lokasi",
+        )
+        FilterSheet.DIVISION -> OptionSheet(
+            "Divisi", divisions, divisions.firstOrNull { it.id == filter.divisionId }, { it.name },
+            onDismiss = { sheet = null }, onSelect = { vm.setDivision(it?.id); sheet = null }, noneLabel = "Semua divisi",
         )
         FilterSheet.CONDITION -> OptionSheet(
             "Kondisi", AssetCondition.entries, filter.condition, { it.label },

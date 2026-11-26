@@ -104,6 +104,8 @@ class OperationRepositoryImpl @Inject constructor(
                 asset.copy(
                     locationId = toLocation,
                     departmentId = input.toDepartmentId,
+                    // Divisi mengikuti departemen tujuan.
+                    divisionId = input.toDepartmentId?.let { departmentDao.getById(it)?.divisionId } ?: asset.divisionId,
                     picName = toPic,
                     updatedAt = now,
                     syncState = SyncState.PENDING,

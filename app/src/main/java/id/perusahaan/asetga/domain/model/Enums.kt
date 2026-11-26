@@ -81,6 +81,7 @@ enum class ThemeMode(val label: String) {
 enum class MasterType(val label: String, val singular: String) {
     CATEGORY("Kategori", "kategori"),
     LOCATION("Lokasi", "lokasi"),
+    DIVISION("Divisi", "divisi"),
     DEPARTMENT("Departemen", "departemen"),
     VENDOR("Vendor", "vendor"),
     UNIT("Satuan", "satuan"),

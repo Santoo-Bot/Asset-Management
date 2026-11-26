@@ -35,6 +35,7 @@ data class AssetDetailRow(
     val categoryResidualPercent: Double?,
     val locationName: String,
     val departmentName: String?,
+    val divisionName: String?,
 )
 
 data class DeletedAssetRow(
@@ -72,6 +73,7 @@ private const val FILTER_WHERE = """
          OR a.poNumber LIKE '%' || :query || '%' OR a.grNumber LIKE '%' || :query || '%')
     AND (:categoryId IS NULL OR a.categoryId = :categoryId)
     AND (:locationId IS NULL OR a.locationId = :locationId)
+    AND (:divisionId IS NULL OR a.divisionId = :divisionId)
     AND (:condition IS NULL OR a.condition = :condition)
     AND ((:status IS NULL AND a.status != 'DIHAPUS_DIJUAL') OR a.status = :status)
 """
@@ -96,20 +98,23 @@ interface AssetDao {
         condition: String?,
         status: String?,
         sort: String,
+        divisionId: String?,
     ): PagingSource<Int, AssetListRow>
 
     @Query(
         "SELECT COUNT(*) FROM assets a WHERE $FILTER_WHERE",
     )
-    fun count(query: String, categoryId: String?, locationId: String?, condition: String?, status: String?): Flow<Int>
+    fun count(query: String, categoryId: String?, locationId: String?, condition: String?, status: String?, divisionId: String?): Flow<Int>
 
     @Query(
         """SELECT a.*, c.name AS categoryName, c.usefulLifeYears AS usefulLifeYears,
-                  c.residualPercent AS categoryResidualPercent, l.name AS locationName, d.name AS departmentName
+                  c.residualPercent AS categoryResidualPercent, l.name AS locationName, d.name AS departmentName,
+                  dv.name AS divisionName
            FROM assets a
            JOIN categories c ON c.id = a.categoryId
            JOIN locations l ON l.id = a.locationId
            LEFT JOIN departments d ON d.id = a.departmentId
+           LEFT JOIN divisions dv ON dv.id = a.divisionId
            WHERE a.id = :id""",
     )
     fun observeDetail(id: String): Flow<AssetDetailRow?>
@@ -119,11 +124,13 @@ interface AssetDao {
 
     @Query(
         """SELECT a.*, c.name AS categoryName, c.usefulLifeYears AS usefulLifeYears,
-                  c.residualPercent AS categoryResidualPercent, l.name AS locationName, d.name AS departmentName
+                  c.residualPercent AS categoryResidualPercent, l.name AS locationName, d.name AS departmentName,
+                  dv.name AS divisionName
            FROM assets a
            JOIN categories c ON c.id = a.categoryId
            JOIN locations l ON l.id = a.locationId
            LEFT JOIN departments d ON d.id = a.departmentId
+           LEFT JOIN divisions dv ON dv.id = a.divisionId
            WHERE a.deletedAt IS NULL ORDER BY a.code""",
     )
     suspend fun exportRows(): List<AssetDetailRow>
@@ -210,6 +217,10 @@ interface AssetDao {
 
     @Update
     suspend fun update(entity: AssetEntity)
+
+    /** Departemen dipindah ke divisi lain → divisi aset-asetnya ikut diperbarui. */
+    @Query("UPDATE assets SET divisionId = :divisionId, updatedAt = :now, syncState = 'PENDING' WHERE departmentId = :departmentId")
+    suspend fun syncDivisionForDepartment(departmentId: String, divisionId: String?, now: Long)
 
     // ---------- Hapus (soft delete) & pulihkan ----------
 

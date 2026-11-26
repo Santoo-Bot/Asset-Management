@@ -1,12 +1,17 @@
 package id.perusahaan.asetga.data.repository
 
+import androidx.room.withTransaction
+import id.perusahaan.asetga.data.local.AppDatabase
+import id.perusahaan.asetga.data.local.dao.AssetDao
 import id.perusahaan.asetga.data.local.dao.CategoryDao
 import id.perusahaan.asetga.data.local.dao.DepartmentDao
+import id.perusahaan.asetga.data.local.dao.DivisionDao
 import id.perusahaan.asetga.data.local.dao.LocationDao
 import id.perusahaan.asetga.data.local.dao.UnitDao
 import id.perusahaan.asetga.data.local.dao.VendorDao
 import id.perusahaan.asetga.data.local.entity.CategoryEntity
 import id.perusahaan.asetga.data.local.entity.DepartmentEntity
+import id.perusahaan.asetga.data.local.entity.DivisionEntity
 import id.perusahaan.asetga.data.local.entity.LocationEntity
 import id.perusahaan.asetga.data.local.entity.UnitEntity
 import id.perusahaan.asetga.data.local.entity.VendorEntity
@@ -15,6 +20,7 @@ import id.perusahaan.asetga.domain.model.AuditAction
 import id.perusahaan.asetga.domain.model.AuditEntityType
 import id.perusahaan.asetga.domain.model.Category
 import id.perusahaan.asetga.domain.model.Department
+import id.perusahaan.asetga.domain.model.Division
 import id.perusahaan.asetga.domain.model.Location
 import id.perusahaan.asetga.domain.model.MasterType
 import id.perusahaan.asetga.domain.model.MeasureUnit
@@ -27,6 +33,7 @@ import id.perusahaan.asetga.domain.validation.MasterValidator
 import id.perusahaan.asetga.domain.validation.MasterValidator.FIELD_NAME
 import id.perusahaan.asetga.domain.validation.MasterValidator.FIELD_PREFIX
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import java.time.Clock
 import java.util.UUID
@@ -35,8 +42,11 @@ import javax.inject.Singleton
 
 @Singleton
 class MasterDataRepositoryImpl @Inject constructor(
+    private val db: AppDatabase,
+    private val assetDao: AssetDao,
     private val categoryDao: CategoryDao,
     private val locationDao: LocationDao,
+    private val divisionDao: DivisionDao,
     private val departmentDao: DepartmentDao,
     private val vendorDao: VendorDao,
     private val unitDao: UnitDao,
@@ -51,8 +61,34 @@ class MasterDataRepositoryImpl @Inject constructor(
     override fun observeLocations(includeInactive: Boolean): Flow<List<Location>> =
         locationDao.observeAll(includeInactive).map { l -> l.map { it.toDomain() } }
 
+    override fun observeDivisions(includeInactive: Boolean): Flow<List<Division>> =
+        divisionDao.observeAll(includeInactive).map { l -> l.map { it.toDomain() } }
+
+    /** Departemen beserta nama divisinya. */
     override fun observeDepartments(includeInactive: Boolean): Flow<List<Department>> =
-        departmentDao.observeAll(includeInactive).map { l -> l.map { it.toDomain() } }
+        combine(departmentDao.observeAll(includeInactive), divisionDao.observeAll(includeInactive = true)) { deps, divs ->
+            val names = divs.associate { it.id to it.name }
+            deps.map { d -> d.toDomain(d.divisionId?.let(names::get)) }
+        }
+
+    override suspend fun saveDivision(division: Division): AppResult<Division> {
+        session.denyUnless { it.canManageMaster }?.let { return it }
+        val name = division.name.trim()
+        nameErrors(name, divisionDao.countByName(name, division.id), "divisi")?.let { return it }
+        val now = clock.millis()
+        val old = division.id.takeIf { it.isNotEmpty() }?.let { divisionDao.getById(it) }
+        return if (old == null) {
+            val e = DivisionEntity(newId(), name, true, now, now)
+            divisionDao.insert(e)
+            audit.log(AuditEntityType.MASTER, e.id, AuditAction.CREATE, "Divisi ${e.name} ditambahkan")
+            AppResult.Success(e.toDomain())
+        } else {
+            val e = old.copy(name = name, updatedAt = now, syncState = SyncState.PENDING)
+            divisionDao.update(e)
+            logUpdate("Divisi", e.id, e.name) { field("Nama", old.name, e.name) }
+            AppResult.Success(e.toDomain())
+        }
+    }
 
     override fun observeVendors(includeInactive: Boolean): Flow<List<Vendor>> =
         vendorDao.observeAll(includeInactive).map { l -> l.map { it.toDomain() } }
@@ -116,19 +152,33 @@ class MasterDataRepositoryImpl @Inject constructor(
     override suspend fun saveDepartment(department: Department): AppResult<Department> {
         session.denyUnless { it.canManageMaster }?.let { return it }
         val name = department.name.trim()
-        nameErrors(name, departmentDao.countByName(name, department.id), "departemen")?.let { return it }
+        val errors = mutableMapOf<String, String>()
+        (MasterValidator.validateName(name) ?: if (departmentDao.countByName(name, department.id) > 0) "Nama departemen sudah ada" else null)
+            ?.let { errors[FIELD_NAME] = it }
+        val division = department.divisionId?.let { divisionDao.getById(it) }
+        if (division == null) errors[MasterValidator.FIELD_DIVISION] = "Pilih divisi induk"
+        if (errors.isNotEmpty()) return invalid(errors)
+
         val now = clock.millis()
         val old = department.id.takeIf { it.isNotEmpty() }?.let { departmentDao.getById(it) }
         return if (old == null) {
-            val e = DepartmentEntity(newId(), name, true, now, now)
+            val e = DepartmentEntity(newId(), name, true, now, now, divisionId = division!!.id)
             departmentDao.insert(e)
-            audit.log(AuditEntityType.MASTER, e.id, AuditAction.CREATE, "Departemen ${e.name} ditambahkan")
-            AppResult.Success(e.toDomain())
+            audit.log(AuditEntityType.MASTER, e.id, AuditAction.CREATE, "Departemen ${e.name} (Divisi ${division.name}) ditambahkan")
+            AppResult.Success(e.toDomain(division.name))
         } else {
-            val e = old.copy(name = name, updatedAt = now, syncState = SyncState.PENDING)
-            departmentDao.update(e)
-            logUpdate("Departemen", e.id, e.name) { field("Nama", old.name, e.name) }
-            AppResult.Success(e.toDomain())
+            val e = old.copy(name = name, divisionId = division!!.id, updatedAt = now, syncState = SyncState.PENDING)
+            val oldDivisionName = old.divisionId?.let { divisionDao.getById(it)?.name }
+            db.withTransaction {
+                departmentDao.update(e)
+                // Aset di departemen ini ikut pindah divisi agar data tetap konsisten.
+                if (old.divisionId != e.divisionId) assetDao.syncDivisionForDepartment(e.id, e.divisionId, now)
+            }
+            logUpdate("Departemen", e.id, e.name) {
+                field("Nama", old.name, e.name)
+                field("Divisi", oldDivisionName, division.name)
+            }
+            AppResult.Success(e.toDomain(division.name))
         }
     }
 
@@ -183,6 +233,12 @@ class MasterDataRepositoryImpl @Inject constructor(
         val name: String? = when (type) {
             MasterType.CATEGORY -> categoryDao.getById(id)?.name?.also { categoryDao.setActive(id, active, now) }
             MasterType.LOCATION -> locationDao.getById(id)?.name?.also { locationDao.setActive(id, active, now) }
+            MasterType.DIVISION -> {
+                if (!active && divisionDao.countActiveDepartments(id) > 0) {
+                    return AppResult.Failure("Nonaktifkan atau pindahkan dulu departemen di bawah divisi ini")
+                }
+                divisionDao.getById(id)?.name?.also { divisionDao.setActive(id, active, now) }
+            }
             MasterType.DEPARTMENT -> departmentDao.getById(id)?.name?.also { departmentDao.setActive(id, active, now) }
             MasterType.VENDOR -> vendorDao.getById(id)?.name?.also { vendorDao.setActive(id, active, now) }
             MasterType.UNIT -> unitDao.getById(id)?.name?.also { unitDao.setActive(id, active, now) }

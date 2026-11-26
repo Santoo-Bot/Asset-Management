@@ -7,6 +7,7 @@ import androidx.room.Query
 import androidx.room.Update
 import id.perusahaan.asetga.data.local.entity.CategoryEntity
 import id.perusahaan.asetga.data.local.entity.DepartmentEntity
+import id.perusahaan.asetga.data.local.entity.DivisionEntity
 import id.perusahaan.asetga.data.local.entity.LocationEntity
 import id.perusahaan.asetga.data.local.entity.UnitEntity
 import id.perusahaan.asetga.data.local.entity.VendorEntity
@@ -54,6 +55,30 @@ interface LocationDao {
     suspend fun update(entity: LocationEntity)
 
     @Query("UPDATE locations SET isActive = :active, updatedAt = :now, syncState = 'PENDING' WHERE id = :id")
+    suspend fun setActive(id: String, active: Boolean, now: Long)
+}
+
+@Dao
+interface DivisionDao {
+    @Query("SELECT * FROM divisions WHERE deletedAt IS NULL AND (:includeInactive OR isActive = 1) ORDER BY name COLLATE NOCASE")
+    fun observeAll(includeInactive: Boolean): Flow<List<DivisionEntity>>
+
+    @Query("SELECT * FROM divisions WHERE id = :id")
+    suspend fun getById(id: String): DivisionEntity?
+
+    @Query("SELECT COUNT(*) FROM divisions WHERE name = :name COLLATE NOCASE AND id != :excludeId AND deletedAt IS NULL")
+    suspend fun countByName(name: String, excludeId: String): Int
+
+    @Query("SELECT COUNT(*) FROM departments WHERE divisionId = :divisionId AND isActive = 1 AND deletedAt IS NULL")
+    suspend fun countActiveDepartments(divisionId: String): Int
+
+    @Insert(onConflict = OnConflictStrategy.ABORT)
+    suspend fun insert(entity: DivisionEntity)
+
+    @Update
+    suspend fun update(entity: DivisionEntity)
+
+    @Query("UPDATE divisions SET isActive = :active, updatedAt = :now, syncState = 'PENDING' WHERE id = :id")
     suspend fun setActive(id: String, active: Boolean, now: Long)
 }
 

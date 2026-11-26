@@ -9,6 +9,8 @@ import id.perusahaan.asetga.data.repository.UserRepositoryImpl
 import id.perusahaan.asetga.domain.model.AppResult
 import id.perusahaan.asetga.domain.model.AuditEntityType
 import id.perusahaan.asetga.domain.model.Category
+import id.perusahaan.asetga.domain.model.Department
+import id.perusahaan.asetga.domain.model.Division
 import id.perusahaan.asetga.domain.model.Location
 import id.perusahaan.asetga.domain.model.MasterType
 import id.perusahaan.asetga.domain.model.Role
@@ -41,7 +43,7 @@ class RepositoryTest {
         audit = AuditLogRepositoryImpl(db.auditLogDao(), session, clock)
         users = UserRepositoryImpl(db.userDao(), PasswordHasher(iterations = 1_000), session, audit, clock)
         master = MasterDataRepositoryImpl(
-            db.categoryDao(), db.locationDao(), db.departmentDao(), db.vendorDao(), db.unitDao(), session, audit, clock,
+            db, db.assetDao(), db.categoryDao(), db.locationDao(), db.divisionDao(), db.departmentDao(), db.vendorDao(), db.unitDao(), session, audit, clock,
         )
     }
 
@@ -128,5 +130,20 @@ class RepositoryTest {
         assertTrue(repo.setDefaultResidualPercent(150.0) is AppResult.Failure)
         assertTrue(repo.setDefaultResidualPercent(5.0) is AppResult.Success)
         assertEquals(5.0, repo.current().defaultResidualPercent, 0.0)
+    }
+
+    @Test fun `departemen wajib punya divisi dan divisi berisi departemen aktif tidak bisa dinonaktifkan`() = runTest {
+        createAdmin()
+        val noDivision = master.saveDepartment(Department("", "Keuangan")) as AppResult.Failure
+        assertTrue(MasterValidator.FIELD_DIVISION in noDivision.fieldErrors)
+
+        val div = (master.saveDivision(Division("", "Keuangan & SDM")) as AppResult.Success).value
+        val dept = (master.saveDepartment(Department("", "Keuangan", div.id)) as AppResult.Success).value
+        assertEquals("Keuangan & SDM", master.observeDepartments().first().single().divisionName)
+        assertTrue(master.saveDivision(Division("", "keuangan & sdm")) is AppResult.Failure) // nama ganda
+
+        assertTrue(master.setActive(MasterType.DIVISION, div.id, false) is AppResult.Failure)
+        assertTrue(master.setActive(MasterType.DEPARTMENT, dept.id, false) is AppResult.Success)
+        assertTrue(master.setActive(MasterType.DIVISION, div.id, false) is AppResult.Success)
     }
 }

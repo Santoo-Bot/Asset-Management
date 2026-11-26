@@ -8,6 +8,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import id.perusahaan.asetga.domain.model.AppResult
 import id.perusahaan.asetga.domain.model.Category
 import id.perusahaan.asetga.domain.model.Department
+import id.perusahaan.asetga.domain.model.Division
 import id.perusahaan.asetga.domain.model.Location
 import id.perusahaan.asetga.domain.model.MasterType
 import id.perusahaan.asetga.domain.model.MeasureUnit
@@ -53,6 +54,7 @@ data class MasterForm(
     val phone: String = "",
     val email: String = "",
     val address: String = "",
+    val divisionId: String? = null,
 )
 
 data class MasterEditorState(
@@ -94,6 +96,10 @@ class MasterListViewModel @Inject constructor(
             MasterListUiState(rows = filtered, loading = false, query = q, showInactive = inactive)
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), MasterListUiState())
 
+    /** Pilihan divisi induk untuk form departemen. */
+    val divisions: StateFlow<List<Division>> = repo.observeDivisions()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
     private val _editor = MutableStateFlow<MasterEditorState?>(null)
     val editor: StateFlow<MasterEditorState?> = _editor.asStateFlow()
 
@@ -129,7 +135,8 @@ class MasterListViewModel @Inject constructor(
                     }
                 }
                 MasterType.LOCATION -> repo.saveLocation(Location(f.id, f.name, f.address))
-                MasterType.DEPARTMENT -> repo.saveDepartment(Department(f.id, f.name))
+                MasterType.DIVISION -> repo.saveDivision(Division(f.id, f.name))
+                MasterType.DEPARTMENT -> repo.saveDepartment(Department(f.id, f.name, f.divisionId))
                 MasterType.VENDOR -> repo.saveVendor(Vendor(f.id, f.name, f.phone, f.email, f.address))
                 MasterType.UNIT -> repo.saveUnit(MeasureUnit(f.id, f.name))
             }
@@ -180,8 +187,17 @@ class MasterListViewModel @Inject constructor(
         MasterType.LOCATION -> repo.observeLocations(includeInactive).map { list ->
             list.map { MasterRow(it.id, it.name, it.address, null, it.isActive, MasterForm(id = it.id, name = it.name, address = it.address.orEmpty())) }
         }
+        MasterType.DIVISION -> combine(repo.observeDivisions(includeInactive), repo.observeDepartments(includeInactive = false)) { divs, deps ->
+            val count = deps.groupingBy { it.divisionId }.eachCount()
+            divs.map { MasterRow(it.id, it.name, "${count[it.id] ?: 0} departemen", null, it.isActive, MasterForm(id = it.id, name = it.name)) }
+        }
         MasterType.DEPARTMENT -> repo.observeDepartments(includeInactive).map { list ->
-            list.map { MasterRow(it.id, it.name, null, null, it.isActive, MasterForm(id = it.id, name = it.name)) }
+            list.map {
+                MasterRow(
+                    it.id, it.name, it.divisionName?.let { d -> "Divisi $d" } ?: "Belum ada divisi — ketuk untuk memilih", null, it.isActive,
+                    MasterForm(id = it.id, name = it.name, divisionId = it.divisionId),
+                )
+            }
         }
         MasterType.VENDOR -> repo.observeVendors(includeInactive).map { list ->
             list.map { v ->

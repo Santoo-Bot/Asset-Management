@@ -5,6 +5,7 @@ import id.perusahaan.asetga.data.local.AppDatabase
 import id.perusahaan.asetga.data.local.entity.AppSettingEntity
 import id.perusahaan.asetga.data.local.entity.AssetEntity
 import id.perusahaan.asetga.data.local.entity.DepartmentEntity
+import id.perusahaan.asetga.data.local.entity.DivisionEntity
 import id.perusahaan.asetga.data.local.entity.LocationEntity
 import id.perusahaan.asetga.data.local.entity.VendorEntity
 import id.perusahaan.asetga.domain.calc.AssetCodeGenerator
@@ -23,7 +24,35 @@ class DebugSampleDataSeeder @Inject constructor(
 
     override suspend fun seedIfNeeded() {
         seedMasters()
+        seedDivisions()
         seedAssets()
+    }
+
+    /** Divisi contoh + tautan departemen → divisi (juga untuk data contoh lama dari versi sebelumnya). */
+    private suspend fun seedDivisions() {
+        if (db.settingsDao().get(KEY_DIVISIONS) != null) return
+        val now = System.currentTimeMillis()
+        val plan = mapOf(
+            "Operasional" to listOf("Operasional", "General Affair", "IT"),
+            "Keuangan & SDM" to listOf("Keuangan", "HRD"),
+            "Komersial" to listOf("Pemasaran"),
+            "Direksi" to listOf("Direksi"),
+        )
+        db.withTransaction {
+            val departments = db.departmentDao().observeAll(true).first()
+            plan.forEach { (divisionName, deptNames) ->
+                val divisionId = UUID.randomUUID().toString()
+                db.divisionDao().insert(DivisionEntity(divisionId, divisionName, true, now, now))
+                departments.filter { it.name in deptNames && it.divisionId == null }.forEach {
+                    db.departmentDao().update(it.copy(divisionId = divisionId, updatedAt = now))
+                }
+            }
+            db.openHelper.writableDatabase.execSQL(
+                "UPDATE assets SET divisionId = (SELECT d.divisionId FROM departments d WHERE d.id = assets.departmentId) " +
+                    "WHERE divisionId IS NULL AND departmentId IS NOT NULL",
+            )
+            db.settingsDao().put(AppSettingEntity(KEY_DIVISIONS, now.toString()))
+        }
     }
 
     private suspend fun seedMasters() {
@@ -60,6 +89,7 @@ class DebugSampleDataSeeder @Inject constructor(
         val categories = db.categoryDao().observeAll(false).first()
         val locations = db.locationDao().observeAll(false).first()
         val departments = db.departmentDao().observeAll(false).first()
+        val deptDivision = departments.associate { it.id to it.divisionId }
         if (categories.isEmpty() || locations.isEmpty()) return
 
         val names = mapOf(
@@ -119,6 +149,7 @@ class DebugSampleDataSeeder @Inject constructor(
                 updatedAt = now,
             )
         }.map { if (it.status == AssetStatus.DIHAPUS_DIJUAL) it.copy(disposalDate = today.minusDays(rnd.nextLong(1, 300))) else it }
+            .map { a -> a.copy(divisionId = a.departmentId?.let(deptDivision::get)) }
 
         db.withTransaction {
             all.chunked(500).forEach { db.assetDao().insertAll(it) }
@@ -129,6 +160,7 @@ class DebugSampleDataSeeder @Inject constructor(
     private companion object {
         const val KEY = "debug_seed_v1"
         const val KEY_ASSETS = "debug_seed_assets_v1"
+        const val KEY_DIVISIONS = "debug_seed_divisions_v1"
         const val TOTAL_ASSETS = 5_000
     }
 }

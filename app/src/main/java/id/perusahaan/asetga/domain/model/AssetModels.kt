@@ -26,7 +26,7 @@ data class Asset(
     val disposalValue: Long?,
     val qrCode: String? = null,
     val userLocationDetail: String? = null,
-    val division: String? = null,
+    val divisionId: String? = null,
     val prNumber: String? = null,
     val poNumber: String? = null,
     val grNumber: String? = null,
@@ -62,7 +62,7 @@ data class AssetInput(
     val disposalValue: Long? = null,
     val qrCode: String = "",
     val userLocationDetail: String = "",
-    val division: String = "",
+    val divisionId: String? = null,
     val prNumber: String = "",
     val poNumber: String = "",
     val grNumber: String = "",
@@ -98,6 +98,7 @@ data class AssetDetail(
     val residualPercent: Double,
     val locationName: String,
     val departmentName: String?,
+    val divisionName: String?,
     val age: AssetAge,
     val depreciation: DepreciationResult,
     val warrantyStatus: WarrantyStatus,
@@ -115,12 +116,13 @@ data class AssetFilter(
     val query: String = "",
     val categoryId: String? = null,
     val locationId: String? = null,
+    val divisionId: String? = null,
     val condition: AssetCondition? = null,
     /** null = semua kecuali Dihapus/Dijual. */
     val status: AssetStatus? = null,
     val sort: AssetSort = AssetSort.CODE,
 ) {
-    val activeFilterCount: Int get() = listOfNotNull(categoryId, locationId, condition, status).size
+    val activeFilterCount: Int get() = listOfNotNull(categoryId, locationId, divisionId, condition, status).size
 }
 
 data class DeletedAsset(

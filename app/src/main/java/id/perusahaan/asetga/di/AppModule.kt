@@ -48,6 +48,7 @@ object AppModule {
     @Provides fun userDao(db: AppDatabase) = db.userDao()
     @Provides fun categoryDao(db: AppDatabase) = db.categoryDao()
     @Provides fun locationDao(db: AppDatabase) = db.locationDao()
+    @Provides fun divisionDao(db: AppDatabase) = db.divisionDao()
     @Provides fun departmentDao(db: AppDatabase) = db.departmentDao()
     @Provides fun vendorDao(db: AppDatabase) = db.vendorDao()
     @Provides fun unitDao(db: AppDatabase) = db.unitDao()

@@ -11,6 +11,7 @@ import id.perusahaan.asetga.data.local.dao.AssetDetailRow
 import id.perusahaan.asetga.data.local.dao.AssetListRow
 import id.perusahaan.asetga.data.local.dao.CategoryDao
 import id.perusahaan.asetga.data.local.dao.DepartmentDao
+import id.perusahaan.asetga.data.local.dao.DivisionDao
 import id.perusahaan.asetga.data.local.dao.LocationDao
 import id.perusahaan.asetga.data.local.entity.AssetEntity
 import id.perusahaan.asetga.domain.calc.AssetAgeCalc
@@ -46,7 +47,7 @@ import javax.inject.Singleton
 internal fun AssetEntity.toDomain() = Asset(
     id, code, name, categoryId, brandModel, serialNumber, acquisitionDate, acquisitionCost, locationId, departmentId,
     picName, condition, status, warrantyUntil, notes, photoPath, disposalDate, disposalValue,
-    qrCode, userLocationDetail, division, prNumber, poNumber, grNumber, requester, memoNumber, memoDate, followUp, handoverDoc,
+    qrCode, userLocationDetail, divisionId, prNumber, poNumber, grNumber, requester, memoNumber, memoDate, followUp, handoverDoc,
 )
 
 internal fun AssetListRow.toDomain() = AssetListItem(
@@ -60,6 +61,7 @@ class AssetRepositoryImpl @Inject constructor(
     private val categoryDao: CategoryDao,
     private val locationDao: LocationDao,
     private val departmentDao: DepartmentDao,
+    private val divisionDao: DivisionDao,
     private val settings: SettingsRepository,
     private val session: SessionManager,
     private val audit: AuditLogRepository,
@@ -70,11 +72,11 @@ class AssetRepositoryImpl @Inject constructor(
 
     override fun paging(filter: AssetFilter): Flow<PagingData<AssetListItem>> =
         Pager(PagingConfig(pageSize = 40, prefetchDistance = 20, enablePlaceholders = false)) {
-            dao.paging(filter.query.trim(), filter.categoryId, filter.locationId, filter.condition?.name, filter.status?.name, filter.sort.name)
+            dao.paging(filter.query.trim(), filter.categoryId, filter.locationId, filter.condition?.name, filter.status?.name, filter.sort.name, filter.divisionId)
         }.flow.map { page -> page.map { it.toDomain() } }
 
     override fun count(filter: AssetFilter): Flow<Int> =
-        dao.count(filter.query.trim(), filter.categoryId, filter.locationId, filter.condition?.name, filter.status?.name)
+        dao.count(filter.query.trim(), filter.categoryId, filter.locationId, filter.condition?.name, filter.status?.name, filter.divisionId)
 
     override fun observeDetail(id: String): Flow<AssetDetail?> =
         combine(dao.observeDetail(id), settings.settings) { row, s -> row?.toDetail(s.defaultResidualPercent) }
@@ -91,6 +93,7 @@ class AssetRepositoryImpl @Inject constructor(
             residualPercent = residual,
             locationName = locationName,
             departmentName = departmentName,
+            divisionName = divisionName,
             age = AssetAgeCalc.of(a.acquisitionDate, asOf),
             depreciation = Depreciation.calculate(a.acquisitionCost, a.acquisitionDate, usefulLifeYears, residual, asOf),
             warrantyStatus = WarrantyCalc.status(a.warrantyUntil, today()),
@@ -119,7 +122,10 @@ class AssetRepositoryImpl @Inject constructor(
         val acqDate = input.acquisitionDate!!
         if (categoryDao.getById(categoryId) == null) return AppResult.Failure("Kategori tidak ditemukan")
         if (locationDao.getById(input.locationId!!) == null) return AppResult.Failure("Lokasi tidak ditemukan")
-        if (input.departmentId != null && departmentDao.getById(input.departmentId) == null) return AppResult.Failure("Departemen tidak ditemukan")
+        val department = input.departmentId?.let { departmentDao.getById(it) ?: return AppResult.Failure("Departemen tidak ditemukan") }
+        if (input.divisionId != null && divisionDao.getById(input.divisionId) == null) return AppResult.Failure("Divisi tidak ditemukan")
+        // Departemen menentukan divisi; bila departemen kosong, pakai divisi yang dipilih.
+        val divisionId = department?.divisionId ?: input.divisionId
 
         return db.withTransaction {
             val old = input.id?.let { dao.getById(it) }
@@ -165,7 +171,8 @@ class AssetRepositoryImpl @Inject constructor(
                 disposalValue = if (disposed) input.disposalValue else null,
                 qrCode = qr,
                 userLocationDetail = input.userLocationDetail.trimToNull(),
-                division = input.division.trimToNull(),
+                divisionId = divisionId,
+                legacyDivisionText = old?.legacyDivisionText,
                 prNumber = input.prNumber.trimToNull(),
                 poNumber = input.poNumber.trimToNull(),
                 grNumber = input.grNumber.trimToNull(),
@@ -200,7 +207,7 @@ class AssetRepositoryImpl @Inject constructor(
                     field("Catatan", old.notes, entity.notes)
                     field("Kode QR", old.qrCode, entity.qrCode)
                     field("Pengguna / detail lokasi", old.userLocationDetail, entity.userLocationDetail)
-                    field("Divisi", old.division, entity.division)
+                    field("Divisi", old.divisionId?.let { divisionDao.getById(it)?.name }, entity.divisionId?.let { divisionDao.getById(it)?.name })
                     field("Nomor PR", old.prNumber, entity.prNumber)
                     field("Nomor PO", old.poNumber, entity.poNumber)
                     field("Nomor GR", old.grNumber, entity.grNumber)

@@ -57,7 +57,19 @@ data class LocationEntity(
     val syncState: SyncState = SyncState.PENDING,
 )
 
-@Entity(tableName = "departments", indices = [Index(value = ["name"])])
+@Entity(tableName = "divisions", indices = [Index(value = ["name"])])
+data class DivisionEntity(
+    @PrimaryKey val id: String,
+    val name: String,
+    val isActive: Boolean = true,
+    val createdAt: Long,
+    val updatedAt: Long,
+    val deletedAt: Long? = null,
+    val syncState: SyncState = SyncState.PENDING,
+)
+
+/** Departemen berada di bawah satu Divisi ([divisionId], ditambahkan di skema v3). */
+@Entity(tableName = "departments", indices = [Index(value = ["name"]), Index(value = ["divisionId"])])
 data class DepartmentEntity(
     @PrimaryKey val id: String,
     val name: String,
@@ -66,6 +78,7 @@ data class DepartmentEntity(
     val updatedAt: Long,
     val deletedAt: Long? = null,
     val syncState: SyncState = SyncState.PENDING,
+    val divisionId: String? = null,
 )
 
 @Entity(tableName = "vendors", indices = [Index(value = ["name"])])
