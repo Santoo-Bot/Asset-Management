@@ -119,10 +119,13 @@ class InsuranceRepositoryImpl @Inject constructor(
 
     override suspend fun deletePolicy(id: String): AppResult<Unit> {
         session.denyUnless { it.canManageMaster }?.let { return AppResult.Failure("Hanya Admin GA yang dapat menghapus polis") }
-        val p = dao.getPolicy(id)?.takeIf { it.deletedAt == null } ?: return AppResult.Failure("Polis tidak ditemukan")
-        val now = clock.millis()
-        dao.updatePolicy(p.copy(deletedAt = now, updatedAt = now, syncState = SyncState.PENDING))
-        audit.log(AuditEntityType.INSURANCE, id, AuditAction.DELETE, "Polis ${p.policyNumber} dihapus")
+        val p = dao.getPolicy(id) ?: return AppResult.Failure("Polis tidak ditemukan")
+        // Hapus permanen: polis & keterkaitan asetnya. Aset sendiri tidak terhapus.
+        db.withTransaction {
+            dao.deleteAllItems(id)
+            dao.deletePolicyRow(id)
+            audit.log(AuditEntityType.INSURANCE, id, AuditAction.DELETE, "Polis ${p.policyNumber} dihapus permanen")
+        }
         return AppResult.Success(Unit)
     }
 

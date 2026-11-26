@@ -363,7 +363,7 @@ fun PolicyDetailScreen(
         AlertDialog(
             onDismissRequest = { confirmDelete = false },
             title = { Text("Hapus polis ${policy?.policyNumber}?") },
-            text = { Text("Polis dan daftar asetnya tidak lagi tampil. Aset itu sendiri tidak terhapus. Tercatat di audit log.") },
+            text = { Text("Polis dan daftar asetnya dihapus permanen dan tidak bisa dipulihkan. Aset itu sendiri tidak terhapus. Tercatat di audit log.") },
             confirmButton = { TextButton(onClick = { confirmDelete = false; vm.delete() }) { Text("Hapus", color = MaterialTheme.colorScheme.error) } },
             dismissButton = { TextButton(onClick = { confirmDelete = false }) { Text("Batal") } },
         )

@@ -119,7 +119,7 @@ class MigrationTest {
         assertEquals(12_000_000L, asset.acquisitionCost)
         assertNull(asset.qrCode)
         assertNull(asset.divisionId)
-        assertEquals(7, db.openHelper.readableDatabase.version)
+        assertEquals(8, db.openHelper.readableDatabase.version)
         assertEquals(AssetStatus.DIGUNAKAN, asset.status)
         db.close()
     }
@@ -170,6 +170,39 @@ class MigrationTest {
             assertNull(db.locationDao().getById("loc-off"))
             assertEquals(true, db.locationDao().getById("loc")!!.isActive)
             assertEquals(true, db.departmentDao().getById("dep")!!.isActive)
+        }
+        db.close()
+    }
+
+    @Test fun `migrasi 7 ke 8 menghapus permanen polis terhapus tetapi tidak menyentuh aset terhapus`() {
+        ctx.deleteDatabase(name)
+        Room.databaseBuilder(ctx, AppDatabase::class.java, name).addCallback(DefaultData.callback).build().apply { openHelper.writableDatabase; close() }
+        val raw = SQLiteDatabase.openDatabase(ctx.getDatabasePath(name).path, null, SQLiteDatabase.OPEN_READWRITE)
+        val cat = raw.rawQuery("SELECT id FROM categories LIMIT 1", null).use { it.moveToFirst(); it.getString(0) }
+        listOf(
+            "INSERT INTO locations (id, name, address, isActive, createdAt, updatedAt, deletedAt, syncState) VALUES ('loc', 'Kantor', NULL, 1, 1, 1, NULL, 'PENDING')",
+            "INSERT INTO assets ($assetCols, deletedAt) VALUES ('a1', 'IT-1', 'Terhapus', '$cat', 19723, 1, 'loc', 'BAIK', 'DIGUNAKAN', 1, 1, 'PENDING', 5)",
+            "INSERT INTO assets ($assetCols) VALUES ('a2', 'IT-2', 'Aktif', '$cat', 19723, 1, 'loc', 'BAIK', 'DIGUNAKAN', 1, 1, 'PENDING')",
+            "INSERT INTO insurance_types (id, name, isActive, createdAt, updatedAt, deletedAt, syncState) VALUES ('t', 'All Risk', 1, 1, 1, NULL, 'PENDING')",
+            "INSERT INTO insurers (id, name, isActive, createdAt, updatedAt, deletedAt, syncState) VALUES ('i', 'PT A', 1, 1, 1, NULL, 'PENDING')",
+            "INSERT INTO insurance_policies (id, policyNumber, typeId, insurerId, startDate, endDate, createdAt, updatedAt, deletedAt, syncState) " +
+                "VALUES ('p-del', 'LAMA', 't', 'i', 19000, 19365, 1, 1, 9, 'PENDING')",
+            "INSERT INTO insurance_policies (id, policyNumber, typeId, insurerId, startDate, endDate, createdAt, updatedAt, deletedAt, syncState) " +
+                "VALUES ('p-ok', 'AKTIF', 't', 'i', 19000, 19365, 1, 1, NULL, 'PENDING')",
+            "INSERT INTO insurance_items (id, policyId, assetId, createdAt, updatedAt, syncState) VALUES ('x1', 'p-del', 'a2', 1, 1, 'PENDING')",
+            "INSERT INTO insurance_items (id, policyId, assetId, createdAt, updatedAt, syncState) VALUES ('x2', 'p-ok', 'a2', 1, 1, 'PENDING')",
+        ).forEach(raw::execSQL)
+        raw.version = 7
+        raw.close()
+
+        val db = open()
+        runBlocking {
+            assertNull(db.insuranceDao().getPolicy("p-del"))
+            assertNotNull(db.insuranceDao().getPolicy("p-ok"))
+            assertEquals(listOf("a2"), db.insuranceDao().assetIds("p-ok"))
+            assertEquals(1, db.openHelper.readableDatabase.query("SELECT COUNT(*) FROM insurance_items").use { it.moveToFirst(); it.getInt(0) })
+            assertNotNull(db.assetDao().getById("a1")) // aset terhapus tetap ada di Aset terhapus
+            assertNotNull(db.assetDao().getById("a2"))
         }
         db.close()
     }

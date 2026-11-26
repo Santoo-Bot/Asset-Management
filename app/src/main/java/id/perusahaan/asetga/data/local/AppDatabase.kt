@@ -68,7 +68,7 @@ import java.util.UUID
         InsurancePolicyEntity::class,
         InsuranceItemEntity::class,
     ],
-    version = 7,
+    version = 8,
     exportSchema = true,
 )
 @TypeConverters(Converters::class)
@@ -234,7 +234,42 @@ object Migrations {
         }
     }
 
-    val ALL = arrayOf(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7)
+    /**
+     * v8: hapus permanen semua data yang sebelumnya hanya ditandai terhapus (deletedAt), KECUALI aset
+     * (aset tetap memakai menu "Aset terhapus"). Urutan anak → induk agar relasi tetap konsisten.
+     * Data master hanya dihapus bila tidak lagi dirujuk.
+     */
+    val MIGRATION_7_8 = object : Migration(7, 8) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            purgeSoftDeleted(db)
+        }
+    }
+
+    fun purgeSoftDeleted(db: SupportSQLiteDatabase) {
+        listOf(
+            "DELETE FROM insurance_items WHERE policyId IN (SELECT id FROM insurance_policies WHERE deletedAt IS NOT NULL)",
+            "DELETE FROM insurance_policies WHERE deletedAt IS NOT NULL",
+            "DELETE FROM audit_items WHERE sessionId IN (SELECT id FROM audit_sessions WHERE deletedAt IS NOT NULL)",
+            "DELETE FROM audit_sessions WHERE deletedAt IS NOT NULL",
+            "DELETE FROM stock_txns WHERE deletedAt IS NOT NULL OR itemId IN (SELECT id FROM items WHERE deletedAt IS NOT NULL)",
+            "DELETE FROM items WHERE deletedAt IS NOT NULL",
+            "DELETE FROM service_records WHERE deletedAt IS NOT NULL",
+            "DELETE FROM asset_mutations WHERE deletedAt IS NOT NULL",
+            "DELETE FROM users WHERE deletedAt IS NOT NULL",
+            "DELETE FROM insurance_types WHERE deletedAt IS NOT NULL AND id NOT IN (SELECT typeId FROM insurance_policies)",
+            "DELETE FROM insurers WHERE deletedAt IS NOT NULL AND id NOT IN (SELECT insurerId FROM insurance_policies)",
+            "DELETE FROM vendors WHERE deletedAt IS NOT NULL AND id NOT IN (SELECT vendorId FROM service_records WHERE vendorId IS NOT NULL)",
+            "DELETE FROM units WHERE deletedAt IS NOT NULL AND id NOT IN (SELECT unitId FROM items)",
+            "DELETE FROM categories WHERE deletedAt IS NOT NULL AND id NOT IN (SELECT categoryId FROM assets)",
+            "DELETE FROM departments WHERE deletedAt IS NOT NULL AND id NOT IN (SELECT departmentId FROM assets WHERE departmentId IS NOT NULL)",
+            "DELETE FROM divisions WHERE deletedAt IS NOT NULL AND id NOT IN (SELECT divisionId FROM departments WHERE divisionId IS NOT NULL) " +
+                "AND id NOT IN (SELECT divisionId FROM assets WHERE divisionId IS NOT NULL)",
+            "DELETE FROM locations WHERE deletedAt IS NOT NULL AND id NOT IN (SELECT locationId FROM assets) " +
+                "AND id NOT IN (SELECT storageLocationId FROM items WHERE storageLocationId IS NOT NULL) AND id NOT IN (SELECT locationId FROM audit_sessions)",
+        ).forEach(db::execSQL)
+    }
+
+    val ALL = arrayOf(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8)
 }
 
 /** Data awal wajib (semua build): kategori dengan umur ekonomis, satuan, dan pengaturan default. */

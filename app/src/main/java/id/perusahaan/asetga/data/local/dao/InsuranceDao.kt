@@ -181,6 +181,12 @@ interface InsuranceDao {
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insertItems(items: List<InsuranceItemEntity>): List<Long>
 
+    @Query("DELETE FROM insurance_items WHERE policyId = :policyId")
+    suspend fun deleteAllItems(policyId: String)
+
+    @Query("DELETE FROM insurance_policies WHERE id = :id")
+    suspend fun deletePolicyRow(id: String): Int
+
     @Query("DELETE FROM insurance_items WHERE policyId = :policyId AND assetId = :assetId")
     suspend fun deleteItem(policyId: String, assetId: String): Int
 

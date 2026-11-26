@@ -206,7 +206,7 @@ interface InsuranceRepository {
     fun observeAssetIdsInPolicy(policyId: String): Flow<Set<String>>
     suspend fun getPolicyInput(id: String): PolicyInput?
     suspend fun savePolicy(input: PolicyInput): AppResult<String>
-    /** Hapus polis (soft delete). */
+    /** Hapus polis secara permanen (aset tidak ikut terhapus). */
     suspend fun deletePolicy(id: String): AppResult<Unit>
 
     suspend fun addAssets(policyId: String, assetIds: List<String>): AppResult<AddAssetsResult>
