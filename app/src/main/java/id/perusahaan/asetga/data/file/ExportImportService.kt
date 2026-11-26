@@ -72,6 +72,8 @@ class ExportImportService @Inject constructor(
     private val locationDao: LocationDao,
     private val departmentDao: DepartmentDao,
     private val divisionDao: DivisionDao,
+    private val vendorDao: id.perusahaan.asetga.data.local.dao.VendorDao,
+    private val statusDao: id.perusahaan.asetga.data.local.dao.AssetStatusDao,
     private val assets: AssetRepository,
     private val settings: SettingsRepository,
     private val audit: AuditLogRepository,
@@ -105,9 +107,9 @@ class ExportImportService @Inject constructor(
     }
 
     /** Dropdown Kondisi & Status, dipakai di template dan export aset. */
-    private fun assetValidations() = listOf(
+    private suspend fun assetValidations() = listOf(
         ListValidation(ImportColumn.CONDITION.ordinal, AssetCondition.entries.map { it.label }),
-        ListValidation(ImportColumn.STATUS.ordinal, AssetStatus.entries.map { it.label }),
+        ListValidation(ImportColumn.STATUS.ordinal, statusDao.all().map { it.name }),
     )
 
     /** Nilai kolom template untuk satu aset (export bisa diimport kembali). */
@@ -138,6 +140,7 @@ class ExportImportService @Inject constructor(
             ImportColumn.FOLLOW_UP to text(a.followUp),
             ImportColumn.HANDOVER to text(a.handoverDoc),
             ImportColumn.ACCESSORIES to text(a.accessories),
+            ImportColumn.VENDOR to text(r.vendorName),
         )
     }
 
@@ -218,6 +221,8 @@ class ExportImportService @Inject constructor(
         val deps = departmentDao.observeAll(false).first()
         val divs = divisionDao.observeAll(false).first()
         val divName = divs.associate { it.id to it.name }
+        val statuses = statusDao.all()
+        val vendors = vendorDao.observeAll(false).first()
         val sample: Map<ImportColumn, Cell> = mapOf(
             ImportColumn.CODE to text("${cats.firstOrNull()?.codePrefix ?: "IT"}-${LocalDate.now(clock).year}-001"),
             ImportColumn.QR to text("${cats.firstOrNull()?.codePrefix ?: "IT"}-${LocalDate.now(clock).year}-001"),
@@ -229,7 +234,7 @@ class ExportImportService @Inject constructor(
             ImportColumn.LOCATION to text(locs.firstOrNull()?.name ?: "Kantor Pusat"),
             ImportColumn.DEPARTMENT to text(deps.firstOrNull()?.name.orEmpty()),
             ImportColumn.CONDITION to text(AssetCondition.BAIK.label),
-            ImportColumn.STATUS to text(AssetStatus.DIGUNAKAN.label),
+            ImportColumn.STATUS to text(statuses.firstOrNull()?.name ?: AssetStatus.DIGUNAKAN.label),
             ImportColumn.WARRANTY to text("15/01/2027"),
             ImportColumn.NOTES to text("Contoh baris, hapus sebelum import. Kode QR boleh sama dengan Kode Aset."),
             ImportColumn.USER_LOCATION to text("Budi · Ruang 301"),
@@ -243,14 +248,15 @@ class ExportImportService @Inject constructor(
             ImportColumn.FOLLOW_UP to text("Diserahkan ke pengguna"),
             ImportColumn.HANDOVER to text("BAST/GA/2024/015"),
             ImportColumn.ACCESSORIES to text("Charger, Tas laptop"),
+            ImportColumn.VENDOR to text(vendors.firstOrNull()?.name.orEmpty()),
         )
         val example = ImportColumn.entries.map { sample[it] ?: text("") }
-        val maxLen = maxOf(cats.size, locs.size, deps.size, divs.size, AssetCondition.entries.size, AssetStatus.entries.size)
+        val maxLen = maxOf(cats.size, locs.size, deps.size, divs.size, AssetCondition.entries.size, statuses.size, vendors.size)
         val guide = (0 until maxLen).map { i ->
             listOf(
                 text(cats.getOrNull(i)?.let { "${it.name} (${it.codePrefix})" }), text(locs.getOrNull(i)?.name), text(divs.getOrNull(i)?.name),
                 text(deps.getOrNull(i)?.let { d -> d.name + (d.divisionId?.let(divName::get)?.let { " — Divisi $it" } ?: "") }),
-                text(AssetCondition.entries.getOrNull(i)?.label), text(AssetStatus.entries.getOrNull(i)?.label),
+                text(AssetCondition.entries.getOrNull(i)?.label), text(statuses.getOrNull(i)?.name), text(vendors.getOrNull(i)?.name),
             )
         }
         val file = File(ShareHelper.sharedDir(context), "template-import-aset.xlsx")
@@ -262,7 +268,7 @@ class ExportImportService @Inject constructor(
                         ImportColumn.entries.map { c -> if (c == ImportColumn.STATUS) 34 else 22 },
                         validations = assetValidations(),
                     ),
-                    Sheet("Petunjuk", listOf("Kategori", "Lokasi", "Divisi", "Departemen (Divisi induk)", "Kondisi", "Status"), guide, listOf(32, 28, 24, 40, 16, 18)),
+                    Sheet("Petunjuk", listOf("Kategori", "Lokasi", "Divisi", "Departemen (Divisi induk)", "Kondisi", "Status", "Vendor"), guide, listOf(32, 28, 24, 40, 16, 22, 28)),
                 ),
                 it,
             )
@@ -284,6 +290,8 @@ class ExportImportService @Inject constructor(
             departments = departmentDao.observeAll(false).first().associate { it.name.lowercase() to it.id },
             divisions = divisionDao.observeAll(false).first().associate { it.name.lowercase() to it.id },
             departmentDivision = departmentDao.observeAll(false).first().mapNotNull { d -> d.divisionId?.let { d.id to it } }.toMap(),
+            statuses = statusDao.all().associate { AssetImportParser.statusKey(it.name) to it.id },
+            vendors = vendorDao.observeAll(false).first().associate { it.name.lowercase() to it.id },
             existingCodes = (assetDao.allCodes() + assetDao.allQrCodes()).map { it.uppercase() }.toSet(),
         )
         AssetImportParser.parse(sheet, lookups, LocalDate.now(clock))

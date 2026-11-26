@@ -298,6 +298,7 @@ private fun DetailBody(d: AssetDetail, photo: File?) {
     }
 
     InfoCard("Pengadaan") {
+        LabeledValue("Vendor", d.vendorName ?: "-")
         LabeledValue("Nomor PR", a.prNumber ?: "-")
         LabeledValue("Nomor PO", a.poNumber ?: "-")
         LabeledValue("Nomor GR", a.grNumber ?: "-")

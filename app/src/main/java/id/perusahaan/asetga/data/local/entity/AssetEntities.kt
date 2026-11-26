@@ -29,6 +29,7 @@ import java.time.LocalDate
         Index(value = ["serialNumber"]),
         Index(value = ["qrCode"], unique = true),
         Index(value = ["divisionId"]),
+        Index(value = ["vendorId"]),
     ],
 )
 data class AssetEntity(
@@ -72,6 +73,8 @@ data class AssetEntity(
     val handoverDoc: String? = null,
     /** Kelengkapan aset, dipisah koma (mis. "Charger, Casing"). (skema v12) */
     val accessories: String? = null,
+    /** Vendor / pemasok aset (master Vendor). (skema v13) */
+    val vendorId: String? = null,
     val createdAt: Long,
     val updatedAt: Long,
     val deletedAt: Long? = null,

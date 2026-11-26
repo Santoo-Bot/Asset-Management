@@ -192,7 +192,7 @@ private fun MasterEditorSheet(
                     error = e[MasterValidator.FIELD_DIVISION],
                     supporting = if (divisions.isEmpty()) "Belum ada divisi. Tambahkan dulu di Master data → Divisi." else null,
                 )
-                MasterType.DIVISION, MasterType.UNIT, MasterType.INSURANCE_TYPE -> Unit
+                MasterType.DIVISION, MasterType.UNIT, MasterType.INSURANCE_TYPE, MasterType.STATUS -> Unit
             }
             state.message?.let { ErrorBanner(it) }
             Spacer(Modifier.height(8.dp))

@@ -60,6 +60,7 @@ interface MasterDataRepository {
     fun observeDepartments(includeInactive: Boolean = false): Flow<List<Department>>
     fun observeVendors(includeInactive: Boolean = false): Flow<List<Vendor>>
     fun observeUnits(includeInactive: Boolean = false): Flow<List<MeasureUnit>>
+    fun observeStatuses(): Flow<List<id.perusahaan.asetga.domain.model.AssetStatusOption>>
 
     suspend fun saveCategory(category: Category): AppResult<Category>
     suspend fun saveLocation(location: Location): AppResult<Location>
@@ -69,6 +70,7 @@ interface MasterDataRepository {
     suspend fun saveDepartment(department: Department): AppResult<Department>
     suspend fun saveVendor(vendor: Vendor): AppResult<Vendor>
     suspend fun saveUnit(unit: MeasureUnit): AppResult<MeasureUnit>
+    suspend fun saveStatus(status: id.perusahaan.asetga.domain.model.AssetStatusOption): AppResult<id.perusahaan.asetga.domain.model.AssetStatusOption>
 
     /** Soft delete: master tidak pernah dihapus, hanya dinonaktifkan. */
     /**

@@ -207,6 +207,38 @@ class AssetDaoTest {
         assertEquals("divB", db.assetDao().getById(a.id)!!.divisionId)
     }
 
+    @Test fun `master status dan vendor aset`() = runTest {
+        session.login(User("adm", "admin", "Admin GA", Role.ADMIN, hasPin = false, isActive = true))
+        val master = id.perusahaan.asetga.data.repository.MasterDataRepositoryImpl(
+            db, db.assetDao(), db.categoryDao(), db.locationDao(), db.divisionDao(), db.departmentDao(), db.vendorDao(), db.unitDao(), db.masterUsageDao(), db.insuranceTypeDao(), db.insurerDao(),
+            session, AuditLogRepositoryImpl(db.auditLogDao(), session, clock), clock,
+        )
+        // 5 status bawaan sudah ada; tambah status baru.
+        assertEquals(AssetStatus.DEFAULT_LABELS.keys.toList(), master.observeStatuses().first().map { it.id })
+        val dipinjam = (master.saveStatus(id.perusahaan.asetga.domain.model.AssetStatusOption("", "Dipinjam")) as AppResult.Success).value
+        assertTrue(master.saveStatus(id.perusahaan.asetga.domain.model.AssetStatusOption("", "dipinjam")) is AppResult.Failure) // nama ganda
+        assertEquals("Dipinjam", master.observeStatuses().first().last().name)
+
+        val vendor = (master.saveVendor(id.perusahaan.asetga.domain.model.Vendor("", "PT Sumber Komputer", null, null, null)) as AppResult.Success).value
+        val a = (repo.save(input("Tablet").copy(status = dipinjam.status, vendorId = vendor.id)) as AppResult.Success).value
+        assertEquals(dipinjam.id, a.status.id)
+        assertEquals("PT Sumber Komputer", repo.observeDetail(a.id).first()!!.vendorName)
+        assertEquals(1, db.assetDao().count("", null, null, null, dipinjam.id, null, null, false).first())
+
+        // Status tidak dikenal ditolak.
+        val bad = repo.save(input("Kursi").copy(status = AssetStatus("TIDAK_ADA"))) as AppResult.Failure
+        assertTrue(AssetValidator.FIELD_STATUS in bad.fieldErrors)
+
+        // Master yang dipakai aset tidak bisa dihapus; Write Off tidak pernah bisa dihapus.
+        assertTrue((master.delete(id.perusahaan.asetga.domain.model.MasterType.STATUS, dipinjam.id) as AppResult.Failure).message.contains("1 aset"))
+        assertTrue((master.delete(id.perusahaan.asetga.domain.model.MasterType.VENDOR, vendor.id) as AppResult.Failure).message.contains("1 aset"))
+        assertTrue(master.delete(id.perusahaan.asetga.domain.model.MasterType.STATUS, AssetStatus.WRITE_OFF_ID) is AppResult.Failure)
+        assertTrue(master.delete(id.perusahaan.asetga.domain.model.MasterType.STATUS, AssetStatus.PROPOSE_WRITE_OFF.id) is AppResult.Success)
+        // Nama status bawaan boleh diubah.
+        assertTrue(master.saveStatus(id.perusahaan.asetga.domain.model.AssetStatusOption(AssetStatus.TERSEDIA.id, "Stok Gudang")) is AppResult.Success)
+        assertEquals("Stok Gudang", db.assetStatusDao().getById("TERSEDIA")!!.name)
+    }
+
     @Test fun `kode aset dan kode QR wajib diisi`() = runTest {
         val noCode = repo.save(input("Laptop").copy(code = "", qrCode = "")) as AppResult.Failure
         assertTrue(AssetValidator.FIELD_CODE in noCode.fieldErrors)

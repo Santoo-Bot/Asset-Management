@@ -43,6 +43,8 @@ fun AssetStatusChip(status: AssetStatus, modifier: Modifier = Modifier) {
         AssetStatus.DALAM_PERBAIKAN -> s.warningContainer to s.onWarningContainer
         AssetStatus.PROPOSE_WRITE_OFF -> cs.tertiaryContainer to cs.onTertiaryContainer
         AssetStatus.WRITE_OFF -> s.dangerContainer to s.onDangerContainer
+        // Status tambahan dari master.
+        else -> cs.surfaceContainerHigh to cs.onSurfaceVariant
     }
     StatusChip(status.label, bg, fg, modifier)
 }

@@ -104,6 +104,9 @@ class AssetListViewModel @Inject constructor(
     val departments: StateFlow<List<id.perusahaan.asetga.domain.model.Department>> = master.observeDepartments(includeInactive = true)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
+    val statuses: StateFlow<List<id.perusahaan.asetga.domain.model.AssetStatusOption>> = master.observeStatuses()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
     private val _selection = MutableStateFlow<Set<String>>(emptySet())
     val selection: StateFlow<Set<String>> = _selection.asStateFlow()
 

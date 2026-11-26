@@ -37,6 +37,7 @@ data class Asset(
     val handoverDoc: String? = null,
     /** Kelengkapan, dipisah koma. */
     val accessories: String? = null,
+    val vendorId: String? = null,
 ) {
     val accessoryList: List<String> get() = Accessories.parse(accessories)
 
@@ -77,6 +78,7 @@ data class AssetInput(
     val handoverDoc: String = "",
     /** Kelengkapan, dipisah koma, mis. "Charger, Casing". */
     val accessories: String = "",
+    val vendorId: String? = null,
 )
 
 /** Kelengkapan aset (charger, casing, dll.) disimpan sebagai teks dipisah koma. */
@@ -117,6 +119,7 @@ data class AssetDetail(
     val locationName: String,
     val departmentName: String?,
     val divisionName: String?,
+    val vendorName: String? = null,
     val age: AssetAge,
     val depreciation: DepreciationResult,
     val warrantyStatus: WarrantyStatus,

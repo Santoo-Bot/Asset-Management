@@ -65,6 +65,7 @@ object AppModule {
     @Provides fun serviceDao(db: AppDatabase) = db.serviceDao()
     @Provides fun stockDao(db: AppDatabase) = db.stockDao()
     @Provides fun opnameDao(db: AppDatabase) = db.opnameDao()
+    @Provides fun assetStatusDao(db: AppDatabase) = db.assetStatusDao()
 
     @Provides
     @Singleton

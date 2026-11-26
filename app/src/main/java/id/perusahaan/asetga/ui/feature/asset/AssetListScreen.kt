@@ -85,6 +85,7 @@ fun AssetListScreen(
     val locations by vm.locations.collectAsStateWithLifecycle()
     val divisions by vm.divisions.collectAsStateWithLifecycle()
     val departments by vm.departments.collectAsStateWithLifecycle()
+    val statuses by vm.statuses.collectAsStateWithLifecycle()
     val selection by vm.selection.collectAsStateWithLifecycle()
     val busy by vm.busy.collectAsStateWithLifecycle()
     val items = vm.assets.collectAsLazyPagingItems()
@@ -269,7 +270,7 @@ fun AssetListScreen(
             onDismiss = { sheet = null }, onSelect = { vm.setCondition(it); sheet = null }, noneLabel = "Semua kondisi",
         )
         FilterSheet.STATUS -> OptionSheet(
-            "Status", AssetStatus.entries, filter.status, { it.label },
+            "Status", statuses.map { it.status }, filter.status, { it.label },
             onDismiss = { sheet = null }, onSelect = { vm.setStatus(it); sheet = null }, noneLabel = "Semua status",
         )
         FilterSheet.SORT -> OptionSheet(

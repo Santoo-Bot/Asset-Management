@@ -31,6 +31,7 @@ class AsetGaApp : Application(), Configuration.Provider {
     @Inject lateinit var reminders: ReminderScheduler
     @Inject lateinit var photos: PhotoStorage
     @Inject lateinit var assetDao: AssetDao
+    @Inject lateinit var master: id.perusahaan.asetga.domain.repository.MasterDataRepository
 
     override val workManagerConfiguration: Configuration
         get() = Configuration.Builder().setWorkerFactory(workerFactory).build()
@@ -43,6 +44,13 @@ class AsetGaApp : Application(), Configuration.Provider {
             seeder.seedIfNeeded()
             // Bersihkan foto sisa aset/servis yang sudah dihapus.
             runCatching { photos.deleteUnreferenced(assetDao.referencedPhotos()) }
+        }
+
+        // Nama status aset mengikuti master Status (bisa diubah Admin).
+        ProcessLifecycleOwner.get().lifecycleScope.launch {
+            master.observeStatuses().collect { list ->
+                id.perusahaan.asetga.domain.model.AssetStatusNames.update(list.associate { it.id to it.name })
+            }
         }
 
         ReminderNotifier.ensureChannel(this)

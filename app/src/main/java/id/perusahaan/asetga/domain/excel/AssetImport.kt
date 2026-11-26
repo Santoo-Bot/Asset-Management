@@ -22,7 +22,7 @@ enum class ImportColumn(val templateHeader: String, val required: Boolean = fals
     DIVISION("Divisi"),
     DEPARTMENT("Departemen"),
     CONDITION("Kondisi* (Baik,Rusak)", true),
-    STATUS("Status* (Digunakan,Tersedia,Dalam Perbaikan,Propose To Write Off,Write Off)", true),
+    STATUS("Status* (pilih dari master Status)", true),
     WARRANTY("Garansi s/d (dd/mm/yyyy)"),
     NOTES("Catatan"),
     USER_LOCATION("Pengguna / Detail Lokasi"),
@@ -34,7 +34,8 @@ enum class ImportColumn(val templateHeader: String, val required: Boolean = fals
     MEMO_DATE("Tanggal Memo (dd/mm/yyyy)"),
     FOLLOW_UP("Tindak Lanjut"),
     HANDOVER("Berita Acara Serah Terima"),
-    ACCESSORIES("Kelengkapan (pisahkan dengan koma)");
+    ACCESSORIES("Kelengkapan (pisahkan dengan koma)"),
+    VENDOR("Vendor");
 
     /** Nama kolom tanpa tanda wajib & keterangan, mis. "Kondisi". */
     val header: String get() = templateHeader.replace("*", "").substringBefore("(").trim()
@@ -49,6 +50,10 @@ data class ImportLookups(
     val divisions: Map<String, String> = emptyMap(),
     /** id departemen → id divisi induknya. */
     val departmentDivision: Map<String, String> = emptyMap(),
+    /** Master Status: nama ternormalisasi ([AssetImportParser.statusKey]) → id. Kosong = pakai status bawaan. */
+    val statuses: Map<String, String> = emptyMap(),
+    /** nama vendor (huruf kecil) → id. */
+    val vendors: Map<String, String> = emptyMap(),
     /** Kode aset & kode QR yang sudah ada di database (huruf besar). */
     val existingCodes: Set<String>,
 )
@@ -105,6 +110,9 @@ object AssetImportParser {
         "dihapusdijual" to "WRITE_OFF", "dihapus" to "WRITE_OFF", "dijual" to "WRITE_OFF",
         "propose" to "PROPOSE_WRITE_OFF", "proposewriteoff" to "PROPOSE_WRITE_OFF", "writeoff" to "WRITE_OFF",
     )
+
+    /** Kunci pencocokan nama status: huruf kecil, tanpa spasi & tanda baca. */
+    fun statusKey(name: String): String = name.trim().lowercase().replace(Regex("[^a-z0-9]"), "")
 
     private fun matchEnum(raw: String, entries: List<Pair<String, String>>, aliases: Map<String, String> = emptyMap()): String? {
         val key = raw.trim().lowercase().replace(Regex("[^a-z]"), "")
@@ -174,8 +182,14 @@ object AssetImportParser {
             val condition = matchEnum(conditionRaw, AssetCondition.entries.map { it.name to it.label }, conditionAliases)?.let(AssetCondition::valueOf)
             if (condition == null) errors += if (conditionRaw.isEmpty()) "Kondisi kosong" else "Kondisi \"$conditionRaw\" tidak dikenal (Baik/Rusak)"
             val statusRaw = cell(ImportColumn.STATUS)
-            val status = matchEnum(statusRaw, AssetStatus.entries.map { it.name to it.label }, statusAliases)?.let(AssetStatus::valueOf)
-            if (status == null) errors += if (statusRaw.isEmpty()) "Status kosong" else "Status \"$statusRaw\" tidak dikenal (Digunakan/Tersedia/Dalam Perbaikan/Propose To Write Off/Write Off)"
+            val builtIn = matchEnum(statusRaw, AssetStatus.DEFAULT_LABELS.toList(), statusAliases)
+            val statusId = lookups.statuses[statusKey(statusRaw)]
+                ?: builtIn?.takeIf { lookups.statuses.isEmpty() || it in lookups.statuses.values }
+            val status = statusId?.let(::AssetStatus)
+            if (status == null) errors += if (statusRaw.isEmpty()) "Status kosong" else "Status \"$statusRaw\" tidak ada di master Status"
+            val vendorRaw = cell(ImportColumn.VENDOR)
+            val vendorId = vendorRaw.lowercase().takeIf { it.isNotEmpty() }?.let { lookups.vendors[it] }
+            if (vendorRaw.isNotEmpty() && vendorId == null) errors += "Vendor \"$vendorRaw\" tidak ada di master Vendor"
 
             val input = AssetInput(
                 code = code, name = cell(ImportColumn.NAME), categoryId = categoryId,
@@ -186,7 +200,7 @@ object AssetImportParser {
                 prNumber = cell(ImportColumn.PR), poNumber = cell(ImportColumn.PO), grNumber = cell(ImportColumn.GR),
                 requester = cell(ImportColumn.REQUESTER), memoNumber = cell(ImportColumn.MEMO_NO), memoDate = memoDate,
                 followUp = cell(ImportColumn.FOLLOW_UP), handoverDoc = cell(ImportColumn.HANDOVER),
-                accessories = cell(ImportColumn.ACCESSORIES),
+                accessories = cell(ImportColumn.ACCESSORIES), vendorId = vendorId,
             )
             // Pesan validasi umum (wajib isi, tanggal masa depan, dll.) yang belum tercakup di atas.
             AssetValidator.validate(input, today).forEach { (field, msg) ->

@@ -1,11 +1,13 @@
 package id.perusahaan.asetga.data.local
 
+import id.perusahaan.asetga.domain.model.AssetStatus
 import androidx.room.Database
 import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 import id.perusahaan.asetga.data.local.dao.AssetDao
+import id.perusahaan.asetga.data.local.dao.AssetStatusDao
 import id.perusahaan.asetga.data.local.dao.AuditLogDao
 import id.perusahaan.asetga.data.local.dao.CategoryDao
 import id.perusahaan.asetga.data.local.dao.DepartmentDao
@@ -26,6 +28,7 @@ import id.perusahaan.asetga.data.local.dao.VendorDao
 import id.perusahaan.asetga.data.local.entity.AppSettingEntity
 import id.perusahaan.asetga.data.local.entity.AssetEntity
 import id.perusahaan.asetga.data.local.entity.AssetMutationEntity
+import id.perusahaan.asetga.data.local.entity.AssetStatusEntity
 import id.perusahaan.asetga.data.local.entity.AuditItemEntity
 import id.perusahaan.asetga.data.local.entity.AuditLogEntity
 import id.perusahaan.asetga.data.local.entity.AuditSessionEntity
@@ -67,8 +70,9 @@ import java.util.UUID
         InsurerEntity::class,
         InsurancePolicyEntity::class,
         InsuranceItemEntity::class,
+        AssetStatusEntity::class,
     ],
-    version = 12,
+    version = 13,
     exportSchema = true,
 )
 @TypeConverters(Converters::class)
@@ -91,6 +95,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun serviceDao(): ServiceDao
     abstract fun stockDao(): StockDao
     abstract fun opnameDao(): OpnameDao
+    abstract fun assetStatusDao(): AssetStatusDao
 
     companion object {
         const val NAME = "aset_ga.db"
@@ -337,9 +342,37 @@ object Migrations {
         }
     }
 
+    /** v13: master Status aset (5 status bawaan memakai id lama) dan vendor pada aset. Aman dijalankan ulang. */
+    val MIGRATION_12_13 = object : Migration(12, 13) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL(
+                "CREATE TABLE IF NOT EXISTS `asset_statuses` (`id` TEXT NOT NULL, `name` TEXT NOT NULL, `sortOrder` INTEGER NOT NULL, " +
+                    "`isActive` INTEGER NOT NULL, `createdAt` INTEGER NOT NULL, `updatedAt` INTEGER NOT NULL, `deletedAt` INTEGER, " +
+                    "`syncState` TEXT NOT NULL, PRIMARY KEY(`id`))",
+            )
+            db.execSQL("CREATE INDEX IF NOT EXISTS `index_asset_statuses_name` ON `asset_statuses` (`name`)")
+            DefaultData.seedStatuses(db, System.currentTimeMillis())
+            // Status lain yang mungkin tersimpan di aset ikut didaftarkan agar tidak hilang.
+            db.execSQL(
+                "INSERT OR IGNORE INTO asset_statuses (id, name, sortOrder, isActive, createdAt, updatedAt, deletedAt, syncState) " +
+                    "SELECT DISTINCT status, status, 99, 1, 0, 0, NULL, 'PENDING' FROM assets",
+            )
+            if (!hasColumn(db, "assets", "vendorId")) db.execSQL("ALTER TABLE `assets` ADD COLUMN `vendorId` TEXT")
+            db.execSQL("CREATE INDEX IF NOT EXISTS `index_assets_vendorId` ON `assets` (`vendorId`)")
+        }
+    }
+
+    private fun hasColumn(db: SupportSQLiteDatabase, table: String, column: String): Boolean =
+        db.query("PRAGMA table_info(`$table`)").use { c ->
+            val nameIdx = c.getColumnIndex("name")
+            var found = false
+            while (c.moveToNext()) if (c.getString(nameIdx) == column) found = true
+            found
+        }
+
     val ALL = arrayOf(
         MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10,
-        MIGRATION_10_11, MIGRATION_11_12,
+        MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13,
     )
 }
 
@@ -373,8 +406,20 @@ object DefaultData {
                 arrayOf<Any>(UUID.randomUUID().toString(), u, now, now),
             )
         }
+        seedStatuses(db, now)
         SettingKeys.defaults.forEach { (k, v) ->
             db.execSQL("INSERT OR IGNORE INTO app_settings (`key`, value) VALUES (?, ?)", arrayOf<Any>(k, v))
+        }
+    }
+
+    /** Lima status aset bawaan; id tetap agar logika Write Off dan data lama tetap cocok. */
+    fun seedStatuses(db: SupportSQLiteDatabase, now: Long) {
+        AssetStatus.DEFAULT_LABELS.entries.forEachIndexed { i, (id, name) ->
+            db.execSQL(
+                "INSERT OR IGNORE INTO asset_statuses (id, name, sortOrder, isActive, createdAt, updatedAt, deletedAt, syncState) " +
+                    "VALUES (?, ?, ?, 1, ?, ?, NULL, 'PENDING')",
+                arrayOf<Any>(id, name, i + 1, now, now),
+            )
         }
     }
 

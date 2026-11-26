@@ -10,6 +10,7 @@ import androidx.compose.material.icons.outlined.AccountTree
 import androidx.compose.material.icons.outlined.Apartment
 import androidx.compose.material.icons.outlined.Business
 import androidx.compose.material.icons.outlined.Category
+import androidx.compose.material.icons.outlined.Flag
 import androidx.compose.material.icons.outlined.Shield
 import androidx.compose.material.icons.outlined.LocalShipping
 import androidx.compose.material.icons.outlined.Place
@@ -33,6 +34,7 @@ fun MasterType.icon(): ImageVector = when (this) {
     MasterType.UNIT -> Icons.Outlined.Straighten
     MasterType.INSURANCE_TYPE -> Icons.Outlined.Shield
     MasterType.INSURER -> Icons.Outlined.Business
+    MasterType.STATUS -> Icons.Outlined.Flag
 }
 
 private fun MasterType.description(): String = when (this) {
@@ -44,6 +46,7 @@ private fun MasterType.description(): String = when (this) {
     MasterType.UNIT -> "Satuan barang habis pakai"
     MasterType.INSURANCE_TYPE -> "Mis. All Risk, Kendaraan Bermotor, Kebakaran"
     MasterType.INSURER -> "Perusahaan penerbit polis & kontaknya"
+    MasterType.STATUS -> "Status aset, mis. Digunakan, Tersedia, Write Off"
 }
 
 @Composable

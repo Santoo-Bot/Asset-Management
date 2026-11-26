@@ -87,6 +87,11 @@ class AssetFormViewModel @Inject constructor(
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), AssetFormOptions())
 
+    val vendors: StateFlow<List<id.perusahaan.asetga.domain.model.Vendor>> = master.observeVendors(includeInactive = true)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+    val statuses: StateFlow<List<id.perusahaan.asetga.domain.model.AssetStatusOption>> = master.observeStatuses()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
     /** Foto yang dibuat selama form terbuka; dihapus bila tidak jadi dipakai. */
     private val createdPhotos = mutableSetOf<String>()
     private var originalPhoto: String? = null
@@ -113,7 +118,7 @@ class AssetFormViewModel @Inject constructor(
                             divisionId = a.divisionId, prNumber = a.prNumber.orEmpty(), poNumber = a.poNumber.orEmpty(),
                             grNumber = a.grNumber.orEmpty(), requester = a.requester.orEmpty(), memoNumber = a.memoNumber.orEmpty(),
                             memoDate = a.memoDate, followUp = a.followUp.orEmpty(), handoverDoc = a.handoverDoc.orEmpty(),
-                            accessories = a.accessories.orEmpty(),
+                            accessories = a.accessories.orEmpty(), vendorId = a.vendorId,
                         ),
                     )
                 }

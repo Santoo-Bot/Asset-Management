@@ -111,3 +111,16 @@ data class AppSettingEntity(
     @PrimaryKey val key: String,
     val value: String,
 )
+
+/** Master status aset. Lima status bawaan memakai id tetap (DIGUNAKAN, ..., WRITE_OFF). (skema v13) */
+@Entity(tableName = "asset_statuses", indices = [Index(value = ["name"])])
+data class AssetStatusEntity(
+    @PrimaryKey val id: String,
+    val name: String,
+    val sortOrder: Int,
+    val isActive: Boolean = true,
+    val createdAt: Long,
+    val updatedAt: Long,
+    val deletedAt: Long? = null,
+    val syncState: SyncState = SyncState.PENDING,
+)

@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import androidx.navigation.toRoute
 import dagger.hilt.android.lifecycle.HiltViewModel
 import id.perusahaan.asetga.domain.model.AppResult
+import id.perusahaan.asetga.domain.model.AssetStatusOption
 import id.perusahaan.asetga.domain.model.Category
 import id.perusahaan.asetga.domain.model.Department
 import id.perusahaan.asetga.domain.model.Division
@@ -145,6 +146,7 @@ class MasterListViewModel @Inject constructor(
                 MasterType.UNIT -> repo.saveUnit(MeasureUnit(f.id, f.name))
                 MasterType.INSURANCE_TYPE -> repo.saveInsuranceType(InsuranceType(f.id, f.name))
                 MasterType.INSURER -> repo.saveInsurer(Insurer(f.id, f.name, f.phone, f.email, f.address))
+                MasterType.STATUS -> repo.saveStatus(AssetStatusOption(f.id, f.name))
             }
             when (result) {
                 is AppResult.Success -> {
@@ -223,6 +225,14 @@ class MasterListViewModel @Inject constructor(
                 MasterRow(
                     v.id, v.name, listOfNotNull(v.phone, v.email).joinToString(" · ").ifEmpty { null }, null, v.isActive,
                     MasterForm(id = v.id, name = v.name, phone = v.phone.orEmpty(), email = v.email.orEmpty(), address = v.address.orEmpty()),
+                )
+            }
+        }
+        MasterType.STATUS -> repo.observeStatuses().map { list ->
+            list.map {
+                MasterRow(
+                    it.id, it.name, if (it.isSystem) "Status sistem: penyusutan berhenti, tidak ikut dashboard, opname & asuransi" else null,
+                    if (it.isSystem) "Sistem" else null, true, MasterForm(id = it.id, name = it.name),
                 )
             }
         }

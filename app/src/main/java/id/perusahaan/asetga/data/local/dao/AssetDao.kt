@@ -36,6 +36,7 @@ data class AssetDetailRow(
     val locationName: String,
     val departmentName: String?,
     val divisionName: String?,
+    val vendorName: String? = null,
 )
 
 data class AssetBrief(val id: String, val code: String, val name: String)
@@ -116,12 +117,13 @@ interface AssetDao {
     @Query(
         """SELECT a.*, c.name AS categoryName, c.usefulLifeYears AS usefulLifeYears,
                   c.residualPercent AS categoryResidualPercent, l.name AS locationName, d.name AS departmentName,
-                  dv.name AS divisionName
+                  dv.name AS divisionName, vn.name AS vendorName
            FROM assets a
            JOIN categories c ON c.id = a.categoryId
            JOIN locations l ON l.id = a.locationId
            LEFT JOIN departments d ON d.id = a.departmentId
            LEFT JOIN divisions dv ON dv.id = a.divisionId
+           LEFT JOIN vendors vn ON vn.id = a.vendorId
            WHERE a.id = :id""",
     )
     fun observeDetail(id: String): Flow<AssetDetailRow?>
@@ -132,12 +134,13 @@ interface AssetDao {
     @Query(
         """SELECT a.*, c.name AS categoryName, c.usefulLifeYears AS usefulLifeYears,
                   c.residualPercent AS categoryResidualPercent, l.name AS locationName, d.name AS departmentName,
-                  dv.name AS divisionName
+                  dv.name AS divisionName, vn.name AS vendorName
            FROM assets a
            JOIN categories c ON c.id = a.categoryId
            JOIN locations l ON l.id = a.locationId
            LEFT JOIN departments d ON d.id = a.departmentId
            LEFT JOIN divisions dv ON dv.id = a.divisionId
+           LEFT JOIN vendors vn ON vn.id = a.vendorId
            WHERE a.deletedAt IS NULL ORDER BY a.code""",
     )
     suspend fun exportRows(): List<AssetDetailRow>

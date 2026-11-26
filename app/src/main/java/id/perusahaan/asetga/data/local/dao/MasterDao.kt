@@ -5,6 +5,7 @@ import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.Update
+import id.perusahaan.asetga.data.local.entity.AssetStatusEntity
 import id.perusahaan.asetga.data.local.entity.CategoryEntity
 import id.perusahaan.asetga.data.local.entity.DepartmentEntity
 import id.perusahaan.asetga.data.local.entity.DivisionEntity
@@ -133,6 +134,33 @@ interface UnitDao {
 
 }
 
+@Dao
+interface AssetStatusDao {
+    @Query("SELECT * FROM asset_statuses WHERE deletedAt IS NULL ORDER BY sortOrder, name COLLATE NOCASE")
+    fun observeAll(): Flow<List<AssetStatusEntity>>
+
+    @Query("SELECT * FROM asset_statuses WHERE deletedAt IS NULL ORDER BY sortOrder, name COLLATE NOCASE")
+    suspend fun all(): List<AssetStatusEntity>
+
+    @Query("SELECT * FROM asset_statuses WHERE id = :id")
+    suspend fun getById(id: String): AssetStatusEntity?
+
+    @Query("SELECT COUNT(*) FROM asset_statuses WHERE name = :name COLLATE NOCASE AND id != :excludeId AND deletedAt IS NULL")
+    suspend fun countByName(name: String, excludeId: String): Int
+
+    @Query("SELECT COALESCE(MAX(sortOrder), 0) FROM asset_statuses")
+    suspend fun maxSortOrder(): Int
+
+    @Insert(onConflict = OnConflictStrategy.ABORT)
+    suspend fun insert(entity: AssetStatusEntity)
+
+    @Update
+    suspend fun update(entity: AssetStatusEntity)
+
+    @Query("DELETE FROM asset_statuses WHERE id = :id")
+    suspend fun delete(id: String): Int
+}
+
 /** Menghitung pemakaian data master agar data yang masih dipakai tidak terhapus. */
 @Dao
 interface MasterUsageDao {
@@ -186,7 +214,7 @@ interface MasterUsageDao {
     @Query("UPDATE assets SET divisionId = NULL WHERE divisionId = :id AND deletedAt IS NOT NULL")
     suspend fun detachDivisionFromTrashedAssets(id: String)
 
-    @Query("SELECT COUNT(*) FROM assets WHERE status = 'WRITE_OFF' AND (categoryId = :id OR locationId = :id OR divisionId = :id OR departmentId = :id)")
+    @Query("SELECT COUNT(*) FROM assets WHERE status = 'WRITE_OFF' AND (categoryId = :id OR locationId = :id OR divisionId = :id OR departmentId = :id OR vendorId = :id)")
     suspend fun writeOffAssetsUsing(id: String): Int
 
     @Query("UPDATE asset_mutations SET fromLocationId = NULL WHERE fromLocationId = :id")
@@ -199,6 +227,12 @@ interface MasterUsageDao {
 
     @Query("SELECT COUNT(*) FROM service_records WHERE vendorId = :id")
     suspend fun servicesWithVendor(id: String): Int
+
+    @Query("SELECT COUNT(*) FROM assets WHERE vendorId = :id")
+    suspend fun assetsWithVendor(id: String): Int
+
+    @Query("SELECT COUNT(*) FROM assets WHERE status = :id")
+    suspend fun assetsWithStatus(id: String): Int
 
     @Query("SELECT COUNT(*) FROM items WHERE unitId = :id")
     suspend fun itemsWithUnit(id: String): Int

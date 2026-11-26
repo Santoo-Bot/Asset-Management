@@ -49,7 +49,7 @@ internal fun AssetEntity.toDomain() = Asset(
     id, code, name, categoryId, brandModel, serialNumber, acquisitionDate, acquisitionCost, locationId, departmentId,
     picName, condition, status, warrantyUntil, notes, photoPath, disposalDate, disposalValue,
     qrCode, userLocationDetail, divisionId, prNumber, poNumber, grNumber, requester, memoNumber, memoDate, followUp, handoverDoc,
-    accessories,
+    accessories, vendorId,
 )
 
 internal fun AssetListRow.toDomain() = AssetListItem(
@@ -96,6 +96,7 @@ class AssetRepositoryImpl @Inject constructor(
             locationName = locationName,
             departmentName = departmentName,
             divisionName = divisionName,
+            vendorName = vendorName,
             age = AssetAgeCalc.of(a.acquisitionDate, asOf),
             depreciation = Depreciation.calculate(a.acquisitionCost, a.acquisitionDate, usefulLifeYears, residual, asOf),
             warrantyStatus = WarrantyCalc.status(a.warrantyUntil, today()),
@@ -153,6 +154,10 @@ class AssetRepositoryImpl @Inject constructor(
                     mapOf(AssetValidator.FIELD_QR to "Kode QR $qr sudah dipakai aset lain"),
                 )
             }
+            if (db.assetStatusDao().getById(input.status.id) == null) {
+                return@withTransaction AppResult.Failure("Status tidak dikenal", mapOf(AssetValidator.FIELD_STATUS to "Pilih status dari master Status"))
+            }
+            val vendorId = input.vendorId?.takeIf { db.vendorDao().getById(it) != null }
             val now = clock.millis()
             val disposed = input.status == AssetStatus.WRITE_OFF
             val entity = AssetEntity(
@@ -187,6 +192,7 @@ class AssetRepositoryImpl @Inject constructor(
                 followUp = input.followUp.trimToNull(),
                 handoverDoc = input.handoverDoc.trimToNull(),
                 accessories = Accessories.normalize(input.accessories),
+                vendorId = vendorId,
                 createdAt = old?.createdAt ?: now,
                 updatedAt = now,
                 syncState = SyncState.PENDING,
@@ -223,6 +229,7 @@ class AssetRepositoryImpl @Inject constructor(
                     field("Tindak lanjut", old.followUp, entity.followUp)
                     field("Berita acara serah terima", old.handoverDoc, entity.handoverDoc)
                     field("Kelengkapan", old.accessories, entity.accessories)
+                    field("Vendor", old.vendorId?.let { db.vendorDao().getById(it)?.name }, entity.vendorId?.let { db.vendorDao().getById(it)?.name })
                     field("Foto", old.photoPath?.let { "ada" }, entity.photoPath?.let { if (it == old.photoPath) "ada" else "diganti" })
                 }
                 if (!changes.isEmpty()) {

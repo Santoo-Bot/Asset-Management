@@ -70,3 +70,8 @@ data class AuditLogEntry(
     val summary: String,
     val changes: List<FieldChange> = emptyList(),
 )
+
+/** Baris master Status aset. [isSystem] = Write Off (dipakai logika aplikasi, tidak bisa dihapus). */
+data class AssetStatusOption(val id: String, val name: String, val isSystem: Boolean = false) {
+    val status: AssetStatus get() = AssetStatus(id)
+}

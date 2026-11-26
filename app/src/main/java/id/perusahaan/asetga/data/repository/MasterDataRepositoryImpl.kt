@@ -3,6 +3,7 @@ package id.perusahaan.asetga.data.repository
 import androidx.room.withTransaction
 import id.perusahaan.asetga.data.local.AppDatabase
 import id.perusahaan.asetga.data.local.dao.AssetDao
+import id.perusahaan.asetga.data.local.dao.AssetStatusDao
 import id.perusahaan.asetga.data.local.dao.CategoryDao
 import id.perusahaan.asetga.data.local.dao.DepartmentDao
 import id.perusahaan.asetga.data.local.dao.DivisionDao
@@ -12,6 +13,7 @@ import id.perusahaan.asetga.data.local.dao.LocationDao
 import id.perusahaan.asetga.data.local.dao.MasterUsageDao
 import id.perusahaan.asetga.data.local.dao.UnitDao
 import id.perusahaan.asetga.data.local.dao.VendorDao
+import id.perusahaan.asetga.data.local.entity.AssetStatusEntity
 import id.perusahaan.asetga.data.local.entity.CategoryEntity
 import id.perusahaan.asetga.data.local.entity.DepartmentEntity
 import id.perusahaan.asetga.data.local.entity.DivisionEntity
@@ -21,6 +23,8 @@ import id.perusahaan.asetga.data.local.entity.LocationEntity
 import id.perusahaan.asetga.data.local.entity.UnitEntity
 import id.perusahaan.asetga.data.local.entity.VendorEntity
 import id.perusahaan.asetga.domain.model.AppResult
+import id.perusahaan.asetga.domain.model.AssetStatus
+import id.perusahaan.asetga.domain.model.AssetStatusOption
 import id.perusahaan.asetga.domain.model.AuditAction
 import id.perusahaan.asetga.domain.model.AuditEntityType
 import id.perusahaan.asetga.domain.model.Category
@@ -47,7 +51,7 @@ import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Singleton
 
-private val ASSET_TYPES = setOf(MasterType.CATEGORY, MasterType.LOCATION, MasterType.DIVISION, MasterType.DEPARTMENT)
+private val ASSET_TYPES = setOf(MasterType.CATEGORY, MasterType.LOCATION, MasterType.DIVISION, MasterType.DEPARTMENT, MasterType.VENDOR)
 
 @Singleton
 class MasterDataRepositoryImpl @Inject constructor(
@@ -66,6 +70,7 @@ class MasterDataRepositoryImpl @Inject constructor(
     private val audit: AuditLogRepository,
     private val clock: Clock,
 ) : MasterDataRepository {
+    private val statusDao: AssetStatusDao get() = db.assetStatusDao()
 
     override fun observeCategories(includeInactive: Boolean): Flow<List<Category>> =
         categoryDao.observeAll(includeInactive).map { l -> l.map { it.toDomain() } }
@@ -159,6 +164,28 @@ class MasterDataRepositoryImpl @Inject constructor(
 
     override fun observeUnits(includeInactive: Boolean): Flow<List<MeasureUnit>> =
         unitDao.observeAll(includeInactive).map { l -> l.map { it.toDomain() } }
+
+    override fun observeStatuses(): Flow<List<AssetStatusOption>> =
+        statusDao.observeAll().map { l -> l.map { AssetStatusOption(it.id, it.name, isSystem = it.id == AssetStatus.WRITE_OFF_ID) } }
+
+    override suspend fun saveStatus(status: AssetStatusOption): AppResult<AssetStatusOption> {
+        session.denyUnless { it.canManageMaster }?.let { return it }
+        val name = status.name.trim()
+        nameErrors(name, statusDao.countByName(name, status.id), "status")?.let { return it }
+        val now = clock.millis()
+        val old = status.id.takeIf { it.isNotEmpty() }?.let { statusDao.getById(it) }
+        return if (old == null) {
+            val e = AssetStatusEntity(newId(), name, statusDao.maxSortOrder() + 1, true, now, now)
+            statusDao.insert(e)
+            audit.log(AuditEntityType.MASTER, e.id, AuditAction.CREATE, "Status ${e.name} ditambahkan")
+            AppResult.Success(AssetStatusOption(e.id, e.name))
+        } else {
+            val e = old.copy(name = name, updatedAt = now, syncState = SyncState.PENDING)
+            statusDao.update(e)
+            logUpdate("Status", e.id, e.name) { field("Nama", old.name, e.name) }
+            AppResult.Success(AssetStatusOption(e.id, e.name, isSystem = e.id == AssetStatus.WRITE_OFF_ID))
+        }
+    }
 
     override suspend fun saveCategory(category: Category): AppResult<Category> {
         session.denyUnless { it.canManageMaster }?.let { return it }
@@ -302,7 +329,11 @@ class MasterDataRepositoryImpl @Inject constructor(
             MasterType.UNIT -> unitDao.getById(id)?.name
             MasterType.INSURANCE_TYPE -> insuranceTypeDao.getById(id)?.name
             MasterType.INSURER -> insurerDao.getById(id)?.name
+            MasterType.STATUS -> statusDao.getById(id)?.name
         } ?: return AppResult.Failure("Data tidak ditemukan")
+        if (type == MasterType.STATUS && id == AssetStatus.WRITE_OFF_ID) {
+            return AppResult.Failure("$name adalah status sistem untuk aset yang dibuang/dijual (penyusutan berhenti, tidak ikut opname & asuransi), jadi tidak bisa dihapus. Namanya boleh diubah.")
+        }
 
         val usage = usageOf(type, id)
         if (usage.isNotEmpty()) {
@@ -310,7 +341,8 @@ class MasterDataRepositoryImpl @Inject constructor(
                 MasterType.DIVISION -> "Hapus atau pindahkan dulu departemen di bawahnya, dan ubah divisi aset aktif tersebut."
                 MasterType.DEPARTMENT -> "Ubah departemen aset aktif tersebut dulu."
                 MasterType.CATEGORY, MasterType.LOCATION -> "Pindahkan dulu ke ${type.singular} lain (ubah aset / mutasi)."
-                MasterType.VENDOR -> "Ubah vendor pada catatan servis tersebut dulu."
+                MasterType.VENDOR -> "Ubah vendor pada aset / catatan servis tersebut dulu."
+                MasterType.STATUS -> "Ubah status aset tersebut dulu."
                 MasterType.UNIT -> "Ubah satuan barang tersebut dulu."
                 MasterType.INSURANCE_TYPE, MasterType.INSURER -> "Ubah atau hapus polis tersebut dulu."
             }
@@ -340,6 +372,7 @@ class MasterDataRepositoryImpl @Inject constructor(
                 }
                 MasterType.VENDOR -> usageDao.deleteVendor(id)
                 MasterType.UNIT -> usageDao.deleteUnit(id)
+                MasterType.STATUS -> statusDao.delete(id)
                 MasterType.INSURANCE_TYPE -> {
                     insuranceTypeDao.purgeDeletedPolicyItems(id)
                     insuranceTypeDao.purgeDeletedPolicies(id)
@@ -378,7 +411,11 @@ class MasterDataRepositoryImpl @Inject constructor(
                     // Riwayat mutasi tidak menghalangi; referensinya dikosongkan saat departemen dihapus.
                     addIfUsed(usageDao.assetsInDepartment(id), "aset")
                 }
-                MasterType.VENDOR -> addIfUsed(usageDao.servicesWithVendor(id), "catatan servis")
+                MasterType.VENDOR -> {
+                    addIfUsed(usageDao.assetsWithVendor(id), "aset")
+                    addIfUsed(usageDao.servicesWithVendor(id), "catatan servis")
+                }
+                MasterType.STATUS -> addIfUsed(usageDao.assetsWithStatus(id), "aset")
                 MasterType.UNIT -> addIfUsed(usageDao.itemsWithUnit(id), "barang stok")
                 MasterType.INSURANCE_TYPE -> policyUsage(insuranceTypeDao.activePolicyNumbers(id))?.let { add(it) }
                 MasterType.INSURER -> policyUsage(insurerDao.activePolicyNumbers(id))?.let { add(it) }

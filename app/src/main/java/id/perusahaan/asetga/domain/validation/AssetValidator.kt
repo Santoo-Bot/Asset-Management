@@ -5,6 +5,8 @@ import id.perusahaan.asetga.domain.model.AssetStatus
 import java.time.LocalDate
 
 object AssetValidator {
+    const val FIELD_STATUS = "status"
+    const val FIELD_VENDOR = "vendor"
     const val FIELD_CODE = "code"
     const val FIELD_NAME = "name"
     const val FIELD_CATEGORY = "category"

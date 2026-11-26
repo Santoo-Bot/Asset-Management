@@ -43,6 +43,8 @@ fun AssetFormScreen(
 ) {
     val state by vm.state.collectAsStateWithLifecycle()
     val options by vm.options.collectAsStateWithLifecycle()
+    val vendors by vm.vendors.collectAsStateWithLifecycle()
+    val statuses by vm.statuses.collectAsStateWithLifecycle()
     val snackbar = remember { SnackbarHostState() }
     LaunchedEffect(vm) {
         vm.events.collect { e ->
@@ -122,8 +124,8 @@ fun AssetFormScreen(
                 onSelect = { c -> if (c != null) vm.update { it.copy(condition = c) } }, required = true,
             )
             SelectField(
-                label = "Status", options = AssetStatus.entries, selected = input.status, itemLabel = { it.label },
-                onSelect = { s -> if (s != null) vm.update { it.copy(status = s) } }, required = true,
+                label = "Status", options = statuses.map { it.status }, selected = input.status, itemLabel = { it.label },
+                onSelect = { s -> if (s != null) vm.update { it.copy(status = s) } }, required = true, error = err[AssetValidator.FIELD_STATUS],
                 supporting = if (input.status == AssetStatus.WRITE_OFF) "Aset tidak dihapus permanen; hanya ditandai Write Off" else null,
             )
             if (input.status == AssetStatus.WRITE_OFF) {
@@ -145,6 +147,12 @@ fun AssetFormScreen(
             )
 
             SectionHeader("Pengadaan", Modifier.padding(start = 0.dp))
+            SelectField(
+                label = "Vendor", options = vendors.filter { it.isActive || it.id == input.vendorId },
+                selected = vendors.firstOrNull { it.id == input.vendorId }, itemLabel = { it.name },
+                onSelect = { v -> vm.update { it.copy(vendorId = v?.id) } }, noneLabel = "Tidak ada",
+                supporting = "Pemasok aset, dari master Vendor",
+            )
             FormTextField(input.prNumber, { v -> vm.update { it.copy(prNumber = v) } }, "Nomor PR")
             FormTextField(input.poNumber, { v -> vm.update { it.copy(poNumber = v) } }, "Nomor PO")
             FormTextField(input.grNumber, { v -> vm.update { it.copy(grNumber = v) } }, "Nomor GR")
