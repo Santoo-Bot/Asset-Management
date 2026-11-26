@@ -108,8 +108,8 @@ Semua data tersimpan **hanya di HP** (database Room + folder foto). Backup otoma
 | Modul | Isi |
 |---|---|
 | **Beranda** | Total aset, nilai perolehan, nilai buku, aset rusak, garansi habis ≤90 hari, servis terlambat & jatuh tempo, barang perlu reorder; grafik per kategori & kondisi; daftar *Perlu tindakan* yang bisa diketuk |
-| **Aset** | Daftar Paging 3 (cepat untuk 5.000+ aset) dengan pencarian, filter kategori/lokasi/kondisi/status, urutan; kode otomatis `KATEGORI-TAHUN-NOMOR`; foto kamera/galeri dikompres; umur berjalan, penyusutan garis lurus, akumulasi, nilai buku, status garansi; riwayat perubahan |
-| **Scan** | Scan QR/barcode membuka detail aset; input kode manual; izin kamera diminta saat dibutuhkan, termasuk saat izin ditolak permanen |
+| **Aset** | Field: kode aset, kode QR, nama, kategori, merk/tipe, no. seri, tgl & nilai perolehan, lokasi, departemen, divisi, PIC, pengguna/detail lokasi, kondisi, status, garansi, nomor PR/PO/GR, pemohon pembelian, nomor & tanggal memo, tindak lanjut, berita acara serah terima, catatan, foto. Daftar Paging 3 (cepat untuk 5.000+ aset) dengan pencarian, filter kategori/lokasi/kondisi/status, urutan; kode otomatis `KATEGORI-TAHUN-NOMOR`; foto kamera/galeri dikompres; umur berjalan, penyusutan garis lurus, akumulasi, nilai buku, status garansi; riwayat perubahan |
+| **Scan** | Scan QR/barcode (kode aset atau kode QR khusus) membuka detail aset; input kode manual; izin kamera diminta saat dibutuhkan, termasuk saat izin ditolak permanen |
 | **Label QR** | Tekan lama di daftar aset untuk memilih banyak aset → PDF A4 (3×8 label per lembar), PNG, cetak lewat layanan cetak Android, atau bagikan |
 | **Mutasi** | Pindah lokasi/departemen/PIC dengan alasan & penyetuju; data aset ikut diperbarui |
 | **Servis** | Preventif/Korektif/Kalibrasi/Inspeksi, vendor, biaya, foto, jadwal berikutnya; status Terlambat / Jatuh tempo ≤30 hari / Terjadwal |
@@ -157,7 +157,12 @@ app/src/main/java/id/perusahaan/asetga/
 ├─ di/            modul Hilt
 └─ util/          format Rupiah & tanggal Indonesia (dd MMM yyyy)
 app/src/debug/    data contoh (debug saja) · app/src/release/  pengganti no-op
-app/schemas/      skema Room (untuk migrasi)
+app/schemas/      skema Room (dihasilkan saat build)
+```
+
+Perubahan struktur database selalu lewat migrasi (`Migrations` di `AppDatabase.kt`), sehingga data di HP tidak hilang saat aplikasi diperbarui.
+
+```
 ```
 
 ### Persiapan sinkronisasi multi-pengguna (fase lanjutan)

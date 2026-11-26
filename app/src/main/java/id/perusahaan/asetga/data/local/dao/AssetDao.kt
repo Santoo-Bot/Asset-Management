@@ -25,6 +25,7 @@ data class AssetListRow(
     val photoPath: String?,
     val warrantyUntil: LocalDate?,
     val acquisitionCost: Long,
+    val qrCode: String?,
 )
 
 data class AssetDetailRow(
@@ -59,14 +60,16 @@ data class AssetValuationRow(
 
 private const val LIST_COLUMNS = """
     a.id, a.code, a.name, c.name AS categoryName, l.name AS locationName, a.picName,
-    a.condition, a.status, a.photoPath, a.warrantyUntil, a.acquisitionCost
+    a.condition, a.status, a.photoPath, a.warrantyUntil, a.acquisitionCost, a.qrCode
 """
 
 private const val FILTER_WHERE = """
     a.deletedAt IS NULL
     AND (:query = '' OR a.code LIKE '%' || :query || '%' OR a.name LIKE '%' || :query || '%'
          OR a.serialNumber LIKE '%' || :query || '%' OR a.picName LIKE '%' || :query || '%'
-         OR a.brandModel LIKE '%' || :query || '%')
+         OR a.brandModel LIKE '%' || :query || '%' OR a.qrCode LIKE '%' || :query || '%'
+         OR a.userLocationDetail LIKE '%' || :query || '%' OR a.prNumber LIKE '%' || :query || '%'
+         OR a.poNumber LIKE '%' || :query || '%' OR a.grNumber LIKE '%' || :query || '%')
     AND (:categoryId IS NULL OR a.categoryId = :categoryId)
     AND (:locationId IS NULL OR a.locationId = :locationId)
     AND (:condition IS NULL OR a.condition = :condition)
@@ -128,11 +131,19 @@ interface AssetDao {
     @Query("SELECT code FROM assets")
     suspend fun allCodes(): List<String>
 
+    @Query("SELECT qrCode FROM assets WHERE qrCode IS NOT NULL")
+    suspend fun allQrCodes(): List<String>
+
     @Query("SELECT * FROM assets WHERE id = :id")
     suspend fun getById(id: String): AssetEntity?
 
-    @Query("SELECT * FROM assets WHERE code = :code COLLATE NOCASE AND deletedAt IS NULL LIMIT 1")
+    /** Cari dari hasil scan: cocok dengan kode aset atau kode QR. */
+    @Query("SELECT * FROM assets WHERE (code = :code COLLATE NOCASE OR qrCode = :code) AND deletedAt IS NULL LIMIT 1")
     suspend fun getByCode(code: String): AssetEntity?
+
+    /** Kode/QR tidak boleh sama dengan kode atau QR aset lain agar hasil scan tidak ambigu. */
+    @Query("SELECT COUNT(*) FROM assets WHERE (code = :value COLLATE NOCASE OR qrCode = :value COLLATE NOCASE) AND id != :excludeId")
+    suspend fun countByCodeOrQr(value: String, excludeId: String): Int
 
     @Query("SELECT COUNT(*) FROM assets WHERE code = :code COLLATE NOCASE AND id != :excludeId")
     suspend fun countByCode(code: String, excludeId: String): Int

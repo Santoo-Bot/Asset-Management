@@ -148,4 +148,33 @@ class AssetDaoTest {
         assertEquals(1, repo.observeDeleted().first().size)
         assertTrue(repo.restore(a.id) is AppResult.Failure) // sudah aktif
     }
+
+    @Test fun `field pengadaan, memo, dan kode QR tersimpan; scan cocok dengan kode QR`() = runTest {
+        val a = (
+            repo.save(
+                input("Laptop").copy(
+                    qrCode = "QR-LAMA-0001", userLocationDetail = "Budi · Ruang 301", division = "Operasional",
+                    prNumber = "PR-1", poNumber = "PO-2", grNumber = "GR-3", requester = "Citra",
+                    memoNumber = "MEMO/7", memoDate = LocalDate.of(2024, 1, 10), followUp = "Diserahkan", handoverDoc = "BAST/15",
+                ),
+            ) as AppResult.Success
+            ).value
+        val saved = repo.get(a.id)!!
+        assertEquals("QR-LAMA-0001", saved.qrContent)
+        assertEquals("PO-2", saved.poNumber)
+        assertEquals(LocalDate.of(2024, 1, 10), saved.memoDate)
+        assertEquals("BAST/15", saved.handoverDoc)
+        assertEquals(a.id, repo.findByCode("QR-LAMA-0001")?.id)
+        assertEquals(a.id, repo.findByCode(a.code)?.id)
+        assertEquals(1, db.assetDao().count("PO-2", null, null, null, null).first())
+
+        // Kode QR tidak boleh sama dengan kode/QR aset lain.
+        val dupQr = repo.save(input("Lain").copy(qrCode = "qr-lama-0001")) as AppResult.Failure
+        assertTrue(AssetValidator.FIELD_QR in dupQr.fieldErrors)
+        val qrSameAsOtherCode = repo.save(input("Lain").copy(qrCode = a.code)) as AppResult.Failure
+        assertTrue(AssetValidator.FIELD_QR in qrSameAsOtherCode.fieldErrors)
+        // Tanpa kode QR, isi QR = kode aset.
+        val b = (repo.save(input("Mouse")) as AppResult.Success).value
+        assertEquals(b.code, b.qrContent)
+    }
 }

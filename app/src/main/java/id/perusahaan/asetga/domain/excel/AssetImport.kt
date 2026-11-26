@@ -24,7 +24,18 @@ enum class ImportColumn(val header: String, val required: Boolean = false) {
     CONDITION("Kondisi", true),
     STATUS("Status", true),
     WARRANTY("Garansi s/d (dd/mm/yyyy)"),
-    NOTES("Catatan");
+    NOTES("Catatan"),
+    QR("Kode QR"),
+    USER_LOCATION("Pengguna / Detail Lokasi"),
+    DIVISION("Divisi"),
+    PR("Nomor PR"),
+    PO("Nomor PO"),
+    GR("Nomor GR"),
+    REQUESTER("Pemohon Pembelian"),
+    MEMO_NO("Nomor Memo"),
+    MEMO_DATE("Tanggal Memo (dd/mm/yyyy)"),
+    FOLLOW_UP("Tindak Lanjut"),
+    HANDOVER("Berita Acara Serah Terima");
 
     val templateHeader: String get() = if (required) "$header*" else header
 }
@@ -34,7 +45,7 @@ data class ImportLookups(
     val categories: Map<String, String>,
     val locations: Map<String, String>,
     val departments: Map<String, String>,
-    /** Kode aset yang sudah ada di database (huruf besar). */
+    /** Kode aset & kode QR yang sudah ada di database (huruf besar). */
     val existingCodes: Set<String>,
 )
 
@@ -120,6 +131,15 @@ object AssetImportParser {
             val departmentId = deptRaw.lowercase().takeIf { it.isNotEmpty() }?.let { lookups.departments[it] }
             if (deptRaw.isNotEmpty() && departmentId == null) errors += "Departemen \"$deptRaw\" tidak dikenal"
 
+            val qr = cell(ImportColumn.QR)
+            if (qr.isNotEmpty() && !qr.equals(code, ignoreCase = true)) {
+                if (qr.uppercase() in lookups.existingCodes) errors += "Kode QR $qr sudah dipakai aset lain"
+                if (!codesInFile.add(qr.uppercase())) errors += "Kode QR $qr ganda di file"
+            }
+            val memoRaw = cell(ImportColumn.MEMO_DATE)
+            val memoDate = parseDate(memoRaw)
+            if (memoRaw.isNotEmpty() && memoDate == null) errors += "Tanggal memo \"$memoRaw\" tidak valid (gunakan dd/mm/yyyy)"
+
             val acqRaw = cell(ImportColumn.ACQ_DATE)
             val acq = parseDate(acqRaw)
             if (acqRaw.isNotEmpty() && acq == null) errors += "Tgl perolehan \"$acqRaw\" tidak valid (gunakan dd/mm/yyyy)"
@@ -142,6 +162,10 @@ object AssetImportParser {
                 serialNumber = cell(ImportColumn.SERIAL), acquisitionDate = acq, acquisitionCost = cost, locationId = locationId,
                 departmentId = departmentId, picName = cell(ImportColumn.PIC), condition = condition ?: AssetCondition.BAIK,
                 status = status ?: AssetStatus.AKTIF, warrantyUntil = warranty, notes = cell(ImportColumn.NOTES),
+                qrCode = qr, userLocationDetail = cell(ImportColumn.USER_LOCATION), division = cell(ImportColumn.DIVISION),
+                prNumber = cell(ImportColumn.PR), poNumber = cell(ImportColumn.PO), grNumber = cell(ImportColumn.GR),
+                requester = cell(ImportColumn.REQUESTER), memoNumber = cell(ImportColumn.MEMO_NO), memoDate = memoDate,
+                followUp = cell(ImportColumn.FOLLOW_UP), handoverDoc = cell(ImportColumn.HANDOVER),
             )
             // Pesan validasi umum (wajib isi, tanggal masa depan, dll.) yang belum tercakup di atas.
             AssetValidator.validate(input, today).forEach { (field, msg) ->

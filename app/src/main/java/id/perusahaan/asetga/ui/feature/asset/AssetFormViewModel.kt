@@ -103,6 +103,10 @@ class AssetFormViewModel @Inject constructor(
                             condition = a.condition, status = a.status, warrantyUntil = a.warrantyUntil,
                             notes = a.notes.orEmpty(), photoPath = a.photoPath,
                             disposalDate = a.disposalDate, disposalValue = a.disposalValue,
+                            qrCode = a.qrCode.orEmpty(), userLocationDetail = a.userLocationDetail.orEmpty(),
+                            division = a.division.orEmpty(), prNumber = a.prNumber.orEmpty(), poNumber = a.poNumber.orEmpty(),
+                            grNumber = a.grNumber.orEmpty(), requester = a.requester.orEmpty(), memoNumber = a.memoNumber.orEmpty(),
+                            memoDate = a.memoDate, followUp = a.followUp.orEmpty(), handoverDoc = a.handoverDoc.orEmpty(),
                         ),
                     )
                 }
@@ -130,6 +134,7 @@ class AssetFormViewModel @Inject constructor(
         if (a.acquisitionCost != b.acquisitionCost) add("acquisitionCost")
         if (a.warrantyUntil != b.warrantyUntil) add("warranty")
         if (a.disposalDate != b.disposalDate) add("disposalDate")
+        if (a.qrCode != b.qrCode) add("qrCode")
     }
 
     private fun refreshSuggestion() {

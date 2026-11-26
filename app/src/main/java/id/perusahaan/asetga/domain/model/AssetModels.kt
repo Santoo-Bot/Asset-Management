@@ -24,7 +24,21 @@ data class Asset(
     val photoPath: String?,
     val disposalDate: LocalDate?,
     val disposalValue: Long?,
-)
+    val qrCode: String? = null,
+    val userLocationDetail: String? = null,
+    val division: String? = null,
+    val prNumber: String? = null,
+    val poNumber: String? = null,
+    val grNumber: String? = null,
+    val requester: String? = null,
+    val memoNumber: String? = null,
+    val memoDate: LocalDate? = null,
+    val followUp: String? = null,
+    val handoverDoc: String? = null,
+) {
+    /** Isi yang dicetak di label QR. */
+    val qrContent: String get() = qrCode ?: code
+}
 
 /** Data yang diisi pengguna di form aset. [code] kosong = dibuat otomatis. */
 data class AssetInput(
@@ -46,6 +60,17 @@ data class AssetInput(
     val photoPath: String? = null,
     val disposalDate: LocalDate? = null,
     val disposalValue: Long? = null,
+    val qrCode: String = "",
+    val userLocationDetail: String = "",
+    val division: String = "",
+    val prNumber: String = "",
+    val poNumber: String = "",
+    val grNumber: String = "",
+    val requester: String = "",
+    val memoNumber: String = "",
+    val memoDate: LocalDate? = null,
+    val followUp: String = "",
+    val handoverDoc: String = "",
 )
 
 data class AssetListItem(
@@ -60,7 +85,10 @@ data class AssetListItem(
     val photoPath: String?,
     val warrantyUntil: LocalDate?,
     val acquisitionCost: Long,
-)
+    val qrCode: String? = null,
+) {
+    val qrContent: String get() = qrCode ?: code
+}
 
 data class AssetDetail(
     val asset: Asset,

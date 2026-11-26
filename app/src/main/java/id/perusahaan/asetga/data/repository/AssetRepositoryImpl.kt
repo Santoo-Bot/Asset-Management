@@ -46,10 +46,11 @@ import javax.inject.Singleton
 internal fun AssetEntity.toDomain() = Asset(
     id, code, name, categoryId, brandModel, serialNumber, acquisitionDate, acquisitionCost, locationId, departmentId,
     picName, condition, status, warrantyUntil, notes, photoPath, disposalDate, disposalValue,
+    qrCode, userLocationDetail, division, prNumber, poNumber, grNumber, requester, memoNumber, memoDate, followUp, handoverDoc,
 )
 
 internal fun AssetListRow.toDomain() = AssetListItem(
-    id, code, name, categoryName, locationName, picName, condition, status, photoPath, warrantyUntil, acquisitionCost,
+    id, code, name, categoryName, locationName, picName, condition, status, photoPath, warrantyUntil, acquisitionCost, qrCode,
 )
 
 @Singleton
@@ -126,10 +127,19 @@ class AssetRepositoryImpl @Inject constructor(
             val code = AssetValidator.normalizeCode(input.code).ifEmpty {
                 if (old != null) old.code else suggestCode(categoryId, acqDate.year)
             }
-            if (dao.countByCode(code, old?.id ?: "") > 0) {
+            val excludeId = old?.id ?: ""
+            if (dao.countByCode(code, excludeId) > 0 || dao.countByCodeOrQr(code, excludeId) > 0) {
                 return@withTransaction AppResult.Failure(
                     "Kode aset sudah dipakai",
                     mapOf(AssetValidator.FIELD_CODE to "Kode $code sudah dipakai aset lain"),
+                )
+            }
+            // Kode QR sama dengan kode aset sendiri tidak perlu disimpan terpisah.
+            val qr = input.qrCode.trimToNull()?.takeUnless { it.equals(code, ignoreCase = true) }
+            if (qr != null && dao.countByCodeOrQr(qr, excludeId) > 0) {
+                return@withTransaction AppResult.Failure(
+                    "Kode QR sudah dipakai",
+                    mapOf(AssetValidator.FIELD_QR to "Kode QR $qr sudah dipakai aset lain"),
                 )
             }
             val now = clock.millis()
@@ -153,6 +163,17 @@ class AssetRepositoryImpl @Inject constructor(
                 photoPath = input.photoPath,
                 disposalDate = if (disposed) input.disposalDate ?: today() else null,
                 disposalValue = if (disposed) input.disposalValue else null,
+                qrCode = qr,
+                userLocationDetail = input.userLocationDetail.trimToNull(),
+                division = input.division.trimToNull(),
+                prNumber = input.prNumber.trimToNull(),
+                poNumber = input.poNumber.trimToNull(),
+                grNumber = input.grNumber.trimToNull(),
+                requester = input.requester.trimToNull(),
+                memoNumber = input.memoNumber.trimToNull(),
+                memoDate = input.memoDate,
+                followUp = input.followUp.trimToNull(),
+                handoverDoc = input.handoverDoc.trimToNull(),
                 createdAt = old?.createdAt ?: now,
                 updatedAt = now,
                 syncState = SyncState.PENDING,
@@ -177,6 +198,17 @@ class AssetRepositoryImpl @Inject constructor(
                     field("Status", old.status.label, entity.status.label)
                     field("Garansi s/d", old.warrantyUntil?.let(Fmt::date), entity.warrantyUntil?.let(Fmt::date))
                     field("Catatan", old.notes, entity.notes)
+                    field("Kode QR", old.qrCode, entity.qrCode)
+                    field("Pengguna / detail lokasi", old.userLocationDetail, entity.userLocationDetail)
+                    field("Divisi", old.division, entity.division)
+                    field("Nomor PR", old.prNumber, entity.prNumber)
+                    field("Nomor PO", old.poNumber, entity.poNumber)
+                    field("Nomor GR", old.grNumber, entity.grNumber)
+                    field("Pemohon pembelian", old.requester, entity.requester)
+                    field("Nomor memo", old.memoNumber, entity.memoNumber)
+                    field("Tanggal memo", old.memoDate?.let(Fmt::date), entity.memoDate?.let(Fmt::date))
+                    field("Tindak lanjut", old.followUp, entity.followUp)
+                    field("Berita acara serah terima", old.handoverDoc, entity.handoverDoc)
                     field("Foto", old.photoPath?.let { "ada" }, entity.photoPath?.let { if (it == old.photoPath) "ada" else "diganti" })
                 }
                 if (!changes.isEmpty()) {

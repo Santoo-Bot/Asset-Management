@@ -26,6 +26,7 @@ import java.time.LocalDate
         Index(value = ["condition"]),
         Index(value = ["status"]),
         Index(value = ["serialNumber"]),
+        Index(value = ["qrCode"], unique = true),
     ],
 )
 data class AssetEntity(
@@ -49,6 +50,21 @@ data class AssetEntity(
     val photoPath: String? = null,
     val disposalDate: LocalDate? = null,
     val disposalValue: Long? = null,
+    // ---- Ditambahkan di skema versi 2 ----
+    /** Isi label QR bila berbeda dari kode aset; null = QR memakai kode aset. */
+    val qrCode: String? = null,
+    /** Pengguna / detail lokasi, mis. "Budi · Ruang 301". */
+    val userLocationDetail: String? = null,
+    val division: String? = null,
+    val prNumber: String? = null,
+    val poNumber: String? = null,
+    val grNumber: String? = null,
+    val requester: String? = null,
+    val memoNumber: String? = null,
+    val memoDate: LocalDate? = null,
+    val followUp: String? = null,
+    /** Nomor / keterangan Berita Acara Serah Terima. */
+    val handoverDoc: String? = null,
     val createdAt: Long,
     val updatedAt: Long,
     val deletedAt: Long? = null,

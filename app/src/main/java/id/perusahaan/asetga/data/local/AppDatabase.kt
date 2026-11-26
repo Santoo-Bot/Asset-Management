@@ -3,6 +3,7 @@ package id.perusahaan.asetga.data.local
 import androidx.room.Database
 import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
+import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 import id.perusahaan.asetga.data.local.dao.AssetDao
 import id.perusahaan.asetga.data.local.dao.AuditLogDao
@@ -52,7 +53,7 @@ import java.util.UUID
         AuditItemEntity::class,
         AuditLogEntity::class,
     ],
-    version = 1,
+    version = 2,
     exportSchema = true,
 )
 @TypeConverters(Converters::class)
@@ -74,6 +75,25 @@ abstract class AppDatabase : RoomDatabase() {
     companion object {
         const val NAME = "aset_ga.db"
     }
+}
+
+/**
+ * Migrasi skema. Data lama tidak pernah dihapus: hanya menambah kolom/indeks.
+ * Wajib menambah migrasi baru setiap kali entity berubah (jangan pakai fallbackToDestructiveMigration).
+ */
+object Migrations {
+    /** v2: kode QR, pengguna/detail lokasi, divisi, PR/PO/GR, pemohon, memo, tindak lanjut, BAST. */
+    val MIGRATION_1_2 = object : Migration(1, 2) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            listOf(
+                "qrCode TEXT", "userLocationDetail TEXT", "division TEXT", "prNumber TEXT", "poNumber TEXT",
+                "grNumber TEXT", "requester TEXT", "memoNumber TEXT", "memoDate INTEGER", "followUp TEXT", "handoverDoc TEXT",
+            ).forEach { db.execSQL("ALTER TABLE `assets` ADD COLUMN $it") }
+            db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS `index_assets_qrCode` ON `assets` (`qrCode`)")
+        }
+    }
+
+    val ALL = arrayOf(MIGRATION_1_2)
 }
 
 /** Data awal wajib (semua build): kategori dengan umur ekonomis, satuan, dan pengaturan default. */

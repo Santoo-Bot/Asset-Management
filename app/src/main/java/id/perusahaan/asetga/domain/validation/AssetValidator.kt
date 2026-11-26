@@ -13,6 +13,7 @@ object AssetValidator {
     const val FIELD_LOCATION = "location"
     const val FIELD_WARRANTY = "warranty"
     const val FIELD_DISPOSAL_DATE = "disposalDate"
+    const val FIELD_QR = "qrCode"
 
     const val MAX_COST = 1_000_000_000_000_000L // Rp 1 kuadriliun
     private val codeRegex = Regex("^[A-Z0-9][A-Z0-9./-]{1,39}$")
@@ -39,6 +40,13 @@ object AssetValidator {
         }
         if (input.warrantyUntil != null && input.acquisitionDate != null && input.warrantyUntil.isBefore(input.acquisitionDate)) {
             put(FIELD_WARRANTY, "Garansi tidak boleh sebelum tanggal perolehan")
+        }
+        val qr = input.qrCode.trim()
+        if (qr.isNotEmpty()) {
+            when {
+                qr.length > 120 -> put(FIELD_QR, "Kode QR maksimal 120 karakter")
+                qr.any { it.isISOControl() } -> put(FIELD_QR, "Kode QR berisi karakter tidak valid")
+            }
         }
         if (input.status == AssetStatus.DIHAPUS_DIJUAL && input.disposalDate != null && input.acquisitionDate != null &&
             input.disposalDate.isBefore(input.acquisitionDate)

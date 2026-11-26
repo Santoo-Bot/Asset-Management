@@ -248,11 +248,14 @@ private fun DetailBody(d: AssetDetail, photo: File?) {
 
     InfoCard("Informasi") {
         LabeledValue("Kategori", d.categoryName)
+        LabeledValue("Kode QR", a.qrCode ?: "${a.code} (sama dengan kode aset)")
         LabeledValue("Merk / tipe", a.brandModel ?: "-")
         LabeledValue("No. seri", a.serialNumber ?: "-")
         LabeledValue("Lokasi", d.locationName)
         LabeledValue("Departemen", d.departmentName ?: "-")
+        LabeledValue("Divisi", a.division ?: "-")
         LabeledValue("PIC", a.picName ?: "-")
+        LabeledValue("Pengguna / detail lokasi", a.userLocationDetail ?: "-")
         LabeledValue("Tgl perolehan", Fmt.date(a.acquisitionDate))
         LabeledValue("Umur berjalan", Fmt.age(d.age.years, d.age.months))
         if (a.notes != null) {
@@ -280,6 +283,26 @@ private fun DetailBody(d: AssetDetail, photo: File?) {
             if (dep.fullyDepreciated) "Sudah habis disusutkan" else "Tersusutkan ${(progress * 100).toInt()}%",
             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
+    }
+
+    InfoCard("Pengadaan") {
+        LabeledValue("Nomor PR", a.prNumber ?: "-")
+        LabeledValue("Nomor PO", a.poNumber ?: "-")
+        LabeledValue("Nomor GR", a.grNumber ?: "-")
+        LabeledValue("Pemohon pembelian", a.requester ?: "-")
+    }
+
+    if (listOf(a.memoNumber, a.memoDate, a.followUp, a.handoverDoc).any { it != null }) {
+        InfoCard("Memo & serah terima") {
+            LabeledValue("Nomor memo", a.memoNumber ?: "-")
+            LabeledValue("Tanggal memo", Fmt.date(a.memoDate))
+            LabeledValue("Berita acara serah terima", a.handoverDoc ?: "-")
+            a.followUp?.let { f ->
+                HorizontalDivider(Modifier.padding(vertical = 6.dp))
+                Text("Tindak lanjut", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(f, style = MaterialTheme.typography.bodyMedium)
+            }
+        }
     }
 
     InfoCard("Garansi") {

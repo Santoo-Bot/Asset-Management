@@ -17,7 +17,8 @@ import com.google.zxing.qrcode.QRCodeWriter
 import com.google.zxing.qrcode.decoder.ErrorCorrectionLevel
 import java.io.File
 
-data class LabelData(val code: String, val name: String, val location: String)
+/** [qr] = isi QR (kode QR khusus atau kode aset). */
+data class LabelData(val code: String, val name: String, val location: String, val qr: String = code)
 
 /**
  * Menggambar label QR aset. Satu lembar A4 berisi grid [COLUMNS] × [ROWS] label (24 label),
@@ -63,7 +64,7 @@ object LabelRenderer {
         canvas.drawRect(left, top, left + CELL_W, top + CELL_H, border)
 
         val qrSize = CELL_H - 2 * pad
-        drawQr(canvas, label.code, left + pad, top + pad, qrSize)
+        drawQr(canvas, label.qr, left + pad, top + pad, qrSize)
 
         val textLeft = left + pad + qrSize + 8f
         val textWidth = (left + CELL_W - pad - textLeft).toInt().coerceAtLeast(20)

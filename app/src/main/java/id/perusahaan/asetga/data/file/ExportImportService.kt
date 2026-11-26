@@ -115,6 +115,8 @@ class ExportImportService @Inject constructor(
                 text(a.condition.label), text(a.status.label), text(a.warrantyUntil?.let(Fmt::date)),
                 text(WarrantyCalc.status(a.warrantyUntil, today).label), text(Fmt.age(age.years, age.months)), num(r.usefulLifeYears),
                 num(residual), num(dep.annualDepreciation), num(dep.accumulated), num(dep.bookValue), text(a.notes),
+                text(a.qrCode ?: a.code), text(a.userLocationDetail), text(a.division), text(a.prNumber), text(a.poNumber),
+                text(a.grNumber), text(a.requester), text(a.memoNumber), text(a.memoDate?.let(Fmt::date)), text(a.followUp), text(a.handoverDoc),
             )
         }
         return Sheet(
@@ -123,6 +125,8 @@ class ExportImportService @Inject constructor(
                 "Kode Aset", "Nama Aset", "Kategori", "Merk/Tipe", "No. Seri", "Tgl Perolehan", "Harga Perolehan", "Lokasi", "Departemen", "PIC",
                 "Kondisi", "Status", "Garansi s/d", "Status Garansi", "Umur Berjalan", "Umur Ekonomis (th)", "Residu (%)",
                 "Penyusutan/Tahun", "Akumulasi Penyusutan", "Nilai Buku", "Catatan",
+                "Kode QR", "Pengguna / Detail Lokasi", "Divisi", "Nomor PR", "Nomor PO", "Nomor GR", "Pemohon Pembelian",
+                "Nomor Memo", "Tanggal Memo", "Tindak Lanjut", "Berita Acara Serah Terima",
             ),
             rows,
         )
@@ -176,11 +180,32 @@ class ExportImportService @Inject constructor(
         val cats = categoryDao.observeAll(false).first()
         val locs = locationDao.observeAll(false).first()
         val deps = departmentDao.observeAll(false).first()
-        val example = listOf(
-            text(""), text("Laptop Dell Latitude 5440"), text(cats.firstOrNull()?.name ?: "Elektronik & IT"), text("Dell Latitude 5440"),
-            text("SN123456"), text("15/01/2024"), num(15_000_000), text(locs.firstOrNull()?.name ?: "Kantor Pusat"),
-            text(deps.firstOrNull()?.name.orEmpty()), text("Budi"), text("Baik"), text("Aktif"), text("15/01/2027"), text("Kosongkan Kode Aset untuk kode otomatis"),
+        val sample: Map<ImportColumn, Cell> = mapOf(
+            ImportColumn.NAME to text("Laptop Dell Latitude 5440"),
+            ImportColumn.CATEGORY to text(cats.firstOrNull()?.name ?: "Elektronik & IT"),
+            ImportColumn.BRAND to text("Dell Latitude 5440"),
+            ImportColumn.SERIAL to text("SN123456"),
+            ImportColumn.ACQ_DATE to text("15/01/2024"),
+            ImportColumn.COST to num(15_000_000),
+            ImportColumn.LOCATION to text(locs.firstOrNull()?.name ?: "Kantor Pusat"),
+            ImportColumn.DEPARTMENT to text(deps.firstOrNull()?.name.orEmpty()),
+            ImportColumn.PIC to text("Budi"),
+            ImportColumn.CONDITION to text("Baik"),
+            ImportColumn.STATUS to text("Aktif"),
+            ImportColumn.WARRANTY to text("15/01/2027"),
+            ImportColumn.NOTES to text("Kosongkan Kode Aset untuk kode otomatis; kosongkan Kode QR agar QR = kode aset"),
+            ImportColumn.USER_LOCATION to text("Budi · Ruang 301"),
+            ImportColumn.DIVISION to text("Operasional"),
+            ImportColumn.PR to text("PR-2024-0012"),
+            ImportColumn.PO to text("PO-2024-0034"),
+            ImportColumn.GR to text("GR-2024-0056"),
+            ImportColumn.REQUESTER to text("Citra"),
+            ImportColumn.MEMO_NO to text("MEMO/GA/2024/007"),
+            ImportColumn.MEMO_DATE to text("10/01/2024"),
+            ImportColumn.FOLLOW_UP to text("Diserahkan ke pengguna"),
+            ImportColumn.HANDOVER to text("BAST/GA/2024/015"),
         )
+        val example = ImportColumn.entries.map { sample[it] ?: text("") }
         val maxLen = maxOf(cats.size, locs.size, deps.size, AssetCondition.entries.size, AssetStatus.entries.size)
         val guide = (0 until maxLen).map { i ->
             listOf(
@@ -213,7 +238,7 @@ class ExportImportService @Inject constructor(
             categories = cats.associate { it.name.lowercase() to it.id } + cats.associate { it.codePrefix.lowercase() to it.id },
             locations = locationDao.observeAll(false).first().associate { it.name.lowercase() to it.id },
             departments = departmentDao.observeAll(false).first().associate { it.name.lowercase() to it.id },
-            existingCodes = assetDao.allCodes().map { it.uppercase() }.toSet(),
+            existingCodes = (assetDao.allCodes() + assetDao.allQrCodes()).map { it.uppercase() }.toSet(),
         )
         AssetImportParser.parse(sheet, lookups, LocalDate.now(clock))
     }

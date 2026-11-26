@@ -10,6 +10,7 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import id.perusahaan.asetga.data.local.AppDatabase
 import id.perusahaan.asetga.data.local.DefaultData
+import id.perusahaan.asetga.data.local.Migrations
 import id.perusahaan.asetga.data.repository.AssetRepositoryImpl
 import id.perusahaan.asetga.data.repository.AuditLogRepositoryImpl
 import id.perusahaan.asetga.data.repository.DashboardRepositoryImpl
@@ -41,6 +42,7 @@ object AppModule {
     fun provideDatabase(@ApplicationContext context: Context): AppDatabase =
         Room.databaseBuilder(context, AppDatabase::class.java, AppDatabase.NAME)
             .addCallback(DefaultData.callback)
+            .addMigrations(*Migrations.ALL)
             .build()
 
     @Provides fun userDao(db: AppDatabase) = db.userDao()

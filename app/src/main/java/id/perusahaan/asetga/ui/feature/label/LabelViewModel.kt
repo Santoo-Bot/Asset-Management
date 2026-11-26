@@ -60,7 +60,7 @@ class LabelViewModel @Inject constructor(
         val ids = selection.assetIds
         viewModelScope.launch {
             val items = assets.getListItems(ids)
-            val labels = items.map { LabelData(it.code, it.name, it.locationName) }
+            val labels = items.map { LabelData(it.code, it.name, it.locationName, it.qrContent) }
             val company = settings.current().companyName
             val preview = withContext(Dispatchers.Default) { if (labels.isEmpty()) null else LabelRenderer.renderPage(labels, company, 0, 1.5f) }
             _state.value = LabelUiState(loading = false, labels = labels, company = company, preview = preview)
