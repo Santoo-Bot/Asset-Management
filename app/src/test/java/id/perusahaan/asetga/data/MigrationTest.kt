@@ -132,7 +132,7 @@ class MigrationTest {
             assertNull(db.departmentDao().getById("dep")!!.divisionId)
 
             // v4: kondisi & status lama dipetakan ke nilai baru.
-            fun cs(id: String) = db.assetDao().getById(id)!!.let { it.condition to it.status }
+            suspend fun cs(id: String) = db.assetDao().getById(id)!!.let { it.condition to it.status }
             assertEquals(AssetCondition.BAIK to AssetStatus.DIGUNAKAN, cs("a1"))
             assertEquals(AssetCondition.RUSAK to AssetStatus.WRITE_OFF, cs("a3"))
             assertEquals(AssetCondition.BAIK to AssetStatus.TERSEDIA, cs("a4"))
