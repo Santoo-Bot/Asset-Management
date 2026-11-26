@@ -75,7 +75,7 @@ private const val FILTER_WHERE = """
     AND (:locationId IS NULL OR a.locationId = :locationId)
     AND (:divisionId IS NULL OR a.divisionId = :divisionId)
     AND (:condition IS NULL OR a.condition = :condition)
-    AND ((:status IS NULL AND a.status != 'DIHAPUS_DIJUAL') OR a.status = :status)
+    AND ((:status IS NULL AND a.status != 'WRITE_OFF') OR a.status = :status)
 """
 
 @Dao
@@ -161,7 +161,7 @@ interface AssetDao {
     @Query(
         """SELECT a.acquisitionCost, a.acquisitionDate, c.usefulLifeYears, c.residualPercent
            FROM assets a JOIN categories c ON c.id = a.categoryId
-           WHERE a.deletedAt IS NULL AND a.status != 'DIHAPUS_DIJUAL'""",
+           WHERE a.deletedAt IS NULL AND a.status != 'WRITE_OFF'""",
     )
     suspend fun valuationRows(): List<AssetValuationRow>
 
@@ -174,39 +174,39 @@ interface AssetDao {
     @Query("SELECT COUNT(*) FROM assets")
     fun observeTick(): Flow<Int>
 
-    @Query("SELECT COUNT(*) AS total, COALESCE(SUM(acquisitionCost), 0) AS cost FROM assets WHERE deletedAt IS NULL AND status != 'DIHAPUS_DIJUAL'")
+    @Query("SELECT COUNT(*) AS total, COALESCE(SUM(acquisitionCost), 0) AS cost FROM assets WHERE deletedAt IS NULL AND status != 'WRITE_OFF'")
     suspend fun activeTotals(): AssetTotals
 
     @Query(
         """SELECT c.name AS label, COUNT(*) AS count FROM assets a JOIN categories c ON c.id = a.categoryId
-           WHERE a.deletedAt IS NULL AND a.status != 'DIHAPUS_DIJUAL' GROUP BY c.id ORDER BY count DESC, c.name""",
+           WHERE a.deletedAt IS NULL AND a.status != 'WRITE_OFF' GROUP BY c.id ORDER BY count DESC, c.name""",
     )
     suspend fun countByCategory(): List<LabelCount>
 
     @Query(
         """SELECT condition AS label, COUNT(*) AS count FROM assets
-           WHERE deletedAt IS NULL AND status != 'DIHAPUS_DIJUAL' GROUP BY condition""",
+           WHERE deletedAt IS NULL AND status != 'WRITE_OFF' GROUP BY condition""",
     )
     suspend fun countByCondition(): List<LabelCount>
 
     @Query(
         "SELECT $LIST_COLUMNS FROM assets a JOIN categories c ON c.id = a.categoryId JOIN locations l ON l.id = a.locationId " +
-            "WHERE a.deletedAt IS NULL AND a.status != 'DIHAPUS_DIJUAL' AND a.warrantyUntil BETWEEN :from AND :to " +
+            "WHERE a.deletedAt IS NULL AND a.status != 'WRITE_OFF' AND a.warrantyUntil BETWEEN :from AND :to " +
             "ORDER BY a.warrantyUntil ASC LIMIT :limit",
     )
     suspend fun warrantyBetween(from: LocalDate, to: LocalDate, limit: Int): List<AssetListRow>
 
-    @Query("SELECT COUNT(*) FROM assets WHERE deletedAt IS NULL AND status != 'DIHAPUS_DIJUAL' AND warrantyUntil BETWEEN :from AND :to")
+    @Query("SELECT COUNT(*) FROM assets WHERE deletedAt IS NULL AND status != 'WRITE_OFF' AND warrantyUntil BETWEEN :from AND :to")
     suspend fun countWarrantyBetween(from: LocalDate, to: LocalDate): Int
 
     @Query(
         "SELECT $LIST_COLUMNS FROM assets a JOIN categories c ON c.id = a.categoryId JOIN locations l ON l.id = a.locationId " +
-            "WHERE a.deletedAt IS NULL AND a.status != 'DIHAPUS_DIJUAL' AND a.condition IN ('RUSAK_RINGAN', 'RUSAK_BERAT') " +
+            "WHERE a.deletedAt IS NULL AND a.status != 'WRITE_OFF' AND a.condition = 'RUSAK' " +
             "ORDER BY a.condition DESC, a.code LIMIT :limit",
     )
     suspend fun damaged(limit: Int): List<AssetListRow>
 
-    @Query("SELECT COUNT(*) FROM assets WHERE deletedAt IS NULL AND status != 'DIHAPUS_DIJUAL' AND condition IN ('RUSAK_RINGAN', 'RUSAK_BERAT')")
+    @Query("SELECT COUNT(*) FROM assets WHERE deletedAt IS NULL AND status != 'WRITE_OFF' AND condition = 'RUSAK'")
     suspend fun countDamaged(): Int
 
     @Insert(onConflict = OnConflictStrategy.ABORT)

@@ -84,7 +84,7 @@ class AssetRepositoryImpl @Inject constructor(
     private fun AssetDetailRow.toDetail(defaultResidual: Double): AssetDetail {
         val a = asset.toDomain()
         // Aset yang sudah dihapus/dijual berhenti disusutkan pada tanggal penghapusan.
-        val asOf = if (a.status == AssetStatus.DIHAPUS_DIJUAL) a.disposalDate ?: today() else today()
+        val asOf = if (a.status == AssetStatus.WRITE_OFF) a.disposalDate ?: today() else today()
         val residual = categoryResidualPercent ?: defaultResidual
         return AssetDetail(
             asset = a,
@@ -149,7 +149,7 @@ class AssetRepositoryImpl @Inject constructor(
                 )
             }
             val now = clock.millis()
-            val disposed = input.status == AssetStatus.DIHAPUS_DIJUAL
+            val disposed = input.status == AssetStatus.WRITE_OFF
             val entity = AssetEntity(
                 id = old?.id ?: UUID.randomUUID().toString(),
                 code = code,
@@ -229,22 +229,22 @@ class AssetRepositoryImpl @Inject constructor(
     override suspend fun dispose(id: String, date: LocalDate, value: Long?, note: String): AppResult<Unit> {
         session.denyUnless { it.canEditData }?.let { return it }
         val old = dao.getById(id)?.takeIf { it.deletedAt == null } ?: return AppResult.Failure("Aset tidak ditemukan")
-        if (old.status == AssetStatus.DIHAPUS_DIJUAL) return AppResult.Failure("Aset sudah berstatus Dihapus/Dijual")
+        if (old.status == AssetStatus.WRITE_OFF) return AppResult.Failure("Aset sudah berstatus Write Off")
         if (date.isAfter(today())) return AppResult.Failure("Tanggal tidak boleh di masa depan")
         if (date.isBefore(old.acquisitionDate)) return AppResult.Failure("Tanggal sebelum tanggal perolehan")
         if (value != null && value < 0) return AppResult.Failure("Nilai jual tidak valid")
         val now = clock.millis()
         dao.update(
             old.copy(
-                status = AssetStatus.DIHAPUS_DIJUAL, disposalDate = date, disposalValue = value,
+                status = AssetStatus.WRITE_OFF, disposalDate = date, disposalValue = value,
                 updatedAt = now, syncState = SyncState.PENDING,
             ),
         )
         audit.log(
             AuditEntityType.ASSET, id, AuditAction.UPDATE,
-            "Aset ${old.code} ditandai Dihapus/Dijual (${Fmt.date(date)})" + (note.trimToNull()?.let { ": $it" } ?: ""),
+            "Aset ${old.code} ditandai Write Off (${Fmt.date(date)})" + (note.trimToNull()?.let { ": $it" } ?: ""),
             ChangeSet().apply {
-                field("Status", old.status.label, AssetStatus.DIHAPUS_DIJUAL.label)
+                field("Status", old.status.label, AssetStatus.WRITE_OFF.label)
                 field("Nilai jual", null, value?.let(Fmt::rupiah))
             }.build(),
         )

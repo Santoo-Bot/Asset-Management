@@ -108,7 +108,7 @@ Semua data tersimpan **hanya di HP** (database Room + folder foto). Backup otoma
 | Modul | Isi |
 |---|---|
 | **Beranda** | Total aset, nilai perolehan, nilai buku, aset rusak, garansi habis ≤90 hari, servis terlambat & jatuh tempo, barang perlu reorder; grafik per kategori & kondisi; daftar *Perlu tindakan* yang bisa diketuk |
-| **Aset** | Field: kode aset, kode QR, nama, kategori, merk/tipe, no. seri, tgl & nilai perolehan, lokasi, departemen, divisi, PIC, pengguna/detail lokasi, kondisi, status, garansi, nomor PR/PO/GR, pemohon pembelian, nomor & tanggal memo, tindak lanjut, berita acara serah terima, catatan, foto. Daftar Paging 3 (cepat untuk 5.000+ aset) dengan pencarian, filter kategori/lokasi/kondisi/status, urutan; kode otomatis `KATEGORI-TAHUN-NOMOR`; foto kamera/galeri dikompres; umur berjalan, penyusutan garis lurus, akumulasi, nilai buku, status garansi; riwayat perubahan |
+| **Aset** | Field (urutan sama dengan template): kode aset*, kode QR*, nama*, kategori*, no. seri, tgl perolehan*, harga perolehan*, lokasi*, divisi, departemen, kondisi* (Baik/Rusak), status* (Digunakan/Tersedia/Dalam Perbaikan/Propose To Write Off/Write Off), garansi, catatan, pengguna/detail lokasi, nomor PR/PO/GR, pemohon pembelian, nomor & tanggal memo, tindak lanjut, berita acara serah terima, foto. Daftar Paging 3 (cepat untuk 5.000+ aset) dengan pencarian, filter kategori/lokasi/kondisi/status, urutan; kode otomatis `KATEGORI-TAHUN-NOMOR`; foto kamera/galeri dikompres; umur berjalan, penyusutan garis lurus, akumulasi, nilai buku, status garansi; riwayat perubahan |
 | **Scan** | Scan QR/barcode (kode aset atau kode QR khusus) membuka detail aset; input kode manual; izin kamera diminta saat dibutuhkan, termasuk saat izin ditolak permanen |
 | **Label QR** | Tekan lama di daftar aset untuk memilih banyak aset → PDF A4 (3×8 label per lembar), PNG, cetak lewat layanan cetak Android, atau bagikan |
 | **Mutasi** | Pindah lokasi/departemen/PIC dengan alasan & penyetuju; data aset ikut diperbarui |
@@ -134,13 +134,13 @@ Peran dicek di UI (tombol disembunyikan) **dan** di lapisan repository.
 ### Rumus
 
 - Penyusutan per tahun = harga × (1 − residu%) ÷ umur ekonomis kategori
-- Akumulasi = prorata per bulan penuh sejak perolehan, tidak melebihi harga × (1 − residu%); berhenti pada tanggal penghapusan untuk aset Dihapus/Dijual
+- Akumulasi = prorata per bulan penuh sejak perolehan, tidak melebihi harga × (1 − residu%); berhenti pada tanggal write off untuk aset Write Off
 - Nilai buku = harga − akumulasi
 - Residu: diatur per kategori; bila kosong memakai *Nilai residu default* di Pengaturan (awal 0%)
 - Garansi: Aktif / Segera habis (≤90 hari) / Habis · Servis: Terlambat / Jatuh tempo (≤30 hari) / Terjadwal
 - Stok akhir = stok awal + Σ masuk − Σ keluar; Reorder bila stok ≤ minimum
 
-Data tidak pernah dihapus permanen: master data dan barang **dinonaktifkan**, aset diberi status **Dihapus/Dijual**.
+Data tidak pernah dihapus permanen: master data dan barang **dinonaktifkan**, aset diberi status **Write Off**.
 
 ## 6. Struktur kode
 

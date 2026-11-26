@@ -54,12 +54,16 @@ class AssetDaoTest {
 
     @After fun tearDown() = db.close()
 
-    private fun input(name: String, date: LocalDate = LocalDate.of(2024, 3, 1), code: String = "") = AssetInput(
-        name = name, code = code, categoryId = itCategoryId, locationId = locId,
-        acquisitionDate = date, acquisitionCost = 10_000_000,
-    )
+    /** Seperti form: kode kosong diisi usulan otomatis, kode QR = kode aset. */
+    private suspend fun input(name: String, date: LocalDate = LocalDate.of(2024, 3, 1), code: String = ""): AssetInput {
+        val c = code.ifEmpty { repo.suggestCode(itCategoryId, date.year) }
+        return AssetInput(
+            name = name, code = c, qrCode = c, categoryId = itCategoryId, locationId = locId,
+            acquisitionDate = date, acquisitionCost = 10_000_000,
+        )
+    }
 
-    private fun entity(id: String, code: String, name: String, condition: AssetCondition = AssetCondition.BAIK, status: AssetStatus = AssetStatus.AKTIF) =
+    private fun entity(id: String, code: String, name: String, condition: AssetCondition = AssetCondition.BAIK, status: AssetStatus = AssetStatus.DIGUNAKAN) =
         AssetEntity(
             id = id, code = code, name = name, categoryId = itCategoryId, acquisitionDate = LocalDate.of(2024, 1, 1),
             acquisitionCost = 1_000, locationId = locId, condition = condition, status = status, createdAt = 1, updatedAt = 1,
@@ -94,13 +98,13 @@ class AssetDaoTest {
     @Test fun `filter dan pencarian di DAO`() = runTest {
         val dao = db.assetDao()
         dao.insert(entity("1", "IT-2024-001", "Laptop Dell"))
-        dao.insert(entity("2", "IT-2024-002", "Printer Epson", condition = AssetCondition.RUSAK_BERAT))
-        dao.insert(entity("3", "IT-2024-003", "Laptop Lama", status = AssetStatus.DIHAPUS_DIJUAL))
+        dao.insert(entity("2", "IT-2024-002", "Printer Epson", condition = AssetCondition.RUSAK))
+        dao.insert(entity("3", "IT-2024-003", "Laptop Lama", status = AssetStatus.WRITE_OFF))
 
-        assertEquals(2, dao.count("", null, null, null, null, null).first()) // default: tanpa Dihapus/Dijual
+        assertEquals(2, dao.count("", null, null, null, null, null).first()) // default: tanpa Write Off
         assertEquals(1, dao.count("laptop", null, null, null, null, null).first())
-        assertEquals(1, dao.count("", null, null, "RUSAK_BERAT", null, null).first())
-        assertEquals(1, dao.count("", null, null, null, "DIHAPUS_DIJUAL", null).first())
+        assertEquals(1, dao.count("", null, null, "RUSAK", null, null).first())
+        assertEquals(1, dao.count("", null, null, null, "WRITE_OFF", null).first())
 
         val page = dao.paging("", null, null, null, null, "NAME", null)
             .load(PagingSource.LoadParams.Refresh(key = null, loadSize = 20, placeholdersEnabled = false))
@@ -124,9 +128,9 @@ class AssetDaoTest {
         val a = (repo.save(input("Printer")) as AppResult.Success).value
         assertTrue(repo.dispose(a.id, LocalDate.now(), 500_000, "Rusak total") is AppResult.Success)
         val e = db.assetDao().getById(a.id)!!
-        assertEquals(AssetStatus.DIHAPUS_DIJUAL, e.status)
+        assertEquals(AssetStatus.WRITE_OFF, e.status)
         assertEquals(500_000L, e.disposalValue)
-        assertTrue(repo.dispose(a.id, LocalDate.now(), null, "") is AppResult.Failure) // sudah Dihapus/Dijual
+        assertTrue(repo.dispose(a.id, LocalDate.now(), null, "") is AppResult.Failure) // sudah Write Off
     }
 
     @Test fun `hapus salah input hanya admin, tersembunyi, dan bisa dipulihkan`() = runTest {
@@ -203,5 +207,11 @@ class AssetDaoTest {
         )
         assertTrue(master.saveDepartment(id.perusahaan.asetga.domain.model.Department("dep1", "General Affair", "divB")) is AppResult.Success)
         assertEquals("divB", db.assetDao().getById(a.id)!!.divisionId)
+    }
+
+    @Test fun `kode aset dan kode QR wajib diisi`() = runTest {
+        val noCode = repo.save(input("Laptop").copy(code = "", qrCode = "")) as AppResult.Failure
+        assertTrue(AssetValidator.FIELD_CODE in noCode.fieldErrors)
+        assertTrue(AssetValidator.FIELD_QR in noCode.fieldErrors)
     }
 }

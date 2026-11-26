@@ -45,7 +45,7 @@ class OpnameAndDashboardTest {
         db.locationDao().insert(LocationEntity("A", "Gedung A", null, true, 1, 1))
         db.locationDao().insert(LocationEntity("B", "Gedung B", null, true, 1, 1))
         val it = db.categoryDao().observeAll(false).first().first { c -> c.codePrefix == "IT" }.id
-        fun asset(id: String, loc: String, cond: AssetCondition = AssetCondition.BAIK, status: AssetStatus = AssetStatus.AKTIF, warranty: LocalDate? = null) =
+        fun asset(id: String, loc: String, cond: AssetCondition = AssetCondition.BAIK, status: AssetStatus = AssetStatus.DIGUNAKAN, warranty: LocalDate? = null) =
             AssetEntity(
                 id = id, code = "IT-2024-$id", name = "Aset $id", categoryId = it, acquisitionDate = today.minusYears(2),
                 acquisitionCost = 4_000_000, locationId = loc, condition = cond, status = status, warrantyUntil = warranty, createdAt = 1, updatedAt = 1,
@@ -53,10 +53,10 @@ class OpnameAndDashboardTest {
         db.assetDao().insertAll(
             listOf(
                 asset("001", "A"),
-                asset("002", "A", cond = AssetCondition.RUSAK_BERAT, warranty = today.plusDays(10)),
+                asset("002", "A", cond = AssetCondition.RUSAK, warranty = today.plusDays(10)),
                 asset("003", "A"),
                 asset("004", "B"),
-                asset("005", "A", status = AssetStatus.DIHAPUS_DIJUAL),
+                asset("005", "A", status = AssetStatus.WRITE_OFF),
             ),
         )
     }
@@ -66,7 +66,7 @@ class OpnameAndDashboardTest {
     @Test fun `sesi opname menghitung ditemukan, tidak ditemukan, dan tidak terdaftar`() = runTest {
         val id = (opname.start("A") as AppResult.Success).value
         var s = opname.observeSession(id).first()!!
-        assertEquals(3, s.expected) // aset Dihapus/Dijual tidak ikut
+        assertEquals(3, s.expected) // aset Write Off tidak ikut
 
         assertTrue(opname.scan(id, "it-2024-001") is OpnameScanOutcome.Found)
         assertTrue(opname.scan(id, "IT-2024-001") is OpnameScanOutcome.AlreadyScanned)
@@ -86,13 +86,13 @@ class OpnameAndDashboardTest {
 
     @Test fun `ringkasan dashboard`() = runTest {
         val s = dashboard.observeSummary().first()
-        assertEquals(4, s.totalAssets) // tanpa Dihapus/Dijual
+        assertEquals(4, s.totalAssets) // tanpa Write Off
         assertEquals(16_000_000, s.totalCost)
         assertEquals(8_000_000, s.totalBookValue) // IT 4 th, 2 th berjalan → 50%
         assertEquals(1, s.damaged)
         assertEquals(1, s.warrantyExpiring)
         assertEquals(4, s.byCategory.single().value)
-        assertEquals(1, s.byCondition.first { it.label == "Rusak Berat" }.value)
+        assertEquals(1, s.byCondition.first { it.label == "Rusak" }.value)
         assertTrue(s.actions.any { it.title.startsWith("IT-2024-002") })
         val reminder = dashboard.reminderSummary()
         assertEquals(1, reminder.warrantyExpiring)

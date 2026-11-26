@@ -156,7 +156,7 @@ class RepositoryTest {
             id.perusahaan.asetga.data.local.entity.AssetEntity(
                 id = "a1", code = "IT-2024-001", name = "Laptop", categoryId = cat.id, acquisitionDate = java.time.LocalDate.of(2024, 1, 1),
                 acquisitionCost = 1, locationId = used.id, condition = id.perusahaan.asetga.domain.model.AssetCondition.BAIK,
-                status = id.perusahaan.asetga.domain.model.AssetStatus.AKTIF, createdAt = 1, updatedAt = 1,
+                status = id.perusahaan.asetga.domain.model.AssetStatus.DIGUNAKAN, createdAt = 1, updatedAt = 1,
             ),
         )
 

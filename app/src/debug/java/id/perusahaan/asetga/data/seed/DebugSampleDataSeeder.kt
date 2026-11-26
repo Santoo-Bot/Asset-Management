@@ -102,7 +102,6 @@ class DebugSampleDataSeeder @Inject constructor(
             "LN" to listOf("Kamera Dokumentasi", "Papan Tulis Kaca", "Tangga Lipat Aluminium"),
         )
         val pics = listOf("Andi", "Budi", "Citra", "Dewi", "Eko", "Fajar", "Gita", "Hendra", "Indah", "Joko", null)
-        val conditions = AssetCondition.entries
         val rnd = Random(42)
         val today = LocalDate.now()
         val now = System.currentTimeMillis()
@@ -130,25 +129,20 @@ class DebugSampleDataSeeder @Inject constructor(
                 locationId = locations[rnd.nextInt(locations.size)].id,
                 departmentId = departments.getOrNull(rnd.nextInt(departments.size + 1))?.id,
                 picName = pics[rnd.nextInt(pics.size)],
-                condition = when {
-                    roll < 70 -> AssetCondition.BAIK
-                    roll < 88 -> AssetCondition.CUKUP
-                    roll < 96 -> AssetCondition.RUSAK_RINGAN
-                    else -> conditions.last()
-                },
+                condition = if (roll < 90) AssetCondition.BAIK else AssetCondition.RUSAK,
                 status = when {
-                    roll < 85 -> AssetStatus.AKTIF
-                    roll < 90 -> AssetStatus.DISIMPAN
-                    roll < 94 -> AssetStatus.DIPINJAM
-                    roll < 97 -> AssetStatus.DALAM_PERBAIKAN
-                    else -> AssetStatus.DIHAPUS_DIJUAL
+                    roll < 85 -> AssetStatus.DIGUNAKAN
+                    roll < 91 -> AssetStatus.TERSEDIA
+                    roll < 94 -> AssetStatus.DALAM_PERBAIKAN
+                    roll < 97 -> AssetStatus.PROPOSE_WRITE_OFF
+                    else -> AssetStatus.WRITE_OFF
                 },
                 // Sebagian aset garansinya segera habis agar dashboard & notifikasi punya data.
                 warrantyUntil = if (rnd.nextInt(3) == 0) today.plusDays(rnd.nextLong(-200, 400)) else null,
                 createdAt = now,
                 updatedAt = now,
             )
-        }.map { if (it.status == AssetStatus.DIHAPUS_DIJUAL) it.copy(disposalDate = today.minusDays(rnd.nextLong(1, 300))) else it }
+        }.map { if (it.status == AssetStatus.WRITE_OFF) it.copy(disposalDate = today.minusDays(rnd.nextLong(1, 300))) else it }
             .map { a -> a.copy(divisionId = a.departmentId?.let(deptDivision::get)) }
 
         db.withTransaction {

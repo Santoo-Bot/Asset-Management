@@ -84,7 +84,7 @@ interface OpnameDao {
     @Query("UPDATE audit_sessions SET finishedAt = :at, note = :note, updatedAt = :at, syncState = 'PENDING' WHERE id = :id")
     suspend fun finish(id: String, at: Long, note: String?)
 
-    @Query("SELECT id FROM assets WHERE locationId = :locationId AND deletedAt IS NULL AND status != 'DIHAPUS_DIJUAL'")
+    @Query("SELECT id FROM assets WHERE locationId = :locationId AND deletedAt IS NULL AND status != 'WRITE_OFF'")
     suspend fun assetIdsAt(locationId: String): List<String>
 
     @Query("SELECT code FROM assets WHERE id = :id")

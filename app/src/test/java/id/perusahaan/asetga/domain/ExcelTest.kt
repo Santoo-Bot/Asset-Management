@@ -68,14 +68,15 @@ class ExcelTest {
     @Test fun `validasi per baris memisahkan baris benar dan salah`() {
         val sheet = listOf(
             header,
-            row(ImportColumn.NAME to "Laptop", ImportColumn.CATEGORY to "Elektronik & IT", ImportColumn.ACQ_DATE to "10/01/2024",
-                ImportColumn.COST to "15.000.000", ImportColumn.LOCATION to "Kantor Pusat", ImportColumn.CONDITION to "baik", ImportColumn.STATUS to "Aktif",
-                ImportColumn.DEPARTMENT to "Keuangan"),
+            row(ImportColumn.CODE to "IT-2024-101", ImportColumn.QR to "IT-2024-101", ImportColumn.NAME to "Laptop", ImportColumn.CATEGORY to "Elektronik & IT",
+                ImportColumn.ACQ_DATE to "10/01/2024", ImportColumn.COST to "15.000.000", ImportColumn.LOCATION to "Kantor Pusat",
+                ImportColumn.CONDITION to "baik", ImportColumn.STATUS to "Digunakan", ImportColumn.DEPARTMENT to "Keuangan"),
             row(), // baris kosong diabaikan
             row(ImportColumn.CODE to "IT-2024-001", ImportColumn.NAME to "", ImportColumn.CATEGORY to "Mebel", ImportColumn.ACQ_DATE to "2099-01-01",
-                ImportColumn.COST to "x", ImportColumn.LOCATION to "Gudang", ImportColumn.CONDITION to "Hancur", ImportColumn.STATUS to "Dihapus/Dijual"),
-            row(ImportColumn.NAME to "Kursi", ImportColumn.CATEGORY to "IT", ImportColumn.ACQ_DATE to "45292", ImportColumn.COST to "1500000",
-                ImportColumn.LOCATION to "kantor pusat", ImportColumn.CONDITION to "Rusak Ringan", ImportColumn.STATUS to "DALAM_PERBAIKAN"),
+                ImportColumn.COST to "x", ImportColumn.LOCATION to "Gudang", ImportColumn.CONDITION to "Hancur", ImportColumn.STATUS to "Write Off"),
+            row(ImportColumn.CODE to "IT-2024-102", ImportColumn.QR to "STIKER-LAMA-7", ImportColumn.NAME to "Kursi", ImportColumn.CATEGORY to "IT",
+                ImportColumn.ACQ_DATE to "45292", ImportColumn.COST to "1500000", ImportColumn.LOCATION to "kantor pusat",
+                ImportColumn.CONDITION to "Rusak Ringan", ImportColumn.STATUS to "Propose To Write Off"),
         )
         val preview = AssetImportParser.parse(sheet, lookups, today)
         assertNull(preview.headerError)
@@ -95,18 +96,19 @@ class ExcelTest {
         }
 
         val second = preview.valid[1].input!!
-        assertEquals(AssetCondition.RUSAK_RINGAN, second.condition)
-        assertEquals(AssetStatus.DALAM_PERBAIKAN, second.status)
+        assertEquals(AssetCondition.RUSAK, second.condition) // label lama "Rusak Ringan" tetap diterima
+        assertEquals(AssetStatus.PROPOSE_WRITE_OFF, second.status)
+        assertEquals("STIKER-LAMA-7", second.qrCode)
         assertEquals(LocalDate.of(2024, 1, 1), second.acquisitionDate)
     }
 
     @Test fun `header tidak sesuai ditolak dan kode ganda dalam file`() {
         assertNotNull(AssetImportParser.parse(listOf(listOf("A", "B")), lookups, today).headerError)
         val base = arrayOf(ImportColumn.CODE to "X-1", ImportColumn.NAME to "A", ImportColumn.CATEGORY to "IT", ImportColumn.ACQ_DATE to "01/01/2024",
-            ImportColumn.COST to "1", ImportColumn.LOCATION to "Kantor Pusat", ImportColumn.CONDITION to "Baik", ImportColumn.STATUS to "Aktif")
+            ImportColumn.COST to "1", ImportColumn.LOCATION to "Kantor Pusat", ImportColumn.CONDITION to "Baik", ImportColumn.STATUS to "Aktif", ImportColumn.QR to "X-1")
         val p = AssetImportParser.parse(listOf(header, row(*base), row(*base)), lookups, today)
         assertEquals(1, p.valid.size)
-        assertTrue(p.invalid.single().errors.single().contains("ganda"))
+        assertTrue(p.invalid.single().errors.any { it.contains("ganda") })
     }
 
     @Test fun `csv memakai titik koma, BOM, dan mencegah formula`() {
@@ -116,5 +118,24 @@ class ExcelTest {
         assertTrue(s.startsWith("﻿"))
         assertTrue(s.contains("\"x;y\";'=SUM(A1)"))
         assertTrue(s.contains("\"\"\"q\"\"\";-5"))
+    }
+
+    @Test fun `template punya dropdown kondisi dan status`() {
+        val out = ByteArrayOutputStream()
+        XlsxWriter.write(
+            listOf(Sheet("T", listOf("A", "Kondisi"), emptyList(), validations = listOf(id.perusahaan.asetga.domain.excel.ListValidation(1, listOf("Baik", "Rusak"))))),
+            out,
+        )
+        val zip = java.util.zip.ZipInputStream(ByteArrayInputStream(out.toByteArray()))
+        var xml = ""
+        while (true) {
+            val e = zip.nextEntry ?: break
+            if (e.name == "xl/worksheets/sheet1.xml") xml = zip.readBytes().toString(Charsets.UTF_8)
+        }
+        assertTrue(xml, xml.contains("""<dataValidation type="list""""))
+        assertTrue(xml.contains("sqref=\"B2:B5000\""))
+        assertTrue(xml.contains("&quot;Baik,Rusak&quot;"))
+        assertEquals("Kondisi", ImportColumn.CONDITION.header)
+        assertEquals(listOf("Kode Aset*", "Kode QR*", "Nama Aset*"), ImportColumn.entries.take(3).map { it.templateHeader })
     }
 }

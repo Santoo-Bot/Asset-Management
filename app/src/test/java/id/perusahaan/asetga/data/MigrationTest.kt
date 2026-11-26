@@ -8,6 +8,8 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import id.perusahaan.asetga.data.local.AppDatabase
 import id.perusahaan.asetga.data.local.DefaultData
 import id.perusahaan.asetga.data.local.Migrations
+import id.perusahaan.asetga.domain.model.AssetCondition
+import id.perusahaan.asetga.domain.model.AssetStatus
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.After
@@ -101,7 +103,8 @@ class MigrationTest {
         assertEquals(12_000_000L, asset.acquisitionCost)
         assertNull(asset.qrCode)
         assertNull(asset.divisionId)
-        assertEquals(3, db.openHelper.readableDatabase.version)
+        assertEquals(4, db.openHelper.readableDatabase.version)
+        assertEquals(AssetStatus.DIGUNAKAN, asset.status)
         db.close()
     }
 
@@ -111,8 +114,9 @@ class MigrationTest {
                 "INSERT INTO departments (id, name, isActive, createdAt, updatedAt, deletedAt, syncState) VALUES ('dep', 'GA', 1, 1, 1, NULL, 'PENDING')",
                 "INSERT INTO assets ($assetCols, division, departmentId) VALUES ('a1', 'IT-1', 'A', '$cat', 19723, 1, 'loc', 'BAIK', 'AKTIF', 1, 1, 'PENDING', 'Operasional', 'dep')",
                 "INSERT INTO assets ($assetCols, division) VALUES ('a2', 'IT-2', 'B', '$cat', 19723, 1, 'loc', 'BAIK', 'AKTIF', 1, 1, 'PENDING', ' operasional ')",
-                "INSERT INTO assets ($assetCols, division) VALUES ('a3', 'IT-3', 'C', '$cat', 19723, 1, 'loc', 'BAIK', 'AKTIF', 1, 1, 'PENDING', 'Keuangan')",
-                "INSERT INTO assets ($assetCols) VALUES ('a4', 'IT-4', 'D', '$cat', 19723, 1, 'loc', 'BAIK', 'AKTIF', 1, 1, 'PENDING')",
+                "INSERT INTO assets ($assetCols, division) VALUES ('a3', 'IT-3', 'C', '$cat', 19723, 1, 'loc', 'RUSAK_BERAT', 'DIHAPUS_DIJUAL', 1, 1, 'PENDING', 'Keuangan')",
+                "INSERT INTO assets ($assetCols) VALUES ('a4', 'IT-4', 'D', '$cat', 19723, 1, 'loc', 'CUKUP', 'DISIMPAN', 1, 1, 'PENDING')",
+                "INSERT INTO assets ($assetCols) VALUES ('a5', 'IT-5', 'E', '$cat', 19723, 1, 'loc', 'RUSAK_RINGAN', 'DIPINJAM', 1, 1, 'PENDING')",
             )
         }
         val db = open()
@@ -126,6 +130,13 @@ class MigrationTest {
             assertEquals("Keuangan", divisions.first { it.id == db.assetDao().getById("a3")!!.divisionId }.name)
             assertNull(db.assetDao().getById("a4")!!.divisionId)
             assertNull(db.departmentDao().getById("dep")!!.divisionId)
+
+            // v4: kondisi & status lama dipetakan ke nilai baru.
+            fun cs(id: String) = db.assetDao().getById(id)!!.let { it.condition to it.status }
+            assertEquals(AssetCondition.BAIK to AssetStatus.DIGUNAKAN, cs("a1"))
+            assertEquals(AssetCondition.RUSAK to AssetStatus.WRITE_OFF, cs("a3"))
+            assertEquals(AssetCondition.BAIK to AssetStatus.TERSEDIA, cs("a4"))
+            assertEquals(AssetCondition.RUSAK to AssetStatus.DIGUNAKAN, cs("a5"))
         }
         db.close()
     }

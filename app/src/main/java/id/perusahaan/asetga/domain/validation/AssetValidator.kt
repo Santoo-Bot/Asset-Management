@@ -22,7 +22,10 @@ object AssetValidator {
 
     fun validate(input: AssetInput, today: LocalDate): Map<String, String> = buildMap {
         val code = normalizeCode(input.code)
-        if (code.isNotEmpty() && !codeRegex.matches(code)) put(FIELD_CODE, "Gunakan huruf, angka, titik, garis miring, atau tanda hubung")
+        when {
+            code.isEmpty() -> put(FIELD_CODE, "Kode aset wajib diisi")
+            !codeRegex.matches(code) -> put(FIELD_CODE, "Gunakan huruf, angka, titik, garis miring, atau tanda hubung")
+        }
         when {
             input.name.isBlank() -> put(FIELD_NAME, "Nama aset wajib diisi")
             input.name.trim().length > 150 -> put(FIELD_NAME, "Maksimal 150 karakter")
@@ -42,13 +45,12 @@ object AssetValidator {
             put(FIELD_WARRANTY, "Garansi tidak boleh sebelum tanggal perolehan")
         }
         val qr = input.qrCode.trim()
-        if (qr.isNotEmpty()) {
-            when {
-                qr.length > 120 -> put(FIELD_QR, "Kode QR maksimal 120 karakter")
-                qr.any { it.isISOControl() } -> put(FIELD_QR, "Kode QR berisi karakter tidak valid")
-            }
+        when {
+            qr.isEmpty() -> put(FIELD_QR, "Kode QR wajib diisi (boleh sama dengan kode aset)")
+            qr.length > 120 -> put(FIELD_QR, "Kode QR maksimal 120 karakter")
+            qr.any { it.isISOControl() } -> put(FIELD_QR, "Kode QR berisi karakter tidak valid")
         }
-        if (input.status == AssetStatus.DIHAPUS_DIJUAL && input.disposalDate != null && input.acquisitionDate != null &&
+        if (input.status == AssetStatus.WRITE_OFF && input.disposalDate != null && input.acquisitionDate != null &&
             input.disposalDate.isBefore(input.acquisitionDate)
         ) {
             put(FIELD_DISPOSAL_DATE, "Tanggal penghapusan tidak boleh sebelum tanggal perolehan")

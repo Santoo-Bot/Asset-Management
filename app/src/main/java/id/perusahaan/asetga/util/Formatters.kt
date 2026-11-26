@@ -18,6 +18,7 @@ object Fmt {
         decimalSeparator = ','
     }
     private val dateFmt = DateTimeFormatter.ofPattern("dd MMM yyyy", LOCALE_ID)
+    private val numericDateFmt = DateTimeFormatter.ofPattern("dd/MM/yyyy")
     private val dateTimeFmt = DateTimeFormatter.ofPattern("dd MMM yyyy HH:mm", LOCALE_ID)
 
     private fun intFormat() = DecimalFormat("#,##0", symbols)
@@ -33,6 +34,9 @@ object Fmt {
     fun percent(value: Double): String = percentFormat().format(value) + "%"
 
     fun date(value: LocalDate?): String = value?.format(dateFmt) ?: "-"
+
+    /** dd/MM/yyyy, format yang dipakai template import Excel. */
+    fun dateNumeric(value: LocalDate): String = value.format(numericDateFmt)
 
     fun dateTime(epochMillis: Long, zone: ZoneId = ZoneId.systemDefault()): String =
         Instant.ofEpochMilli(epochMillis).atZone(zone).format(dateTimeFmt)

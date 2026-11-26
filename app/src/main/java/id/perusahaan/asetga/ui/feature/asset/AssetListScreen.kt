@@ -207,7 +207,7 @@ fun AssetListScreen(
             title = { Text("Hapus ${selection.size} aset?") },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("Gunakan untuk data salah input. Aset hilang dari daftar dan laporan, tetapi masih bisa dipulihkan dari Lainnya → Aset terhapus. Untuk aset yang dibuang/dijual, gunakan status Dihapus/Dijual.")
+                    Text("Gunakan untuk data salah input. Aset hilang dari daftar dan laporan, tetapi masih bisa dipulihkan dari Lainnya → Aset terhapus. Untuk aset yang dibuang/dijual, gunakan status Write Off.")
                     FormTextField(reason, { reason = it }, "Alasan penghapusan", required = true)
                 }
             },
@@ -239,7 +239,7 @@ fun AssetListScreen(
         )
         FilterSheet.STATUS -> OptionSheet(
             "Status", AssetStatus.entries, filter.status, { it.label },
-            onDismiss = { sheet = null }, onSelect = { vm.setStatus(it); sheet = null }, noneLabel = "Semua (kecuali Dihapus/Dijual)",
+            onDismiss = { sheet = null }, onSelect = { vm.setStatus(it); sheet = null }, noneLabel = "Semua (kecuali Write Off)",
         )
         FilterSheet.SORT -> OptionSheet(
             "Urutkan", AssetSort.entries, filter.sort, { it.label },
@@ -291,7 +291,7 @@ private fun AssetRow(
         Spacer(Modifier.width(8.dp))
         Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(4.dp)) {
             ConditionChip(item.condition)
-            if (item.status != AssetStatus.AKTIF) AssetStatusChip(item.status)
+            if (item.status != AssetStatus.DIGUNAKAN) AssetStatusChip(item.status)
         }
     }
 }

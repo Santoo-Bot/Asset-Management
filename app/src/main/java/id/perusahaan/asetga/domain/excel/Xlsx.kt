@@ -19,12 +19,16 @@ sealed interface Cell {
 fun text(v: String?) = Cell.Text(v.orEmpty())
 fun num(v: Number) = Cell.Number(v.toDouble())
 
+/** Dropdown pilihan pada kolom [column] (0-based) untuk baris data 2..[lastRow]. */
+data class ListValidation(val column: Int, val values: List<String>, val lastRow: Int = 5000)
+
 data class Sheet(
     val name: String,
     val header: List<String>,
     val rows: List<List<Cell>>,
     /** Lebar kolom (karakter); default dihitung dari header. */
     val widths: List<Int>? = null,
+    val validations: List<ListValidation> = emptyList(),
 )
 
 /**
@@ -102,7 +106,22 @@ object XlsxWriter {
             }
             append("</row>")
         }
-        append("</sheetData></worksheet>")
+        append("</sheetData>")
+        if (s.validations.isNotEmpty()) {
+            append("""<dataValidations count="${s.validations.size}">""")
+            s.validations.forEach { v ->
+                val col = columnName(v.column)
+                val list = v.values.joinToString(",") { it.replace("\"", "").replace(",", " ") }
+                require(list.length <= 255) { "Daftar dropdown terlalu panjang" }
+                append(
+                    """<dataValidation type="list" allowBlank="1" showInputMessage="1" showErrorMessage="1" """ +
+                        """errorTitle="Nilai tidak valid" error="Pilih dari daftar" sqref="${col}2:$col${v.lastRow}">""" +
+                        """<formula1>&quot;${esc(list)}&quot;</formula1></dataValidation>""",
+                )
+            }
+            append("</dataValidations>")
+        }
+        append("</worksheet>")
     }
 
     fun columnName(index: Int): String {

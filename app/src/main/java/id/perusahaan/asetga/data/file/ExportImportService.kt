@@ -4,6 +4,7 @@ import android.content.Context
 import android.net.Uri
 import dagger.hilt.android.qualifiers.ApplicationContext
 import id.perusahaan.asetga.data.local.dao.AssetDao
+import id.perusahaan.asetga.data.local.dao.AssetDetailRow
 import id.perusahaan.asetga.data.local.dao.CategoryDao
 import id.perusahaan.asetga.data.local.dao.DepartmentDao
 import id.perusahaan.asetga.data.local.dao.DivisionDao
@@ -21,6 +22,7 @@ import id.perusahaan.asetga.domain.excel.ImportColumn
 import id.perusahaan.asetga.domain.excel.ImportLookups
 import id.perusahaan.asetga.domain.excel.ImportPreview
 import id.perusahaan.asetga.domain.excel.ImportRow
+import id.perusahaan.asetga.domain.excel.ListValidation
 import id.perusahaan.asetga.domain.excel.Sheet
 import id.perusahaan.asetga.domain.excel.XlsxReader
 import id.perusahaan.asetga.domain.excel.XlsxWriter
@@ -102,35 +104,66 @@ class ExportImportService @Inject constructor(
         is Cell.Number -> if (c.value == Math.rint(c.value)) c.value.toLong().toString() else c.value.toString().replace('.', ',')
     }
 
+    /** Dropdown Kondisi & Status, dipakai di template dan export aset. */
+    private fun assetValidations() = listOf(
+        ListValidation(ImportColumn.CONDITION.ordinal, AssetCondition.entries.map { it.label }),
+        ListValidation(ImportColumn.STATUS.ordinal, AssetStatus.entries.map { it.label }),
+    )
+
+    /** Nilai kolom template untuk satu aset (export bisa diimport kembali). */
+    private fun templateCells(r: AssetDetailRow): Map<ImportColumn, Cell> {
+        val a = r.asset
+        return mapOf(
+            ImportColumn.CODE to text(a.code),
+            ImportColumn.QR to text(a.qrCode ?: a.code),
+            ImportColumn.NAME to text(a.name),
+            ImportColumn.CATEGORY to text(r.categoryName),
+            ImportColumn.SERIAL to text(a.serialNumber),
+            ImportColumn.ACQ_DATE to text(Fmt.dateNumeric(a.acquisitionDate)),
+            ImportColumn.COST to num(a.acquisitionCost),
+            ImportColumn.LOCATION to text(r.locationName),
+            ImportColumn.DIVISION to text(r.divisionName),
+            ImportColumn.DEPARTMENT to text(r.departmentName),
+            ImportColumn.CONDITION to text(a.condition.label),
+            ImportColumn.STATUS to text(a.status.label),
+            ImportColumn.WARRANTY to text(a.warrantyUntil?.let(Fmt::dateNumeric)),
+            ImportColumn.NOTES to text(a.notes),
+            ImportColumn.USER_LOCATION to text(a.userLocationDetail),
+            ImportColumn.PR to text(a.prNumber),
+            ImportColumn.PO to text(a.poNumber),
+            ImportColumn.GR to text(a.grNumber),
+            ImportColumn.REQUESTER to text(a.requester),
+            ImportColumn.MEMO_NO to text(a.memoNumber),
+            ImportColumn.MEMO_DATE to text(a.memoDate?.let(Fmt::dateNumeric)),
+            ImportColumn.FOLLOW_UP to text(a.followUp),
+            ImportColumn.HANDOVER to text(a.handoverDoc),
+        )
+    }
+
     private suspend fun assetSheet(): Sheet {
         val today = LocalDate.now(clock)
         val defaultResidual = settings.current().defaultResidualPercent
         val rows = assetDao.exportRows().map { r ->
             val a = r.asset
-            val asOf = if (a.status == AssetStatus.DIHAPUS_DIJUAL) a.disposalDate ?: today else today
+            val asOf = if (a.status == AssetStatus.WRITE_OFF) a.disposalDate ?: today else today
             val residual = r.categoryResidualPercent ?: defaultResidual
             val dep = Depreciation.calculate(a.acquisitionCost, a.acquisitionDate, r.usefulLifeYears, residual, asOf)
             val age = AssetAgeCalc.of(a.acquisitionDate, asOf)
-            listOf(
-                text(a.code), text(a.name), text(r.categoryName), text(a.brandModel), text(a.serialNumber),
-                text(Fmt.date(a.acquisitionDate)), num(a.acquisitionCost), text(r.locationName), text(r.departmentName), text(a.picName),
-                text(a.condition.label), text(a.status.label), text(a.warrantyUntil?.let(Fmt::date)),
+            val cells = templateCells(r)
+            ImportColumn.entries.map { cells[it] ?: text("") } + listOf(
                 text(WarrantyCalc.status(a.warrantyUntil, today).label), text(Fmt.age(age.years, age.months)), num(r.usefulLifeYears),
-                num(residual), num(dep.annualDepreciation), num(dep.accumulated), num(dep.bookValue), text(a.notes),
-                text(a.qrCode ?: a.code), text(a.userLocationDetail), text(r.divisionName), text(a.prNumber), text(a.poNumber),
-                text(a.grNumber), text(a.requester), text(a.memoNumber), text(a.memoDate?.let(Fmt::date)), text(a.followUp), text(a.handoverDoc),
+                num(residual), num(dep.annualDepreciation), num(dep.accumulated), num(dep.bookValue),
+                text(a.brandModel), text(a.picName),
             )
         }
         return Sheet(
             "Aset",
-            listOf(
-                "Kode Aset", "Nama Aset", "Kategori", "Merk/Tipe", "No. Seri", "Tgl Perolehan", "Harga Perolehan", "Lokasi", "Departemen", "PIC",
-                "Kondisi", "Status", "Garansi s/d", "Status Garansi", "Umur Berjalan", "Umur Ekonomis (th)", "Residu (%)",
-                "Penyusutan/Tahun", "Akumulasi Penyusutan", "Nilai Buku", "Catatan",
-                "Kode QR", "Pengguna / Detail Lokasi", "Divisi", "Nomor PR", "Nomor PO", "Nomor GR", "Pemohon Pembelian",
-                "Nomor Memo", "Tanggal Memo", "Tindak Lanjut", "Berita Acara Serah Terima",
+            ImportColumn.entries.map { it.templateHeader } + listOf(
+                "Status Garansi", "Umur Berjalan", "Umur Ekonomis (th)", "Residu (%)",
+                "Penyusutan/Tahun", "Akumulasi Penyusutan", "Nilai Buku", "Merk/Tipe (lama)", "PIC (lama)",
             ),
             rows,
+            validations = assetValidations(),
         )
     }
 
@@ -185,19 +218,19 @@ class ExportImportService @Inject constructor(
         val divs = divisionDao.observeAll(false).first()
         val divName = divs.associate { it.id to it.name }
         val sample: Map<ImportColumn, Cell> = mapOf(
+            ImportColumn.CODE to text("${cats.firstOrNull()?.codePrefix ?: "IT"}-${LocalDate.now(clock).year}-001"),
+            ImportColumn.QR to text("${cats.firstOrNull()?.codePrefix ?: "IT"}-${LocalDate.now(clock).year}-001"),
             ImportColumn.NAME to text("Laptop Dell Latitude 5440"),
             ImportColumn.CATEGORY to text(cats.firstOrNull()?.name ?: "Elektronik & IT"),
-            ImportColumn.BRAND to text("Dell Latitude 5440"),
             ImportColumn.SERIAL to text("SN123456"),
             ImportColumn.ACQ_DATE to text("15/01/2024"),
             ImportColumn.COST to num(15_000_000),
             ImportColumn.LOCATION to text(locs.firstOrNull()?.name ?: "Kantor Pusat"),
             ImportColumn.DEPARTMENT to text(deps.firstOrNull()?.name.orEmpty()),
-            ImportColumn.PIC to text("Budi"),
-            ImportColumn.CONDITION to text("Baik"),
-            ImportColumn.STATUS to text("Aktif"),
+            ImportColumn.CONDITION to text(AssetCondition.BAIK.label),
+            ImportColumn.STATUS to text(AssetStatus.DIGUNAKAN.label),
             ImportColumn.WARRANTY to text("15/01/2027"),
-            ImportColumn.NOTES to text("Kosongkan Kode Aset untuk kode otomatis; kosongkan Kode QR agar QR = kode aset"),
+            ImportColumn.NOTES to text("Contoh baris, hapus sebelum import. Kode QR boleh sama dengan Kode Aset."),
             ImportColumn.USER_LOCATION to text("Budi · Ruang 301"),
             ImportColumn.DIVISION to text(divs.firstOrNull()?.name.orEmpty()),
             ImportColumn.PR to text("PR-2024-0012"),
@@ -222,7 +255,11 @@ class ExportImportService @Inject constructor(
         file.outputStream().use {
             XlsxWriter.write(
                 listOf(
-                    Sheet("Import Aset", ImportColumn.entries.map { c -> c.templateHeader }, listOf(example), ImportColumn.entries.map { 22 }),
+                    Sheet(
+                        "Import Aset", ImportColumn.entries.map { c -> c.templateHeader }, listOf(example),
+                        ImportColumn.entries.map { c -> if (c == ImportColumn.STATUS) 34 else 22 },
+                        validations = assetValidations(),
+                    ),
                     Sheet("Petunjuk", listOf("Kategori", "Lokasi", "Divisi", "Departemen (Divisi induk)", "Kondisi", "Status"), guide, listOf(32, 28, 24, 40, 16, 18)),
                 ),
                 it,

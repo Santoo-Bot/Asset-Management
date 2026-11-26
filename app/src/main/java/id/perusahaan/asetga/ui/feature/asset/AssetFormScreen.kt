@@ -64,20 +64,23 @@ fun AssetFormScreen(
             Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
             return@Scaffold
         }
+        // Urutan field mengikuti template import aset.
         Column(
             Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState()).padding(horizontal = 16.dp),
             verticalArrangement = Arrangement.spacedBy(4.dp),
         ) {
-            SectionHeader("Foto", Modifier.padding(start = 0.dp))
-            PhotoPicker(
-                photoFile = vm.photoFile(),
-                busy = state.photoBusy,
-                newCameraUri = vm::newCameraUri,
-                onPicked = vm::onPhotoPicked,
-                onRemove = vm::removePhoto,
+            SectionHeader("Data aset", Modifier.padding(start = 0.dp))
+            FormTextField(
+                value = input.code, onValueChange = { v -> vm.update { it.copy(code = v.uppercase()) } },
+                label = "Kode aset", required = true, error = err[AssetValidator.FIELD_CODE],
+                supporting = if (state.isNew) "Terisi otomatis (KATEGORI-TAHUN-NOMOR) setelah memilih kategori; boleh diubah" else "Harus unik",
             )
-
-            SectionHeader("Identitas", Modifier.padding(start = 0.dp))
+            FormTextField(
+                value = input.qrCode, onValueChange = { v -> vm.update { it.copy(qrCode = v.trim()) } },
+                label = "Kode QR", required = true, error = err[AssetValidator.FIELD_QR],
+                supporting = "Isi label QR. Boleh sama dengan kode aset",
+            )
+            FormTextField(input.name, { v -> vm.update { it.copy(name = v) } }, "Nama aset", required = true, error = err[AssetValidator.FIELD_NAME])
             SelectField(
                 label = "Kategori", options = options.categories,
                 selected = options.categories.firstOrNull { it.id == input.categoryId },
@@ -85,36 +88,9 @@ fun AssetFormScreen(
                 onSelect = { c -> vm.update { it.copy(categoryId = c?.id) } },
                 required = true, error = err[AssetValidator.FIELD_CATEGORY],
             )
-            FormTextField(
-                value = input.code, onValueChange = { v -> vm.update { it.copy(code = v.uppercase()) } },
-                label = "Kode aset", error = err[AssetValidator.FIELD_CODE],
-                supporting = when {
-                    !state.isNew -> "Ubah hanya bila perlu; kode harus unik"
-                    state.suggestedCode.isNotEmpty() -> "Kosongkan untuk kode otomatis: ${state.suggestedCode}"
-                    else -> "Kosongkan untuk kode otomatis (KATEGORI-TAHUN-NOMOR)"
-                },
-            )
-            FormTextField(
-                value = input.qrCode, onValueChange = { v -> vm.update { it.copy(qrCode = v.trim()) } },
-                label = "Kode QR", error = err[AssetValidator.FIELD_QR],
-                supporting = "Isi bila label QR memakai kode lain; kosongkan agar QR berisi kode aset",
-            )
-            FormTextField(input.name, { v -> vm.update { it.copy(name = v) } }, "Nama aset", required = true, error = err[AssetValidator.FIELD_NAME])
-            FormTextField(input.brandModel, { v -> vm.update { it.copy(brandModel = v) } }, "Merk / tipe")
             FormTextField(input.serialNumber, { v -> vm.update { it.copy(serialNumber = v) } }, "No. seri")
-
-            SectionHeader("Perolehan", Modifier.padding(start = 0.dp))
-            DateField(input.acquisitionDate, { d -> vm.update { it.copy(acquisitionDate = d) } }, "Tanggal perolehan", required = true, error = err[AssetValidator.FIELD_ACQ_DATE])
+            DateField(input.acquisitionDate, { d -> vm.update { it.copy(acquisitionDate = d) } }, "Tgl perolehan", required = true, error = err[AssetValidator.FIELD_ACQ_DATE])
             MoneyField(input.acquisitionCost, { v -> vm.update { it.copy(acquisitionCost = v) } }, "Harga perolehan", required = true, error = err[AssetValidator.FIELD_COST])
-            DateField(input.warrantyUntil, { d -> vm.update { it.copy(warrantyUntil = d) } }, "Garansi s/d", error = err[AssetValidator.FIELD_WARRANTY])
-
-            SectionHeader("Pengadaan", Modifier.padding(start = 0.dp))
-            FormTextField(input.prNumber, { v -> vm.update { it.copy(prNumber = v) } }, "Nomor PR")
-            FormTextField(input.poNumber, { v -> vm.update { it.copy(poNumber = v) } }, "Nomor PO")
-            FormTextField(input.grNumber, { v -> vm.update { it.copy(grNumber = v) } }, "Nomor GR")
-            FormTextField(input.requester, { v -> vm.update { it.copy(requester = v) } }, "Pemohon pembelian")
-
-            SectionHeader("Penempatan", Modifier.padding(start = 0.dp))
             SelectField(
                 label = "Lokasi", options = options.locations,
                 selected = options.locations.firstOrNull { it.id == input.locationId }, itemLabel = { it.name },
@@ -132,13 +108,6 @@ fun AssetFormScreen(
                 onSelect = vm::selectDepartment, noneLabel = "Tidak ada",
                 supporting = if (input.divisionId != null) "Hanya departemen di divisi terpilih" else "Memilih departemen otomatis mengisi divisi",
             )
-            FormTextField(input.picName, { v -> vm.update { it.copy(picName = v) } }, "PIC (penanggung jawab)")
-            FormTextField(
-                input.userLocationDetail, { v -> vm.update { it.copy(userLocationDetail = v) } }, "Pengguna / detail lokasi",
-                supporting = "Mis. Budi · Ruang 301, meja 4",
-            )
-
-            SectionHeader("Kondisi & status", Modifier.padding(start = 0.dp))
             SelectField(
                 label = "Kondisi", options = AssetCondition.entries, selected = input.condition, itemLabel = { it.label },
                 onSelect = { c -> if (c != null) vm.update { it.copy(condition = c) } }, required = true,
@@ -146,15 +115,28 @@ fun AssetFormScreen(
             SelectField(
                 label = "Status", options = AssetStatus.entries, selected = input.status, itemLabel = { it.label },
                 onSelect = { s -> if (s != null) vm.update { it.copy(status = s) } }, required = true,
-                supporting = if (input.status == AssetStatus.DIHAPUS_DIJUAL) "Aset tidak dihapus permanen; hanya ditandai Dihapus/Dijual" else null,
+                supporting = if (input.status == AssetStatus.WRITE_OFF) "Aset tidak dihapus permanen; hanya ditandai Write Off" else null,
             )
-            if (input.status == AssetStatus.DIHAPUS_DIJUAL) {
+            if (input.status == AssetStatus.WRITE_OFF) {
                 DateField(
-                    input.disposalDate, { d -> vm.update { it.copy(disposalDate = d) } }, "Tanggal penghapusan/penjualan",
+                    input.disposalDate, { d -> vm.update { it.copy(disposalDate = d) } }, "Tanggal write off",
                     error = err[AssetValidator.FIELD_DISPOSAL_DATE], supporting = "Kosongkan untuk tanggal hari ini",
                 )
                 MoneyField(input.disposalValue, { v -> vm.update { it.copy(disposalValue = v) } }, "Nilai jual (opsional)")
             }
+            DateField(input.warrantyUntil, { d -> vm.update { it.copy(warrantyUntil = d) } }, "Garansi s/d", error = err[AssetValidator.FIELD_WARRANTY])
+            FormTextField(input.notes, { v -> vm.update { it.copy(notes = v) } }, "Catatan", singleLine = false, minLines = 2)
+            FormTextField(
+                input.userLocationDetail, { v -> vm.update { it.copy(userLocationDetail = v) } }, "Pengguna / detail lokasi",
+                supporting = "Mis. Budi · Ruang 301, meja 4",
+            )
+
+            SectionHeader("Pengadaan", Modifier.padding(start = 0.dp))
+            FormTextField(input.prNumber, { v -> vm.update { it.copy(prNumber = v) } }, "Nomor PR")
+            FormTextField(input.poNumber, { v -> vm.update { it.copy(poNumber = v) } }, "Nomor PO")
+            FormTextField(input.grNumber, { v -> vm.update { it.copy(grNumber = v) } }, "Nomor GR")
+            FormTextField(input.requester, { v -> vm.update { it.copy(requester = v) } }, "Pemohon pembelian")
+
             SectionHeader("Memo & serah terima", Modifier.padding(start = 0.dp))
             FormTextField(input.memoNumber, { v -> vm.update { it.copy(memoNumber = v) } }, "Nomor memo")
             DateField(input.memoDate, { d -> vm.update { it.copy(memoDate = d) } }, "Tanggal memo")
@@ -164,7 +146,14 @@ fun AssetFormScreen(
                 supporting = "Nomor / keterangan BAST", singleLine = false,
             )
 
-            FormTextField(input.notes, { v -> vm.update { it.copy(notes = v) } }, "Catatan", singleLine = false, minLines = 3)
+            SectionHeader("Foto (opsional)", Modifier.padding(start = 0.dp))
+            PhotoPicker(
+                photoFile = vm.photoFile(),
+                busy = state.photoBusy,
+                newCameraUri = vm::newCameraUri,
+                onPicked = vm::onPhotoPicked,
+                onRemove = vm::removePhoto,
+            )
             Spacer(Modifier.height(24.dp))
         }
     }

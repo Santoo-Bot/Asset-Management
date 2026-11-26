@@ -109,7 +109,7 @@ class AssetFormViewModel @Inject constructor(
                             condition = a.condition, status = a.status, warrantyUntil = a.warrantyUntil,
                             notes = a.notes.orEmpty(), photoPath = a.photoPath,
                             disposalDate = a.disposalDate, disposalValue = a.disposalValue,
-                            qrCode = a.qrCode.orEmpty(), userLocationDetail = a.userLocationDetail.orEmpty(),
+                            qrCode = a.qrContent, userLocationDetail = a.userLocationDetail.orEmpty(),
                             divisionId = a.divisionId, prNumber = a.prNumber.orEmpty(), poNumber = a.poNumber.orEmpty(),
                             grNumber = a.grNumber.orEmpty(), requester = a.requester.orEmpty(), memoNumber = a.memoNumber.orEmpty(),
                             memoDate = a.memoDate, followUp = a.followUp.orEmpty(), handoverDoc = a.handoverDoc.orEmpty(),
@@ -135,7 +135,11 @@ class AssetFormViewModel @Inject constructor(
 
     fun update(transform: (AssetInput) -> AssetInput) {
         val before = _state.value.input
-        val after = transform(before)
+        var after = transform(before)
+        // Kode QR mengikuti kode aset selama pengguna belum mengisinya dengan nilai lain.
+        if (after.code != before.code && after.qrCode == before.qrCode && (before.qrCode.isBlank() || before.qrCode == before.code)) {
+            after = after.copy(qrCode = after.code)
+        }
         _state.update { it.copy(input = after, errors = it.errors - changedFields(before, after)) }
         if (after.id == null && (before.categoryId != after.categoryId || before.acquisitionDate?.year != after.acquisitionDate?.year)) {
             refreshSuggestion()
@@ -160,7 +164,11 @@ class AssetFormViewModel @Inject constructor(
         val year = (input.acquisitionDate ?: LocalDate.now()).year
         viewModelScope.launch {
             val code = repo.suggestCode(cat, year)
+            val previous = _state.value.suggestedCode
             _state.update { it.copy(suggestedCode = code) }
+            // Isi kode otomatis bila kosong atau masih berisi usulan sebelumnya (belum diubah pengguna).
+            val current = _state.value.input.code
+            if (current.isBlank() || current == previous) update { it.copy(code = code) }
         }
     }
 

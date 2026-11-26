@@ -55,7 +55,7 @@ class OperationAndStockTest {
             AssetEntity(
                 id = "as1", code = "IT-2024-001", name = "Laptop", categoryId = cat, acquisitionDate = today.minusYears(1),
                 acquisitionCost = 10_000_000, locationId = "A", picName = "Andi", condition = AssetCondition.BAIK,
-                status = AssetStatus.AKTIF, createdAt = 1, updatedAt = 1,
+                status = AssetStatus.DIGUNAKAN, createdAt = 1, updatedAt = 1,
             ),
         )
     }

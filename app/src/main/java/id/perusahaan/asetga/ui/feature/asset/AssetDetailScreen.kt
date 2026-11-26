@@ -157,7 +157,7 @@ fun AssetDetailScreen(
 
 /**
  * Dua cara "menghapus" tanpa menghapus permanen:
- * 1. Tandai Dihapus/Dijual: aset dibuang/dijual, tetap tercatat (Admin & Staf).
+ * 1. Tandai Write Off: aset dibuang/dijual, tetap tercatat (Admin & Staf).
  * 2. Hapus karena salah input: disembunyikan dari semua daftar, bisa dipulihkan (Admin).
  */
 @Composable
@@ -169,7 +169,7 @@ private fun DeleteAssetDialog(
     onDispose: (LocalDate, Long?, String) -> Unit,
     onDelete: (String) -> Unit,
 ) {
-    val alreadyDisposed = detail.asset.status == AssetStatus.DIHAPUS_DIJUAL
+    val alreadyDisposed = detail.asset.status == AssetStatus.WRITE_OFF
     var mode by remember { mutableStateOf(if (alreadyDisposed && canDelete) 1 else 0) }
     var date by remember { mutableStateOf<LocalDate?>(LocalDate.now()) }
     var value by remember { mutableStateOf<Long?>(null) }
@@ -181,12 +181,12 @@ private fun DeleteAssetDialog(
             Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(detail.asset.name, style = MaterialTheme.typography.titleSmall)
                 if (!alreadyDisposed) {
-                    ChoiceRow(mode == 0, "Tandai Dihapus/Dijual", "Aset dibuang, rusak total, atau dijual. Tetap tercatat dan bisa dilihat dengan filter status.") { mode = 0 }
+                    ChoiceRow(mode == 0, "Tandai Write Off", "Aset dibuang, rusak total, atau dijual. Tetap tercatat dan bisa dilihat dengan filter status.") { mode = 0 }
                 }
                 if (canDelete) {
                     ChoiceRow(mode == 1, "Hapus karena salah input", "Hilang dari daftar, laporan, dan dashboard. Masih bisa dipulihkan Admin dari menu Aset terhapus.") { mode = 1 }
                 } else if (alreadyDisposed) {
-                    Text("Aset ini sudah berstatus Dihapus/Dijual. Penghapusan karena salah input hanya bisa dilakukan Admin GA.")
+                    Text("Aset ini sudah berstatus Write Off. Penghapusan karena salah input hanya bisa dilakukan Admin GA.")
                 }
                 if (mode == 0 && !alreadyDisposed) {
                     DateField(date, { date = it }, "Tanggal penghapusan/penjualan", required = true)
@@ -206,7 +206,7 @@ private fun DeleteAssetDialog(
             TextButton(
                 onClick = { if (mode == 0) onDispose(date!!, value, text) else onDelete(text) },
                 enabled = enabled,
-            ) { Text(if (mode == 0) "Tandai Dihapus/Dijual" else "Hapus", color = if (enabled) MaterialTheme.colorScheme.error else Color.Unspecified) }
+            ) { Text(if (mode == 0) "Tandai Write Off" else "Hapus", color = if (enabled) MaterialTheme.colorScheme.error else Color.Unspecified) }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Batal") } },
     )
@@ -247,17 +247,18 @@ private fun DetailBody(d: AssetDetail, photo: File?) {
     }
 
     InfoCard("Informasi") {
+        LabeledValue("Kode QR", a.qrContent)
         LabeledValue("Kategori", d.categoryName)
-        LabeledValue("Kode QR", a.qrCode ?: "${a.code} (sama dengan kode aset)")
-        LabeledValue("Merk / tipe", a.brandModel ?: "-")
         LabeledValue("No. seri", a.serialNumber ?: "-")
-        LabeledValue("Lokasi", d.locationName)
-        LabeledValue("Departemen", d.departmentName ?: "-")
-        LabeledValue("Divisi", d.divisionName ?: "-")
-        LabeledValue("PIC", a.picName ?: "-")
-        LabeledValue("Pengguna / detail lokasi", a.userLocationDetail ?: "-")
         LabeledValue("Tgl perolehan", Fmt.date(a.acquisitionDate))
         LabeledValue("Umur berjalan", Fmt.age(d.age.years, d.age.months))
+        LabeledValue("Lokasi", d.locationName)
+        LabeledValue("Divisi", d.divisionName ?: "-")
+        LabeledValue("Departemen", d.departmentName ?: "-")
+        LabeledValue("Pengguna / detail lokasi", a.userLocationDetail ?: "-")
+        // Field lama yang tidak lagi ada di form; tetap ditampilkan bila sempat diisi.
+        a.brandModel?.let { LabeledValue("Merk / tipe", it) }
+        a.picName?.let { LabeledValue("PIC", it) }
         if (a.notes != null) {
             HorizontalDivider(Modifier.padding(vertical = 6.dp))
             Text("Catatan", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -314,8 +315,8 @@ private fun DetailBody(d: AssetDetail, photo: File?) {
         }
     }
 
-    if (a.status == AssetStatus.DIHAPUS_DIJUAL) {
-        InfoCard("Penghapusan / penjualan") {
+    if (a.status == AssetStatus.WRITE_OFF) {
+        InfoCard("Write off") {
             LabeledValue("Tanggal", Fmt.date(a.disposalDate))
             LabeledValue("Nilai jual", a.disposalValue?.let(Fmt::rupiah) ?: "-")
         }

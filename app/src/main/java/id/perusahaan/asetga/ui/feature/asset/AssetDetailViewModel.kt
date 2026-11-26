@@ -70,7 +70,7 @@ class AssetDetailViewModel @Inject constructor(
 
     fun dispose(date: LocalDate, value: Long?, note: String) = launchOp {
         when (val r = repo.dispose(assetId, date, value, note)) {
-            is AppResult.Success -> DetailEvent.Message("Aset ditandai Dihapus/Dijual")
+            is AppResult.Success -> DetailEvent.Message("Aset ditandai Write Off")
             is AppResult.Failure -> DetailEvent.Message(r.message)
         }
     }

@@ -54,7 +54,7 @@ data class AssetInput(
     val departmentId: String? = null,
     val picName: String = "",
     val condition: AssetCondition = AssetCondition.BAIK,
-    val status: AssetStatus = AssetStatus.AKTIF,
+    val status: AssetStatus = AssetStatus.DIGUNAKAN,
     val warrantyUntil: LocalDate? = null,
     val notes: String = "",
     val photoPath: String? = null,
@@ -118,7 +118,7 @@ data class AssetFilter(
     val locationId: String? = null,
     val divisionId: String? = null,
     val condition: AssetCondition? = null,
-    /** null = semua kecuali Dihapus/Dijual. */
+    /** null = semua kecuali Write Off. */
     val status: AssetStatus? = null,
     val sort: AssetSort = AssetSort.CODE,
 ) {

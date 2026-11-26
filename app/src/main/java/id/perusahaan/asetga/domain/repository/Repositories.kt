@@ -128,7 +128,7 @@ interface AssetRepository {
     suspend fun suggestCode(categoryId: String, year: Int): String
     suspend fun save(input: AssetInput): AppResult<Asset>
 
-    /** Tandai aset Dihapus/Dijual (aset tetap tercatat, penyusutan berhenti di [date]). Admin & Staf. */
+    /** Tandai aset Write Off (aset tetap tercatat, penyusutan berhenti di [date]). Admin & Staf. */
     suspend fun dispose(id: String, date: LocalDate, value: Long?, note: String): AppResult<Unit>
 
     /** Hapus karena salah input (soft delete, bisa dipulihkan). Khusus Admin GA. Mengembalikan jumlah aset terhapus. */

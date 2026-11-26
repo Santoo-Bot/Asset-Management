@@ -10,19 +10,22 @@ import java.time.LocalDate
 class AssetValidatorTest {
     private val today = LocalDate.of(2026, 11, 26)
     private val valid = AssetInput(
-        name = "Laptop Dell Latitude", categoryId = "c", locationId = "l",
+        code = "IT-2024-001", qrCode = "IT-2024-001", name = "Laptop Dell Latitude", categoryId = "c", locationId = "l",
         acquisitionDate = LocalDate.of(2024, 1, 10), acquisitionCost = 15_000_000,
     )
 
-    @Test fun `input lengkap valid dan kode boleh kosong`() {
+    @Test fun `input lengkap valid`() {
         assertTrue(AssetValidator.validate(valid, today).isEmpty())
-        assertTrue(AssetValidator.validate(valid.copy(code = "it-2024-001"), today).isEmpty())
+        assertTrue(AssetValidator.validate(valid.copy(code = "it-2024-001", qrCode = "QR LAMA 01"), today).isEmpty())
     }
 
     @Test fun `field wajib`() {
         val e = AssetValidator.validate(AssetInput(), today)
         assertEquals(
-            setOf(AssetValidator.FIELD_NAME, AssetValidator.FIELD_CATEGORY, AssetValidator.FIELD_LOCATION, AssetValidator.FIELD_ACQ_DATE, AssetValidator.FIELD_COST),
+            setOf(
+                AssetValidator.FIELD_CODE, AssetValidator.FIELD_QR, AssetValidator.FIELD_NAME, AssetValidator.FIELD_CATEGORY,
+                AssetValidator.FIELD_LOCATION, AssetValidator.FIELD_ACQ_DATE, AssetValidator.FIELD_COST,
+            ),
             e.keys,
         )
     }

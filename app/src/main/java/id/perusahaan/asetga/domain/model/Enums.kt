@@ -14,21 +14,24 @@ enum class Role(val label: String) {
     val canManageUsers: Boolean get() = this == ADMIN
 }
 
+/** Disederhanakan di skema v4 (Cukup → Baik; Rusak Ringan/Berat → Rusak). */
 enum class AssetCondition(val label: String) {
     BAIK("Baik"),
-    CUKUP("Cukup"),
-    RUSAK_RINGAN("Rusak Ringan"),
-    RUSAK_BERAT("Rusak Berat");
+    RUSAK("Rusak");
 
-    val isDamaged: Boolean get() = this == RUSAK_RINGAN || this == RUSAK_BERAT
+    val isDamaged: Boolean get() = this == RUSAK
 }
 
+/**
+ * Status aset (skema v4). WRITE_OFF = aset sudah dihapusbukukan: tidak ikut daftar aktif/laporan
+ * dan penyusutan berhenti pada tanggal write off. Data tidak dihapus permanen.
+ */
 enum class AssetStatus(val label: String) {
-    AKTIF("Aktif"),
-    DIPINJAM("Dipinjam"),
+    DIGUNAKAN("Digunakan"),
+    TERSEDIA("Tersedia"),
     DALAM_PERBAIKAN("Dalam Perbaikan"),
-    DISIMPAN("Disimpan"),
-    DIHAPUS_DIJUAL("Dihapus/Dijual"),
+    PROPOSE_WRITE_OFF("Propose To Write Off"),
+    WRITE_OFF("Write Off"),
 }
 
 enum class ServiceType(val label: String) {

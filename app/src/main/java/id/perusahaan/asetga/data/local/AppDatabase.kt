@@ -57,7 +57,7 @@ import java.util.UUID
         AuditItemEntity::class,
         AuditLogEntity::class,
     ],
-    version = 3,
+    version = 4,
     exportSchema = true,
 )
 @TypeConverters(Converters::class)
@@ -128,7 +128,25 @@ object Migrations {
         }
     }
 
-    val ALL = arrayOf(MIGRATION_1_2, MIGRATION_2_3)
+    /**
+     * v4: kondisi & status aset disederhanakan (tanpa perubahan struktur tabel).
+     * Kondisi: Cukup → Baik; Rusak Ringan/Berat → Rusak.
+     * Status: Aktif/Dipinjam → Digunakan; Disimpan → Tersedia; Dihapus/Dijual → Write Off.
+     */
+    val MIGRATION_3_4 = object : Migration(3, 4) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL(
+                "UPDATE assets SET condition = CASE condition WHEN 'CUKUP' THEN 'BAIK' " +
+                    "WHEN 'RUSAK_RINGAN' THEN 'RUSAK' WHEN 'RUSAK_BERAT' THEN 'RUSAK' ELSE condition END",
+            )
+            db.execSQL(
+                "UPDATE assets SET status = CASE status WHEN 'AKTIF' THEN 'DIGUNAKAN' WHEN 'DIPINJAM' THEN 'DIGUNAKAN' " +
+                    "WHEN 'DISIMPAN' THEN 'TERSEDIA' WHEN 'DIHAPUS_DIJUAL' THEN 'WRITE_OFF' ELSE status END",
+            )
+        }
+    }
+
+    val ALL = arrayOf(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
 }
 
 /** Data awal wajib (semua build): kategori dengan umur ekonomis, satuan, dan pengaturan default. */

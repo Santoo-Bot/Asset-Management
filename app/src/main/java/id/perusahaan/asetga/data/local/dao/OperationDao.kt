@@ -120,7 +120,7 @@ interface ServiceDao {
         """SELECT a.id AS assetId, a.code AS assetCode, a.name AS assetName,
                   s.serviceDate AS lastServiceDate, s.nextServiceDate AS nextServiceDate
            FROM assets a JOIN service_records s ON s.assetId = a.id
-           WHERE a.deletedAt IS NULL AND a.status != 'DIHAPUS_DIJUAL'
+           WHERE a.deletedAt IS NULL AND a.status != 'WRITE_OFF'
              AND s.nextServiceDate IS NOT NULL
              AND s.id = (SELECT s2.id FROM service_records s2 WHERE s2.assetId = a.id AND s2.deletedAt IS NULL
                          ORDER BY s2.serviceDate DESC, s2.createdAt DESC LIMIT 1)
@@ -132,7 +132,7 @@ interface ServiceDao {
         """SELECT a.id AS assetId, a.code AS assetCode, a.name AS assetName,
                   s.serviceDate AS lastServiceDate, s.nextServiceDate AS nextServiceDate
            FROM assets a JOIN service_records s ON s.assetId = a.id
-           WHERE a.deletedAt IS NULL AND a.status != 'DIHAPUS_DIJUAL'
+           WHERE a.deletedAt IS NULL AND a.status != 'WRITE_OFF'
              AND s.nextServiceDate IS NOT NULL
              AND s.id = (SELECT s2.id FROM service_records s2 WHERE s2.assetId = a.id AND s2.deletedAt IS NULL
                          ORDER BY s2.serviceDate DESC, s2.createdAt DESC LIMIT 1)

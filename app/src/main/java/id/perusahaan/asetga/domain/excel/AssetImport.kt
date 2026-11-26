@@ -9,25 +9,23 @@ import java.time.format.DateTimeFormatter
 import java.time.format.ResolverStyle
 import kotlin.math.roundToLong
 
-/** Kolom template import aset (urutan juga dipakai untuk export template). */
-enum class ImportColumn(val header: String, val required: Boolean = false) {
-    CODE("Kode Aset"),
-    NAME("Nama Aset", true),
-    CATEGORY("Kategori", true),
-    BRAND("Merk/Tipe"),
+/** Kolom template import aset, berurutan sesuai template. [templateHeader] = teks judul kolom di Excel. */
+enum class ImportColumn(val templateHeader: String, val required: Boolean = false) {
+    CODE("Kode Aset*", true),
+    QR("Kode QR*", true),
+    NAME("Nama Aset*", true),
+    CATEGORY("Kategori*", true),
     SERIAL("No. Seri"),
-    ACQ_DATE("Tgl Perolehan (dd/mm/yyyy)", true),
-    COST("Harga Perolehan", true),
-    LOCATION("Lokasi", true),
+    ACQ_DATE("Tgl Perolehan (dd/mm/yyyy)*", true),
+    COST("Harga Perolehan*", true),
+    LOCATION("Lokasi*", true),
+    DIVISION("Divisi"),
     DEPARTMENT("Departemen"),
-    PIC("PIC"),
-    CONDITION("Kondisi", true),
-    STATUS("Status", true),
+    CONDITION("Kondisi* (Baik,Rusak)", true),
+    STATUS("Status* (Digunakan,Tersedia,Dalam Perbaikan,Propose To Write Off,Write Off)", true),
     WARRANTY("Garansi s/d (dd/mm/yyyy)"),
     NOTES("Catatan"),
-    QR("Kode QR"),
     USER_LOCATION("Pengguna / Detail Lokasi"),
-    DIVISION("Divisi"),
     PR("Nomor PR"),
     PO("Nomor PO"),
     GR("Nomor GR"),
@@ -37,7 +35,8 @@ enum class ImportColumn(val header: String, val required: Boolean = false) {
     FOLLOW_UP("Tindak Lanjut"),
     HANDOVER("Berita Acara Serah Terima");
 
-    val templateHeader: String get() = if (required) "$header*" else header
+    /** Nama kolom tanpa tanda wajib & keterangan, mis. "Kondisi". */
+    val header: String get() = templateHeader.replace("*", "").substringBefore("(").trim()
 }
 
 data class ImportLookups(
@@ -98,12 +97,20 @@ object AssetImportParser {
         return if (t.trim().startsWith("-")) -digits.toLong() else digits.toLong()
     }
 
-    private fun matchEnum(raw: String, entries: List<Pair<String, String>>): String? {
+    /** Nilai lama dari versi/template sebelumnya tetap diterima dan dipetakan ke nilai baru. */
+    private val conditionAliases = mapOf("cukup" to "BAIK", "rusakringan" to "RUSAK", "rusakberat" to "RUSAK")
+    private val statusAliases = mapOf(
+        "aktif" to "DIGUNAKAN", "dipinjam" to "DIGUNAKAN", "disimpan" to "TERSEDIA",
+        "dihapusdijual" to "WRITE_OFF", "dihapus" to "WRITE_OFF", "dijual" to "WRITE_OFF",
+        "propose" to "PROPOSE_WRITE_OFF", "proposewriteoff" to "PROPOSE_WRITE_OFF", "writeoff" to "WRITE_OFF",
+    )
+
+    private fun matchEnum(raw: String, entries: List<Pair<String, String>>, aliases: Map<String, String> = emptyMap()): String? {
         val key = raw.trim().lowercase().replace(Regex("[^a-z]"), "")
         if (key.isEmpty()) return null
         return entries.firstOrNull { (name, label) ->
             key == name.lowercase().replace("_", "") || key == label.lowercase().replace(Regex("[^a-z]"), "")
-        }?.first
+        }?.first ?: aliases[key]
     }
 
     fun parse(sheet: List<List<String>>, lookups: ImportLookups, today: LocalDate): ImportPreview {
@@ -163,17 +170,17 @@ object AssetImportParser {
             if (costRaw.isNotEmpty() && cost == null) errors += "Harga \"$costRaw\" tidak valid"
 
             val conditionRaw = cell(ImportColumn.CONDITION)
-            val condition = matchEnum(conditionRaw, AssetCondition.entries.map { it.name to it.label })?.let(AssetCondition::valueOf)
-            if (condition == null) errors += if (conditionRaw.isEmpty()) "Kondisi kosong" else "Kondisi \"$conditionRaw\" tidak dikenal (Baik/Cukup/Rusak Ringan/Rusak Berat)"
+            val condition = matchEnum(conditionRaw, AssetCondition.entries.map { it.name to it.label }, conditionAliases)?.let(AssetCondition::valueOf)
+            if (condition == null) errors += if (conditionRaw.isEmpty()) "Kondisi kosong" else "Kondisi \"$conditionRaw\" tidak dikenal (Baik/Rusak)"
             val statusRaw = cell(ImportColumn.STATUS)
-            val status = matchEnum(statusRaw, AssetStatus.entries.map { it.name to it.label })?.let(AssetStatus::valueOf)
-            if (status == null) errors += if (statusRaw.isEmpty()) "Status kosong" else "Status \"$statusRaw\" tidak dikenal"
+            val status = matchEnum(statusRaw, AssetStatus.entries.map { it.name to it.label }, statusAliases)?.let(AssetStatus::valueOf)
+            if (status == null) errors += if (statusRaw.isEmpty()) "Status kosong" else "Status \"$statusRaw\" tidak dikenal (Digunakan/Tersedia/Dalam Perbaikan/Propose To Write Off/Write Off)"
 
             val input = AssetInput(
-                code = code, name = cell(ImportColumn.NAME), categoryId = categoryId, brandModel = cell(ImportColumn.BRAND),
+                code = code, name = cell(ImportColumn.NAME), categoryId = categoryId,
                 serialNumber = cell(ImportColumn.SERIAL), acquisitionDate = acq, acquisitionCost = cost, locationId = locationId,
-                departmentId = departmentId, picName = cell(ImportColumn.PIC), condition = condition ?: AssetCondition.BAIK,
-                status = status ?: AssetStatus.AKTIF, warrantyUntil = warranty, notes = cell(ImportColumn.NOTES),
+                departmentId = departmentId, condition = condition ?: AssetCondition.BAIK,
+                status = status ?: AssetStatus.DIGUNAKAN, warrantyUntil = warranty, notes = cell(ImportColumn.NOTES),
                 qrCode = qr, userLocationDetail = cell(ImportColumn.USER_LOCATION), divisionId = divisionId,
                 prNumber = cell(ImportColumn.PR), poNumber = cell(ImportColumn.PO), grNumber = cell(ImportColumn.GR),
                 requester = cell(ImportColumn.REQUESTER), memoNumber = cell(ImportColumn.MEMO_NO), memoDate = memoDate,

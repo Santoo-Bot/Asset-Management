@@ -28,9 +28,7 @@ fun ConditionChip(condition: AssetCondition, modifier: Modifier = Modifier) {
     val cs = MaterialTheme.colorScheme
     val (bg, fg) = when (condition) {
         AssetCondition.BAIK -> s.successContainer to s.onSuccessContainer
-        AssetCondition.CUKUP -> cs.secondaryContainer to cs.onSecondaryContainer
-        AssetCondition.RUSAK_RINGAN -> s.warningContainer to s.onWarningContainer
-        AssetCondition.RUSAK_BERAT -> s.dangerContainer to s.onDangerContainer
+        AssetCondition.RUSAK -> s.dangerContainer to s.onDangerContainer
     }
     StatusChip(condition.label, bg, fg, modifier)
 }
@@ -40,11 +38,11 @@ fun AssetStatusChip(status: AssetStatus, modifier: Modifier = Modifier) {
     val s = AppTheme.status
     val cs = MaterialTheme.colorScheme
     val (bg, fg) = when (status) {
-        AssetStatus.AKTIF -> cs.primaryContainer to cs.onPrimaryContainer
-        AssetStatus.DIPINJAM -> cs.tertiaryContainer to cs.onTertiaryContainer
+        AssetStatus.DIGUNAKAN -> cs.primaryContainer to cs.onPrimaryContainer
+        AssetStatus.TERSEDIA -> cs.secondaryContainer to cs.onSecondaryContainer
         AssetStatus.DALAM_PERBAIKAN -> s.warningContainer to s.onWarningContainer
-        AssetStatus.DISIMPAN -> cs.secondaryContainer to cs.onSecondaryContainer
-        AssetStatus.DIHAPUS_DIJUAL -> s.dangerContainer to s.onDangerContainer
+        AssetStatus.PROPOSE_WRITE_OFF -> cs.tertiaryContainer to cs.onTertiaryContainer
+        AssetStatus.WRITE_OFF -> s.dangerContainer to s.onDangerContainer
     }
     StatusChip(status.label, bg, fg, modifier)
 }
