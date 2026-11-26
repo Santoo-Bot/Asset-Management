@@ -119,8 +119,10 @@ data class AssetFilter(
     val divisionId: String? = null,
     val departmentId: String? = null,
     val condition: AssetCondition? = null,
-    /** null = semua kecuali Write Off. */
+    /** null = semua status (termasuk Write Off). */
     val status: AssetStatus? = null,
+    /** Sembunyikan aset Write Off (dipakai pemilih aset polis asuransi). */
+    val excludeWriteOff: Boolean = false,
     val sort: AssetSort = AssetSort.CODE,
 ) {
     val activeFilterCount: Int get() = listOfNotNull(categoryId, locationId, divisionId, departmentId, condition, status).size

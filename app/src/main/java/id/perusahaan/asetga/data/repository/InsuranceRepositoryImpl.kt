@@ -129,8 +129,10 @@ class InsuranceRepositoryImpl @Inject constructor(
         return AppResult.Success(Unit)
     }
 
-    override suspend fun addAssets(policyId: String, assetIds: List<String>): AppResult<AddAssetsResult> =
-        addInternal(policyId, assetIds.distinct().associateWith { null }, source = "manual")
+    override suspend fun addAssets(policyId: String, assetIds: List<String>): AppResult<AddAssetsResult> {
+        val eligible = assetIds.distinct().filter { id -> assetDao.getById(id)?.status?.let { it != AssetStatus.WRITE_OFF } == true }
+        return addInternal(policyId, eligible.associateWith { null }, source = "manual")
+    }
 
     /** Tambah aset (dengan nilai pertanggungan opsional). Aset yang sudah ada di polis tidak digandakan. */
     private suspend fun addInternal(policyId: String, items: Map<String, Long?>, source: String): AppResult<AddAssetsResult> {

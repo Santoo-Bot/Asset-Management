@@ -69,7 +69,8 @@ private const val FILTER_WHERE = """
     AND (:divisionId IS NULL OR a.divisionId = :divisionId)
     AND (:departmentId IS NULL OR a.departmentId = :departmentId)
     AND (:condition IS NULL OR a.condition = :condition)
-    AND ((:status IS NULL AND a.status != 'WRITE_OFF') OR a.status = :status)
+    AND (:status IS NULL OR a.status = :status)
+    AND (:excludeWriteOff = 0 OR a.status != 'WRITE_OFF')
 """
 
 @Dao
@@ -94,11 +95,13 @@ interface AssetDao {
         sort: String,
         divisionId: String?,
         departmentId: String?,
+        excludeWriteOff: Boolean,
     ): PagingSource<Int, AssetListRow>
 
     @Query("SELECT a.id FROM assets a WHERE $FILTER_WHERE")
     suspend fun filteredIds(
         query: String, categoryId: String?, locationId: String?, condition: String?, status: String?, divisionId: String?, departmentId: String?,
+        excludeWriteOff: Boolean,
     ): List<String>
 
     @Query(
@@ -106,6 +109,7 @@ interface AssetDao {
     )
     fun count(
         query: String, categoryId: String?, locationId: String?, condition: String?, status: String?, divisionId: String?, departmentId: String?,
+        excludeWriteOff: Boolean,
     ): Flow<Int>
 
     @Query(
@@ -228,6 +232,10 @@ interface AssetDao {
 
     @Query("SELECT id, code, name FROM assets WHERE id IN (:ids)")
     suspend fun briefByIds(ids: List<String>): List<AssetBrief>
+
+    /** Semua foto yang masih dipakai (aset + servis); dipakai untuk membersihkan file foto yatim. */
+    @Query("SELECT photoPath FROM assets WHERE photoPath IS NOT NULL UNION SELECT photoPath FROM service_records WHERE photoPath IS NOT NULL")
+    suspend fun referencedPhotos(): List<String>
 
     @Query("SELECT photoPath FROM assets WHERE id IN (:ids) AND photoPath IS NOT NULL")
     suspend fun assetPhotos(ids: List<String>): List<String>

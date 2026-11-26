@@ -188,6 +188,21 @@ interface MasterUsageDao {
     @Query("UPDATE assets SET divisionId = NULL WHERE divisionId = :id AND deletedAt IS NOT NULL")
     suspend fun detachDivisionFromTrashedAssets(id: String)
 
+    @Query("SELECT COUNT(*) FROM assets WHERE status = 'WRITE_OFF' AND (categoryId = :id OR locationId = :id OR divisionId = :id OR departmentId = :id)")
+    suspend fun writeOffAssetsUsing(id: String): Int
+
+    @Query("UPDATE asset_mutations SET fromLocationId = NULL WHERE fromLocationId = :id")
+    suspend fun detachLocationFromMutationsFrom(id: String)
+
+    @Query("UPDATE asset_mutations SET toLocationId = NULL WHERE toLocationId = :id")
+    suspend fun detachLocationFromMutationsTo(id: String)
+
+    @Query("DELETE FROM audit_items WHERE sessionId IN (SELECT id FROM audit_sessions WHERE locationId = :id)")
+    suspend fun deleteOpnameItemsAt(id: String)
+
+    @Query("DELETE FROM audit_sessions WHERE locationId = :id")
+    suspend fun deleteOpnameSessionsAt(id: String): Int
+
     @Query("SELECT COUNT(*) FROM service_records WHERE vendorId = :id")
     suspend fun servicesWithVendor(id: String): Int
 

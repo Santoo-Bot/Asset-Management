@@ -77,6 +77,13 @@ class PhotoStorage @Inject constructor(
         relativePath?.let { File(context.filesDir, it).delete() }
     }
 
+    /** Hapus file foto yang tidak lagi dirujuk data mana pun. Mengembalikan jumlah file yang dihapus. */
+    suspend fun deleteUnreferenced(referenced: Collection<String>): Int = withContext(Dispatchers.IO) {
+        val keep = referenced.toHashSet()
+        val dir = File(context.filesDir, DIR)
+        dir.listFiles().orEmpty().count { file -> file.isFile && "$DIR/${file.name}" !in keep && file.delete() }
+    }
+
     companion object {
         const val DIR = "photos"
         const val MAX_SIDE = 1280

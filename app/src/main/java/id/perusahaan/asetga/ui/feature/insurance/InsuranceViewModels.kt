@@ -242,7 +242,8 @@ class InsuranceAssetPickerViewModel @Inject constructor(
 ) : ViewModel() {
     val policyId = savedStateHandle.toRoute<InsuranceAssetPickerRoute>().policyId
 
-    private val _filter = MutableStateFlow(AssetFilter())
+    // Aset Write Off tidak bisa diasuransikan, jadi tidak ditampilkan di pemilih.
+    private val _filter = MutableStateFlow(AssetFilter(excludeWriteOff = true))
     val filter: StateFlow<AssetFilter> = _filter.asStateFlow()
     val items: Flow<PagingData<AssetListItem>> = _filter.debounce(250).flatMapLatest { assets.paging(it) }.cachedIn(viewModelScope)
     val count: StateFlow<Int?> = _filter.debounce(250).flatMapLatest { assets.count(it) }

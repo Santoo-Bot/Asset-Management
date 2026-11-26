@@ -90,6 +90,7 @@ class InsuranceRepositoryTest {
         assertEquals(1, (repo.addAssets(id, listOf("a1", "a2")) as AppResult.Success).value.alreadyInPolicy)
         assertTrue((repo.addAssetByCode(id, "IT-3") as AppResult.Success).value.contains("sudah ada"))
         assertTrue(repo.addAssetByCode(id, "IT-4") is AppResult.Failure) // Write Off
+        assertEquals(0, (repo.addAssets(id, listOf("a4")) as AppResult.Success).value.added) // Write Off tidak bisa dipilih
         assertTrue(repo.addAssetByCode(id, "TIDAK-ADA") is AppResult.Failure)
 
         val p = repo.observePolicy(id).first()!!

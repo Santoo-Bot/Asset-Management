@@ -47,6 +47,8 @@ import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Singleton
 
+private val ASSET_TYPES = setOf(MasterType.CATEGORY, MasterType.LOCATION, MasterType.DIVISION, MasterType.DEPARTMENT)
+
 @Singleton
 class MasterDataRepositoryImpl @Inject constructor(
     private val db: AppDatabase,
@@ -312,13 +314,22 @@ class MasterDataRepositoryImpl @Inject constructor(
                 MasterType.UNIT -> "Ubah satuan barang tersebut dulu."
                 MasterType.INSURANCE_TYPE, MasterType.INSURER -> "Ubah atau hapus polis tersebut dulu."
             }
-            return AppResult.Failure("$name tidak bisa dihapus karena dipakai ${usage.joinToString(", ")}. $hint")
+            // Aset Write Off sering terlupa; sebutkan agar jelas kenapa masih ada pemakai.
+            val writeOff = if (type in ASSET_TYPES) usageDao.writeOffAssetsUsing(id) else 0
+            val writeOffNote = if (writeOff > 0) " ($writeOff di antaranya berstatus Write Off)" else ""
+            return AppResult.Failure("$name tidak bisa dihapus karena dipakai ${usage.joinToString(", ")}$writeOffNote. $hint")
         }
 
         db.withTransaction {
             when (type) {
                 MasterType.CATEGORY -> usageDao.deleteCategory(id)
-                MasterType.LOCATION -> usageDao.deleteLocation(id)
+                MasterType.LOCATION -> {
+                    usageDao.detachLocationFromMutationsFrom(id)
+                    usageDao.detachLocationFromMutationsTo(id)
+                    usageDao.deleteOpnameItemsAt(id)
+                    usageDao.deleteOpnameSessionsAt(id)
+                    usageDao.deleteLocation(id)
+                }
                 MasterType.DIVISION -> {
                     usageDao.detachDivisionFromTrashedAssets(id)
                     usageDao.deleteDivision(id)
@@ -356,10 +367,9 @@ class MasterDataRepositoryImpl @Inject constructor(
                     addIfUsed(usageDao.assetsInCategory(id), "aset")
                 }
                 MasterType.LOCATION -> {
+                    // Riwayat mutasi & stock opname tidak menahan; dibersihkan saat lokasi dihapus.
                     addIfUsed(usageDao.assetsInLocation(id), "aset")
                     addIfUsed(usageDao.itemsInLocation(id), "barang stok")
-                    addIfUsed(usageDao.mutationsWithLocation(id), "riwayat mutasi")
-                    addIfUsed(usageDao.opnameInLocation(id), "sesi stock opname")
                 }
                 MasterType.DIVISION -> {
                     addIfUsed(usageDao.departmentsInDivision(id), "departemen")

@@ -119,7 +119,7 @@ class MigrationTest {
         assertEquals(12_000_000L, asset.acquisitionCost)
         assertNull(asset.qrCode)
         assertNull(asset.divisionId)
-        assertEquals(9, db.openHelper.readableDatabase.version)
+        assertEquals(10, db.openHelper.readableDatabase.version)
         assertEquals(AssetStatus.DIGUNAKAN, asset.status)
         db.close()
     }

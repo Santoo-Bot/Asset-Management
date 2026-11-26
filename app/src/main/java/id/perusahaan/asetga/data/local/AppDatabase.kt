@@ -68,7 +68,7 @@ import java.util.UUID
         InsurancePolicyEntity::class,
         InsuranceItemEntity::class,
     ],
-    version = 9,
+    version = 10,
     exportSchema = true,
 )
 @TypeConverters(Converters::class)
@@ -283,7 +283,28 @@ object Migrations {
         }
     }
 
-    val ALL = arrayOf(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9)
+    /** v10: bersihkan referensi yang menunjuk ke data yang sudah dihapus (sisa versi lama). */
+    val MIGRATION_9_10 = object : Migration(9, 10) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            listOf(
+                "UPDATE asset_mutations SET fromLocationId = NULL WHERE fromLocationId IS NOT NULL AND fromLocationId NOT IN (SELECT id FROM locations)",
+                "UPDATE asset_mutations SET toLocationId = NULL WHERE toLocationId IS NOT NULL AND toLocationId NOT IN (SELECT id FROM locations)",
+                "UPDATE asset_mutations SET fromDepartmentId = NULL WHERE fromDepartmentId IS NOT NULL AND fromDepartmentId NOT IN (SELECT id FROM departments)",
+                "UPDATE asset_mutations SET toDepartmentId = NULL WHERE toDepartmentId IS NOT NULL AND toDepartmentId NOT IN (SELECT id FROM departments)",
+                "UPDATE assets SET divisionId = NULL WHERE divisionId IS NOT NULL AND divisionId NOT IN (SELECT id FROM divisions)",
+                "UPDATE departments SET divisionId = NULL WHERE divisionId IS NOT NULL AND divisionId NOT IN (SELECT id FROM divisions)",
+                "DELETE FROM insurance_items WHERE assetId NOT IN (SELECT id FROM assets) OR policyId NOT IN (SELECT id FROM insurance_policies)",
+                "DELETE FROM audit_items WHERE sessionId NOT IN (SELECT id FROM audit_sessions) OR (assetId IS NOT NULL AND assetId NOT IN (SELECT id FROM assets))",
+                "DELETE FROM asset_mutations WHERE assetId NOT IN (SELECT id FROM assets)",
+                "DELETE FROM service_records WHERE assetId NOT IN (SELECT id FROM assets)",
+                "DELETE FROM stock_txns WHERE itemId NOT IN (SELECT id FROM items)",
+            ).forEach(db::execSQL)
+        }
+    }
+
+    val ALL = arrayOf(
+        MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10,
+    )
 }
 
 /** Data awal wajib (semua build): kategori dengan umur ekonomis, satuan, dan pengaturan default. */

@@ -270,7 +270,7 @@ fun AssetListScreen(
         )
         FilterSheet.STATUS -> OptionSheet(
             "Status", AssetStatus.entries, filter.status, { it.label },
-            onDismiss = { sheet = null }, onSelect = { vm.setStatus(it); sheet = null }, noneLabel = "Semua (kecuali Write Off)",
+            onDismiss = { sheet = null }, onSelect = { vm.setStatus(it); sheet = null }, noneLabel = "Semua status",
         )
         FilterSheet.SORT -> OptionSheet(
             "Urutkan", AssetSort.entries, filter.sort, { it.label },
