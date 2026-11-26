@@ -125,14 +125,5 @@ data class AssetFilter(
     val activeFilterCount: Int get() = listOfNotNull(categoryId, locationId, divisionId, condition, status).size
 }
 
-data class DeletedAsset(
-    val id: String,
-    val code: String,
-    val name: String,
-    val categoryName: String,
-    val locationName: String,
-    val deletedAt: Long,
-)
-
-/** Hasil hapus permanen; [photoPaths] = file foto yang perlu dihapus dari penyimpanan. */
+/** Hasil hapus aset (selalu permanen); [photoPaths] = file foto yang perlu dihapus dari penyimpanan. */
 data class PurgeResult(val count: Int, val photoPaths: List<String>)

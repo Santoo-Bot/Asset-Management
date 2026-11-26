@@ -104,11 +104,10 @@ class DeleteFlowsTest {
         assertTrue((master.delete(MasterType.LOCATION, locA.id) as AppResult.Failure).message.contains("aset"))
         assertTrue(master.delete(MasterType.DIVISION, div.id) is AppResult.Failure)
 
-        // Pilih semua → hapus → hapus permanen semua.
+        // Pilih semua → hapus (langsung permanen).
         val all = assets.filteredIds(AssetFilter())
         assertEquals(30, all.size)
-        assertEquals(30, ok(assets.delete(all, "data uji")))
-        assertEquals(30, ok(assets.purge(null)).count)
+        assertEquals(30, ok(assets.delete(all, "data uji")).count)
         assertEquals(0, db.assetDao().countAll())
         assertEquals(0, insurance.observePolicy(policy).first()!!.assetCount)
         // Riwayat audit tetap tersimpan setelah hapus permanen.
@@ -130,7 +129,7 @@ class DeleteFlowsTest {
         assertEquals(0, db.userDao().count())
     }
 
-    @Test fun `departemen dan divisi bisa dihapus walau asetnya masih di Aset terhapus dan punya riwayat mutasi`() = runTest {
+    @Test fun `departemen dan divisi bisa dihapus walau ada riwayat mutasi lama yang mencatat departemen`() = runTest {
         session.login(User("adm", "admin", "Admin GA", Role.ADMIN, hasPin = false, isActive = true))
         val audit = AuditLogRepositoryImpl(db.auditLogDao(), session, clock)
         val master = MasterDataRepositoryImpl(
@@ -149,29 +148,23 @@ class DeleteFlowsTest {
         val div = ok(master.saveDivision(Division("", "Operasional")))
         val dept = ok(master.saveDepartment(Department("", "GA", div.id)))
         val cat = master.observeCategories().first().first { it.codePrefix == "IT" }
-        val asset = ok(
-            assets.save(
-                AssetInput(code = "IT-1", qrCode = "IT-1", name = "Laptop", categoryId = cat.id, locationId = locA.id, departmentId = dept.id,
-                    acquisitionDate = LocalDate.of(2024, 1, 1), acquisitionCost = 1),
-            ),
+        fun input(code: String, deptId: String?) = AssetInput(
+            code = code, qrCode = code, name = code, categoryId = cat.id, locationId = locA.id, departmentId = deptId,
+            acquisitionDate = LocalDate.of(2024, 1, 1), acquisitionCost = 1,
         )
-        ok(ops.recordMutation(MutationInput(asset.id, toLocationId = locB.id)))
-        // Data lama (sebelum perbaikan) yang mencatat departemen di riwayat mutasi.
+        val inDept = ok(assets.save(input("IT-1", dept.id)))
+        val other = ok(assets.save(input("IT-2", null)))
+        ok(ops.recordMutation(MutationInput(other.id, toLocationId = locB.id)))
+        // Data lama (sebelum perbaikan) yang mencatat departemen di riwayat mutasi aset lain.
         db.openHelper.writableDatabase.execSQL("UPDATE asset_mutations SET fromDepartmentId = '${dept.id}', toDepartmentId = '${dept.id}'")
 
-        // Aset aktif masih menahan.
-        assertTrue((master.delete(MasterType.DEPARTMENT, dept.id) as AppResult.Failure).message.contains("1 aset aktif"))
-        // Setelah aset masuk Aset terhapus, departemen lalu divisi bisa dihapus.
-        ok(assets.delete(listOf(asset.id), "salah input"))
+        // Aset yang memakai departemen menahan; setelah aset dihapus, departemen & divisi bisa dihapus.
+        assertTrue((master.delete(MasterType.DEPARTMENT, dept.id) as AppResult.Failure).message.contains("1 aset"))
+        ok(assets.delete(listOf(inDept.id), "salah input"))
         assertTrue((master.delete(MasterType.DIVISION, div.id) as AppResult.Failure).message.contains("1 departemen"))
         assertTrue(master.delete(MasterType.DEPARTMENT, dept.id) is AppResult.Success)
         assertTrue(master.delete(MasterType.DIVISION, div.id) is AppResult.Success)
-
-        val trashed = db.assetDao().getById(asset.id)!!
-        assertEquals(null, trashed.departmentId)
-        assertEquals(null, trashed.divisionId)
-        // Aset terhapus masih bisa dipulihkan, riwayat mutasinya tetap ada.
-        assertTrue(assets.restore(asset.id) is AppResult.Success)
-        assertEquals(1, ops.observeMutations(asset.id).first().size)
+        // Riwayat mutasi aset lain tetap ada.
+        assertEquals(1, ops.observeMutations(other.id).first().size)
     }
 }

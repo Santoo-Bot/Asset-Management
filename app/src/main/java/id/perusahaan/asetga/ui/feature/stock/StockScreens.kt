@@ -26,7 +26,9 @@ import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.Inventory
 import androidx.compose.material.icons.outlined.NorthEast
 import androidx.compose.material.icons.outlined.SouthWest
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -55,6 +57,8 @@ import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -181,7 +185,18 @@ fun ItemDetailScreen(onBack: () -> Unit, onEdit: (String) -> Unit, vm: ItemDetai
     val txns by vm.txns.collectAsStateWithLifecycle()
     val sheet by vm.sheet.collectAsStateWithLifecycle()
     val snackbar = remember { SnackbarHostState() }
+    var confirmDelete by remember { mutableStateOf(false) }
     LaunchedEffect(vm) { vm.messages.collect { snackbar.showSnackbar(it) } }
+    LaunchedEffect(vm) { vm.deleted.collect { onBack() } }
+    if (confirmDelete) {
+        AlertDialog(
+            onDismissRequest = { confirmDelete = false },
+            title = { Text("Hapus barang ${item?.code}?") },
+            text = { Text("Barang beserta seluruh riwayat transaksi masuk/keluarnya dihapus selamanya dan tidak bisa dipulihkan.") },
+            confirmButton = { TextButton(onClick = { confirmDelete = false; vm.deleteItem() }) { Text("Hapus permanen", color = MaterialTheme.colorScheme.error) } },
+            dismissButton = { TextButton(onClick = { confirmDelete = false }) { Text("Batal") } },
+        )
+    }
 
     Scaffold(
         topBar = {
@@ -191,7 +206,7 @@ fun ItemDetailScreen(onBack: () -> Unit, onEdit: (String) -> Unit, vm: ItemDetai
         },
         snackbarHost = { SnackbarHost(snackbar) },
         bottomBar = {
-            if (vm.canEdit && item?.isActive == true) {
+            if (vm.canEdit && item != null) {
                 Surface(tonalElevation = 3.dp) {
                     Row(Modifier.navigationBarsPadding().padding(16.dp, 10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         FilledTonalButton(onClick = { vm.openTxn(StockTxnType.IN) }, modifier = Modifier.weight(1f).height(52.dp)) {
@@ -211,7 +226,6 @@ fun ItemDetailScreen(onBack: () -> Unit, onEdit: (String) -> Unit, vm: ItemDetai
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Text(it.code, style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary)
                     Text(it.name, style = MaterialTheme.typography.headlineSmall)
-                    if (!it.isActive) Text("Nonaktif", color = MaterialTheme.colorScheme.error)
                 }
                 Card(
                     Modifier.fillMaxWidth().padding(horizontal = 16.dp),
@@ -231,9 +245,9 @@ fun ItemDetailScreen(onBack: () -> Unit, onEdit: (String) -> Unit, vm: ItemDetai
                     LabeledValue("Barcode", it.barcode ?: "-")
                     LabeledValue("Lokasi simpan", it.storageLocationName ?: "-")
                     it.notes?.let { n -> LabeledValue("Catatan", n) }
-                    if (vm.canEdit) {
-                        OutlinedButton(onClick = vm::toggleActive, modifier = Modifier.padding(top = 8.dp)) {
-                            Text(if (it.isActive) "Nonaktifkan barang" else "Aktifkan kembali")
+                    if (vm.canDelete) {
+                        OutlinedButton(onClick = { confirmDelete = true }, modifier = Modifier.padding(top = 8.dp)) {
+                            Text("Hapus barang", color = MaterialTheme.colorScheme.error)
                         }
                     }
                 }

@@ -119,7 +119,7 @@ class MigrationTest {
         assertEquals(12_000_000L, asset.acquisitionCost)
         assertNull(asset.qrCode)
         assertNull(asset.divisionId)
-        assertEquals(8, db.openHelper.readableDatabase.version)
+        assertEquals(9, db.openHelper.readableDatabase.version)
         assertEquals(AssetStatus.DIGUNAKAN, asset.status)
         db.close()
     }
@@ -174,7 +174,7 @@ class MigrationTest {
         db.close()
     }
 
-    @Test fun `migrasi 7 ke 8 menghapus permanen polis terhapus tetapi tidak menyentuh aset terhapus`() {
+    @Test fun `migrasi 7 ke 9 menghapus polis terhapus dan memulihkan aset terhapus`() {
         ctx.deleteDatabase(name)
         Room.databaseBuilder(ctx, AppDatabase::class.java, name).addCallback(DefaultData.callback).build().apply { openHelper.writableDatabase; close() }
         val raw = SQLiteDatabase.openDatabase(ctx.getDatabasePath(name).path, null, SQLiteDatabase.OPEN_READWRITE)
@@ -191,6 +191,10 @@ class MigrationTest {
                 "VALUES ('p-ok', 'AKTIF', 't', 'i', 19000, 19365, 1, 1, NULL, 'PENDING')",
             "INSERT INTO insurance_items (id, policyId, assetId, createdAt, updatedAt, syncState) VALUES ('x1', 'p-del', 'a2', 1, 1, 'PENDING')",
             "INSERT INTO insurance_items (id, policyId, assetId, createdAt, updatedAt, syncState) VALUES ('x2', 'p-ok', 'a2', 1, 1, 'PENDING')",
+            "INSERT INTO users (id, username, fullName, role, passwordHash, pinHash, isActive, createdAt, updatedAt, deletedAt, syncState) " +
+                "VALUES ('u-off', 'lama', 'Lama', 'STAFF', 'h', NULL, 0, 1, 1, NULL, 'PENDING')",
+            "INSERT INTO users (id, username, fullName, role, passwordHash, pinHash, isActive, createdAt, updatedAt, deletedAt, syncState) " +
+                "VALUES ('u-on', 'aktif', 'Aktif', 'ADMIN', 'h', NULL, 1, 1, 1, NULL, 'PENDING')",
         ).forEach(raw::execSQL)
         raw.version = 7
         raw.close()
@@ -201,8 +205,10 @@ class MigrationTest {
             assertNotNull(db.insuranceDao().getPolicy("p-ok"))
             assertEquals(listOf("a2"), db.insuranceDao().assetIds("p-ok"))
             assertEquals(1, db.openHelper.readableDatabase.query("SELECT COUNT(*) FROM insurance_items").use { it.moveToFirst(); it.getInt(0) })
-            assertNotNull(db.assetDao().getById("a1")) // aset terhapus tetap ada di Aset terhapus
+            assertNull(db.assetDao().getById("a1")!!.deletedAt) // v9: aset terhapus dipulihkan menjadi aktif
             assertNotNull(db.assetDao().getById("a2"))
+            assertNull(db.userDao().getById("u-off")) // akun nonaktif dihapus
+            assertNotNull(db.userDao().getById("u-on"))
         }
         db.close()
     }

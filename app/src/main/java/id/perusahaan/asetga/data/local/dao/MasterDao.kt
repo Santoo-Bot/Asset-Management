@@ -33,8 +33,6 @@ interface CategoryDao {
     @Update
     suspend fun update(entity: CategoryEntity)
 
-    @Query("UPDATE categories SET isActive = :active, updatedAt = :now, syncState = 'PENDING' WHERE id = :id")
-    suspend fun setActive(id: String, active: Boolean, now: Long)
 }
 
 @Dao
@@ -54,8 +52,6 @@ interface LocationDao {
     @Update
     suspend fun update(entity: LocationEntity)
 
-    @Query("UPDATE locations SET isActive = :active, updatedAt = :now, syncState = 'PENDING' WHERE id = :id")
-    suspend fun setActive(id: String, active: Boolean, now: Long)
 }
 
 @Dao
@@ -78,8 +74,6 @@ interface DivisionDao {
     @Update
     suspend fun update(entity: DivisionEntity)
 
-    @Query("UPDATE divisions SET isActive = :active, updatedAt = :now, syncState = 'PENDING' WHERE id = :id")
-    suspend fun setActive(id: String, active: Boolean, now: Long)
 }
 
 @Dao
@@ -99,8 +93,6 @@ interface DepartmentDao {
     @Update
     suspend fun update(entity: DepartmentEntity)
 
-    @Query("UPDATE departments SET isActive = :active, updatedAt = :now, syncState = 'PENDING' WHERE id = :id")
-    suspend fun setActive(id: String, active: Boolean, now: Long)
 }
 
 @Dao
@@ -120,8 +112,6 @@ interface VendorDao {
     @Update
     suspend fun update(entity: VendorEntity)
 
-    @Query("UPDATE vendors SET isActive = :active, updatedAt = :now, syncState = 'PENDING' WHERE id = :id")
-    suspend fun setActive(id: String, active: Boolean, now: Long)
 }
 
 @Dao
@@ -141,20 +131,18 @@ interface UnitDao {
     @Update
     suspend fun update(entity: UnitEntity)
 
-    @Query("UPDATE units SET isActive = :active, updatedAt = :now, syncState = 'PENDING' WHERE id = :id")
-    suspend fun setActive(id: String, active: Boolean, now: Long)
 }
 
 /** Menghitung pemakaian data master agar data yang masih dipakai tidak terhapus. */
 @Dao
 interface MasterUsageDao {
-    @Query("SELECT COUNT(*) FROM assets WHERE categoryId = :id AND deletedAt IS NULL")
+    @Query("SELECT COUNT(*) FROM assets WHERE categoryId = :id")
     suspend fun assetsInCategory(id: String): Int
 
     @Query("SELECT COUNT(*) FROM assets WHERE categoryId = :id AND deletedAt IS NOT NULL")
     suspend fun deletedAssetsInCategory(id: String): Int
 
-    @Query("SELECT COUNT(*) FROM assets WHERE locationId = :id AND deletedAt IS NULL")
+    @Query("SELECT COUNT(*) FROM assets WHERE locationId = :id")
     suspend fun assetsInLocation(id: String): Int
 
     @Query("SELECT COUNT(*) FROM assets WHERE locationId = :id AND deletedAt IS NOT NULL")
@@ -172,13 +160,13 @@ interface MasterUsageDao {
     @Query("SELECT COUNT(*) FROM departments WHERE divisionId = :id")
     suspend fun departmentsInDivision(id: String): Int
 
-    @Query("SELECT COUNT(*) FROM assets WHERE divisionId = :id AND deletedAt IS NULL")
+    @Query("SELECT COUNT(*) FROM assets WHERE divisionId = :id")
     suspend fun assetsInDivision(id: String): Int
 
     @Query("SELECT COUNT(*) FROM assets WHERE divisionId = :id AND deletedAt IS NOT NULL")
     suspend fun deletedAssetsInDivision(id: String): Int
 
-    @Query("SELECT COUNT(*) FROM assets WHERE departmentId = :id AND deletedAt IS NULL")
+    @Query("SELECT COUNT(*) FROM assets WHERE departmentId = :id")
     suspend fun assetsInDepartment(id: String): Int
 
     @Query("SELECT COUNT(*) FROM assets WHERE departmentId = :id AND deletedAt IS NOT NULL")
@@ -187,7 +175,7 @@ interface MasterUsageDao {
     @Query("SELECT COUNT(*) FROM asset_mutations WHERE fromDepartmentId = :id OR toDepartmentId = :id")
     suspend fun mutationsWithDepartment(id: String): Int
 
-    /** Lepas departemen dari aset di Aset terhapus & riwayat mutasi agar departemen bisa dihapus. */
+    /** Lepas departemen dari riwayat mutasi (data lama) agar departemen bisa dihapus. */
     @Query("UPDATE assets SET departmentId = NULL WHERE departmentId = :id AND deletedAt IS NOT NULL")
     suspend fun detachDepartmentFromTrashedAssets(id: String)
 

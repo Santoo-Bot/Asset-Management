@@ -158,18 +158,6 @@ class MasterListViewModel @Inject constructor(
         }
     }
 
-    fun toggleActive(row: MasterRow) {
-        viewModelScope.launch {
-            when (val r = repo.setActive(type, row.id, !row.isActive)) {
-                is AppResult.Success -> {
-                    _editor.value = null
-                    _messages.send(if (row.isActive) "${row.title} dinonaktifkan" else "${row.title} diaktifkan kembali")
-                }
-                is AppResult.Failure -> _messages.send(r.message)
-            }
-        }
-    }
-
     fun delete(row: MasterRow) {
         if (_editor.value?.saving == true) return
         _editor.update { it?.copy(saving = true, message = null) }

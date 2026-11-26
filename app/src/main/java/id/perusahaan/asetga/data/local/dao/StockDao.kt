@@ -99,8 +99,11 @@ interface StockDao {
     @Update
     suspend fun updateItem(entity: ItemEntity)
 
-    @Query("UPDATE items SET isActive = :active, updatedAt = :now, syncState = 'PENDING' WHERE id = :id")
-    suspend fun setActive(id: String, active: Boolean, now: Long)
+    @Query("DELETE FROM stock_txns WHERE itemId = :id")
+    suspend fun deleteTxnsOfItem(id: String): Int
+
+    @Query("DELETE FROM items WHERE id = :id")
+    suspend fun deleteItem(id: String): Int
 
     @Insert
     suspend fun insertTxn(entity: StockTxnEntity)

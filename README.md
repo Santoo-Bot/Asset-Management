@@ -141,7 +141,7 @@ Peran dicek di UI (tombol disembunyikan) **dan** di lapisan repository.
 - Garansi: Aktif / Segera habis (≤90 hari) / Habis · Servis: Terlambat / Jatuh tempo (≤30 hari) / Terjadwal
 - Stok akhir = stok awal + Σ masuk − Σ keluar; Reorder bila stok ≤ minimum
 
-Data tidak pernah dihapus permanen: master data dan barang **dinonaktifkan**, aset diberi status **Write Off**.
+**Tidak ada soft delete.** Hapus selalu permanen dan tercatat di audit log: aset (beserta riwayat mutasi, servis, polis, opname, foto), barang stok (beserta transaksinya), pengguna, polis, dan master data (hanya bila tidak lagi dipakai). Hapus aset, barang, pengguna, dan master data khusus Admin GA. Aset yang dibuang/dijual cukup diberi status **Write Off** (tetap tercatat).
 
 ## 6. Struktur kode
 
@@ -169,7 +169,7 @@ Perubahan struktur database selalu lewat migrasi (`Migrations` di `AppDatabase.k
 ### Persiapan sinkronisasi multi-pengguna (fase lanjutan)
 
 - UI hanya bergantung pada interface di `domain/repository`. Untuk Supabase/Firebase, tambah sumber data remote + `SyncWorker` di `data/`, lalu ganti binding di `di/AppModule.kt`. Layar tidak perlu diubah.
-- Semua tabel memakai primary key **UUID**, kolom `createdAt`, `updatedAt`, `deletedAt` (soft delete), dan `syncState` (`PENDING`/`SYNCED`), siap untuk sinkronisasi dua arah.
+- Semua tabel memakai primary key **UUID**, kolom `createdAt`, `updatedAt`, `deletedAt` (tidak dipakai; disiapkan untuk sinkronisasi penghapusan antar-perangkat), dan `syncState` (`PENDING`/`SYNCED`), siap untuk sinkronisasi dua arah.
 - Audit log hanya bertambah (append-only), cocok untuk resolusi konflik.
 
 ## 7. Test

@@ -19,7 +19,6 @@ import id.perusahaan.asetga.domain.model.InsuredAsset
 import id.perusahaan.asetga.domain.model.Insurer
 import id.perusahaan.asetga.domain.model.PolicyInput
 import id.perusahaan.asetga.domain.model.PurgeResult
-import id.perusahaan.asetga.domain.model.DeletedAsset
 import id.perusahaan.asetga.domain.model.OpnameItem
 import id.perusahaan.asetga.domain.model.OpnameScanOutcome
 import id.perusahaan.asetga.domain.model.OpnameSession
@@ -72,8 +71,6 @@ interface MasterDataRepository {
     suspend fun saveUnit(unit: MeasureUnit): AppResult<MeasureUnit>
 
     /** Soft delete: master tidak pernah dihapus, hanya dinonaktifkan. */
-    suspend fun setActive(type: MasterType, id: String, active: Boolean): AppResult<Unit>
-
     /**
      * Hapus permanen data master yang belum pernah dipakai. Bila masih dipakai (aset, stok, riwayat),
      * ditolak dengan pesan rincian pemakaiannya.
@@ -91,6 +88,8 @@ interface UserRepository {
     suspend fun updateUser(id: String, fullName: String, role: Role, isActive: Boolean): AppResult<User>
     suspend fun changePassword(id: String, newPassword: String): AppResult<Unit>
     suspend fun setPin(id: String, pin: String?): AppResult<Unit>
+    /** Hapus akun secara permanen. Tidak bisa menghapus diri sendiri atau Admin aktif terakhir. */
+    suspend fun deleteUser(id: String): AppResult<Unit>
 }
 
 data class AppSettings(
@@ -148,16 +147,11 @@ interface AssetRepository {
     /** Tandai aset Write Off (aset tetap tercatat, penyusutan berhenti di [date]). Admin & Staf. */
     suspend fun dispose(id: String, date: LocalDate, value: Long?, note: String): AppResult<Unit>
 
-    /** Hapus karena salah input (soft delete, bisa dipulihkan). Khusus Admin GA. Mengembalikan jumlah aset terhapus. */
-    suspend fun delete(ids: List<String>, reason: String): AppResult<Int>
-    suspend fun restore(id: String): AppResult<Unit>
-
     /**
-     * Hapus PERMANEN aset yang sudah berada di "Aset terhapus" beserta riwayat mutasi, servis, catatan opname,
-     * dan keanggotaan polis asuransinya. [ids] null = semua aset terhapus. Khusus Admin GA.
+     * Hapus aset secara PERMANEN beserta riwayat mutasi, servis, catatan opname, dan keanggotaan polisnya.
+     * Khusus Admin GA, wajib alasan (tercatat di audit log).
      */
-    suspend fun purge(ids: List<String>?): AppResult<PurgeResult>
-    fun observeDeleted(): Flow<List<DeletedAsset>>
+    suspend fun delete(ids: List<String>, reason: String): AppResult<PurgeResult>
 }
 
 interface OperationRepository {
@@ -178,7 +172,8 @@ interface StockRepository {
     fun observeReorderCount(): Flow<Int>
     suspend fun findByCodeOrBarcode(code: String): StockItem?
     suspend fun saveItem(input: ItemInput): AppResult<String>
-    suspend fun setItemActive(id: String, active: Boolean): AppResult<Unit>
+    /** Hapus barang secara permanen beserta riwayat transaksinya. Khusus Admin GA. */
+    suspend fun deleteItem(id: String): AppResult<Unit>
     suspend fun recordTxn(input: StockTxnInput): AppResult<Unit>
 }
 

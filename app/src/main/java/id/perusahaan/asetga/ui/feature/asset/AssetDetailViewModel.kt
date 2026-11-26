@@ -77,7 +77,10 @@ class AssetDetailViewModel @Inject constructor(
 
     fun delete(reason: String) = launchOp {
         when (val r = repo.delete(listOf(assetId), reason)) {
-            is AppResult.Success -> DetailEvent.Deleted
+            is AppResult.Success -> {
+                r.value.photoPaths.forEach(photos::delete)
+                DetailEvent.Deleted
+            }
             is AppResult.Failure -> DetailEvent.Message(r.message)
         }
     }

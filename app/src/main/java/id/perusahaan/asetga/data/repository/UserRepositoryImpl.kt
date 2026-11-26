@@ -141,6 +141,18 @@ class UserRepositoryImpl @Inject constructor(
         return AppResult.Success(Unit)
     }
 
+    override suspend fun deleteUser(id: String): AppResult<Unit> {
+        session.denyUnless { it.canManageUsers }?.let { return it }
+        if (id == session.currentUser?.id) return AppResult.Failure("Anda tidak dapat menghapus akun sendiri")
+        val user = dao.getById(id) ?: return AppResult.Failure("Pengguna tidak ditemukan")
+        if (user.role == Role.ADMIN && user.isActive && dao.countActiveByRole(Role.ADMIN) <= 1) {
+            return AppResult.Failure("Harus ada minimal satu Admin GA")
+        }
+        dao.delete(id)
+        audit.log(AuditEntityType.USER, id, AuditAction.DELETE, "Pengguna ${user.fullName} (@${user.username}) dihapus permanen")
+        return AppResult.Success(Unit)
+    }
+
     companion object {
         // Hash acak tetap (bukan kata sandi siapa pun) untuk menyamakan waktu verifikasi.
         private const val DUMMY_HASH =

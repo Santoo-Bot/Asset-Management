@@ -29,12 +29,15 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.Switch
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -90,7 +93,7 @@ fun UsersScreen(onBack: () -> Unit, vm: UsersViewModel = hiltViewModel()) {
         }
     }
 
-    editor?.let { UserEditorSheet(it, isSelf = it.existing?.id == vm.currentUserId, onChange = vm::update, onSave = vm::save, onDismiss = vm::close) }
+    editor?.let { UserEditorSheet(it, isSelf = it.existing?.id == vm.currentUserId, onChange = vm::update, onSave = vm::save, onDelete = vm::delete, onDismiss = vm::close) }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -100,8 +103,10 @@ private fun UserEditorSheet(
     isSelf: Boolean,
     onChange: ((UserEditorState) -> UserEditorState) -> Unit,
     onSave: () -> Unit,
+    onDelete: () -> Unit,
     onDismiss: () -> Unit,
 ) {
+    var confirmDelete by remember { mutableStateOf(false) }
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
         Column(
             Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).imePadding().navigationBarsPadding().padding(horizontal = 16.dp),
@@ -120,12 +125,6 @@ private fun UserEditorSheet(
                 }
             }
             Text(roleDescription(s.role), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            if (s.existing != null && !isSelf) {
-                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    Text("Akun aktif", Modifier.weight(1f))
-                    Switch(checked = s.isActive, onCheckedChange = { v -> onChange { it.copy(isActive = v) } })
-                }
-            }
             PasswordField(
                 s.password, { v -> onChange { it.copy(password = v) } },
                 if (s.existing == null) "Kata sandi awal" else "Atur ulang kata sandi (opsional)",
@@ -135,6 +134,19 @@ private fun UserEditorSheet(
             Spacer(Modifier.height(8.dp))
             Button(onClick = onSave, enabled = !s.saving, modifier = Modifier.fillMaxWidth().height(52.dp)) {
                 Text(if (s.saving) "Menyimpan…" else "Simpan")
+            }
+            if (s.existing != null && !isSelf) {
+                if (confirmDelete) {
+                    ErrorBanner("Hapus akun ${s.existing.fullName} secara permanen? Pengguna ini tidak bisa masuk lagi.")
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        TextButton(onClick = onDelete) { Text("Ya, hapus permanen", color = MaterialTheme.colorScheme.error) }
+                        TextButton(onClick = { confirmDelete = false }) { Text("Batal") }
+                    }
+                } else {
+                    OutlinedButton(onClick = { confirmDelete = true }, modifier = Modifier.fillMaxWidth().height(52.dp)) {
+                        Text("Hapus pengguna", color = MaterialTheme.colorScheme.error)
+                    }
+                }
             }
             Spacer(Modifier.height(16.dp))
         }

@@ -59,6 +59,19 @@ class UsersViewModel @Inject constructor(
 
     fun update(transform: (UserEditorState) -> UserEditorState) = _editor.update { it?.let(transform) }
 
+    fun delete() {
+        val existing = _editor.value?.existing ?: return
+        viewModelScope.launch {
+            when (val r = repo.deleteUser(existing.id)) {
+                is AppResult.Success -> {
+                    _editor.value = null
+                    _messages.send("Pengguna ${existing.fullName} dihapus")
+                }
+                is AppResult.Failure -> _editor.update { it?.copy(message = r.message) }
+            }
+        }
+    }
+
     fun save() {
         val s = _editor.value ?: return
         if (s.saving) return

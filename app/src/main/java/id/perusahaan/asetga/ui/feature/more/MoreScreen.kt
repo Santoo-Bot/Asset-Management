@@ -13,7 +13,6 @@ import androidx.compose.material.icons.outlined.Backup
 import androidx.compose.material.icons.outlined.Category
 import androidx.compose.material.icons.outlined.History
 import androidx.compose.material.icons.outlined.ImportExport
-import androidx.compose.material.icons.outlined.RestoreFromTrash
 import androidx.compose.material.icons.outlined.TaskAlt
 import androidx.compose.material.icons.outlined.Group
 import androidx.compose.material.icons.outlined.Info
@@ -41,7 +40,6 @@ fun MoreScreen(
     onOpenImportExport: () -> Unit,
     onOpenBackup: () -> Unit,
     onOpenAuditLog: () -> Unit,
-    onOpenDeletedAssets: () -> Unit,
     onOpenInsurance: () -> Unit,
     onOpenUsers: () -> Unit,
     onOpenSettings: () -> Unit,
@@ -64,7 +62,6 @@ fun MoreScreen(
             SectionHeader("Sistem")
             if (user.role.canManageUsers) {
                 MenuRow(Icons.Outlined.Group, "Pengguna & peran", "Tambah pengguna, atur peran, reset kata sandi", onOpenUsers)
-                MenuRow(Icons.Outlined.RestoreFromTrash, "Aset terhapus", "Pulihkan aset yang dihapus karena salah input", onOpenDeletedAssets)
             }
             MenuRow(Icons.Outlined.History, "Audit log", "Siapa mengubah apa dan kapan", onOpenAuditLog)
             MenuRow(Icons.Outlined.Settings, "Pengaturan", "Tema, kunci aplikasi, PIN, kata sandi", onOpenSettings)

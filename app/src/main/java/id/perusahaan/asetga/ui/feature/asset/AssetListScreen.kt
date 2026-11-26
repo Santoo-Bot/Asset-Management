@@ -222,19 +222,19 @@ fun AssetListScreen(
         var reason by remember { mutableStateOf("") }
         AlertDialog(
             onDismissRequest = { confirmDelete = false },
-            title = { Text("Hapus ${selection.size} aset?") },
+            title = { Text("Hapus permanen ${selection.size} aset?") },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     if (selection.size > 50) {
                         Text("${selection.size} aset terpilih (semua hasil pencarian/filter).", fontWeight = FontWeight.SemiBold)
                     }
-                    Text("Gunakan untuk data salah input. Aset hilang dari daftar dan laporan, tetapi masih bisa dipulihkan dari Lainnya → Aset terhapus. Untuk aset yang dibuang/dijual, gunakan status Write Off.")
+                    Text("Aset beserta riwayat mutasi, servis, polis, opname, dan fotonya dihapus selamanya dan TIDAK bisa dipulihkan. Untuk aset yang dibuang/dijual, gunakan status Write Off.")
                     FormTextField(reason, { reason = it }, "Alasan penghapusan", required = true)
                 }
             },
             confirmButton = {
                 TextButton(onClick = { confirmDelete = false; vm.deleteSelected(reason) }, enabled = reason.isNotBlank()) {
-                    Text("Hapus", color = if (reason.isNotBlank()) MaterialTheme.colorScheme.error else androidx.compose.ui.graphics.Color.Unspecified)
+                    Text("Hapus permanen", color = if (reason.isNotBlank()) MaterialTheme.colorScheme.error else androidx.compose.ui.graphics.Color.Unspecified)
                 }
             },
             dismissButton = { TextButton(onClick = { confirmDelete = false }) { Text("Batal") } },

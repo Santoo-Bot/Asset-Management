@@ -47,8 +47,6 @@ import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Singleton
 
-private const val TRASH_LABEL = "aset di menu Aset terhapus"
-
 @Singleton
 class MasterDataRepositoryImpl @Inject constructor(
     private val db: AppDatabase,
@@ -291,33 +289,6 @@ class MasterDataRepositoryImpl @Inject constructor(
         }
     }
 
-    override suspend fun setActive(type: MasterType, id: String, active: Boolean): AppResult<Unit> {
-        session.denyUnless { it.canManageMaster }?.let { return it }
-        val now = clock.millis()
-        val name: String? = when (type) {
-            MasterType.CATEGORY -> categoryDao.getById(id)?.name?.also { categoryDao.setActive(id, active, now) }
-            MasterType.LOCATION -> locationDao.getById(id)?.name?.also { locationDao.setActive(id, active, now) }
-            MasterType.DIVISION -> {
-                if (!active && divisionDao.countActiveDepartments(id) > 0) {
-                    return AppResult.Failure("Nonaktifkan atau pindahkan dulu departemen di bawah divisi ini")
-                }
-                divisionDao.getById(id)?.name?.also { divisionDao.setActive(id, active, now) }
-            }
-            MasterType.DEPARTMENT -> departmentDao.getById(id)?.name?.also { departmentDao.setActive(id, active, now) }
-            MasterType.VENDOR -> vendorDao.getById(id)?.name?.also { vendorDao.setActive(id, active, now) }
-            MasterType.UNIT -> unitDao.getById(id)?.name?.also { unitDao.setActive(id, active, now) }
-            MasterType.INSURANCE_TYPE -> insuranceTypeDao.getById(id)?.name?.also { insuranceTypeDao.setActive(id, active, now) }
-            MasterType.INSURER -> insurerDao.getById(id)?.name?.also { insurerDao.setActive(id, active, now) }
-        }
-        if (name == null) return AppResult.Failure("Data tidak ditemukan")
-        audit.log(
-            AuditEntityType.MASTER, id,
-            if (active) AuditAction.RESTORE else AuditAction.DEACTIVATE,
-            "${type.label} $name ${if (active) "diaktifkan kembali" else "dinonaktifkan"}",
-        )
-        return AppResult.Success(Unit)
-    }
-
     override suspend fun delete(type: MasterType, id: String): AppResult<Unit> {
         session.denyUnless { it.canManageMaster }?.let { return it }
         val name: String = when (type) {
@@ -341,8 +312,7 @@ class MasterDataRepositoryImpl @Inject constructor(
                 MasterType.UNIT -> "Ubah satuan barang tersebut dulu."
                 MasterType.INSURANCE_TYPE, MasterType.INSURER -> "Ubah atau hapus polis tersebut dulu."
             }
-            val trashHint = if (usage.any { it.contains(TRASH_LABEL) }) " Aset di menu Aset terhapus perlu dihapus permanen dulu." else ""
-            return AppResult.Failure("$name tidak bisa dihapus karena dipakai ${usage.joinToString(", ")}. $hint$trashHint")
+            return AppResult.Failure("$name tidak bisa dihapus karena dipakai ${usage.joinToString(", ")}. $hint")
         }
 
         db.withTransaction {
@@ -384,23 +354,21 @@ class MasterDataRepositoryImpl @Inject constructor(
             when (type) {
                 MasterType.CATEGORY -> {
                     addIfUsed(usageDao.assetsInCategory(id), "aset")
-                    addIfUsed(usageDao.deletedAssetsInCategory(id), TRASH_LABEL)
                 }
                 MasterType.LOCATION -> {
                     addIfUsed(usageDao.assetsInLocation(id), "aset")
-                    addIfUsed(usageDao.deletedAssetsInLocation(id), TRASH_LABEL)
                     addIfUsed(usageDao.itemsInLocation(id), "barang stok")
                     addIfUsed(usageDao.mutationsWithLocation(id), "riwayat mutasi")
                     addIfUsed(usageDao.opnameInLocation(id), "sesi stock opname")
                 }
                 MasterType.DIVISION -> {
                     addIfUsed(usageDao.departmentsInDivision(id), "departemen")
-                    // Aset di Aset terhapus tidak menghalangi; divisinya dikosongkan saat divisi dihapus.
-                    addIfUsed(usageDao.assetsInDivision(id), "aset aktif")
+                    // Ditahan oleh aset & departemen yang masih memakai divisi ini.
+                    addIfUsed(usageDao.assetsInDivision(id), "aset")
                 }
                 MasterType.DEPARTMENT -> {
-                    // Aset di Aset terhapus & riwayat mutasi tidak menghalangi; dikosongkan saat departemen dihapus.
-                    addIfUsed(usageDao.assetsInDepartment(id), "aset aktif")
+                    // Riwayat mutasi tidak menghalangi; referensinya dikosongkan saat departemen dihapus.
+                    addIfUsed(usageDao.assetsInDepartment(id), "aset")
                 }
                 MasterType.VENDOR -> addIfUsed(usageDao.servicesWithVendor(id), "catatan servis")
                 MasterType.UNIT -> addIfUsed(usageDao.itemsWithUnit(id), "barang stok")

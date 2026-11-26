@@ -25,6 +25,8 @@ import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -58,7 +60,7 @@ class AssetListViewModel @Inject constructor(
     /** Sedang memproses hapus massal; UI menampilkan progres dan menonaktifkan tombol. */
     val busy: StateFlow<Boolean> = _busy.asStateFlow()
 
-    /** Hapus (soft delete) semua aset terpilih. Khusus Admin GA. */
+    /** Hapus PERMANEN semua aset terpilih. Khusus Admin GA. */
     fun deleteSelected(reason: String) {
         val ids = _selection.value.toList()
         if (ids.isEmpty() || _busy.value) return
@@ -68,8 +70,9 @@ class AssetListViewModel @Inject constructor(
             _busy.value = false
             when (r) {
                 is AppResult.Success -> {
+                    withContext(Dispatchers.IO) { r.value.photoPaths.forEach(photos::delete) }
                     clearSelection()
-                    _messages.send("${r.value} aset dihapus. Bisa dipulihkan dari Lainnya → Aset terhapus.")
+                    _messages.send("${r.value.count} aset dihapus permanen")
                 }
                 is AppResult.Failure -> _messages.send(r.message)
             }

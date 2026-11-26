@@ -40,15 +40,6 @@ data class AssetDetailRow(
 
 data class AssetBrief(val id: String, val code: String, val name: String)
 
-data class DeletedAssetRow(
-    val id: String,
-    val code: String,
-    val name: String,
-    val categoryName: String,
-    val locationName: String,
-    val deletedAt: Long,
-)
-
 data class AssetTotals(val total: Int, val cost: Long)
 
 data class LabelCount(val label: String, val count: Int)
@@ -227,22 +218,10 @@ interface AssetDao {
     @Query("UPDATE assets SET divisionId = :divisionId, updatedAt = :now, syncState = 'PENDING' WHERE departmentId = :departmentId")
     suspend fun syncDivisionForDepartment(departmentId: String, divisionId: String?, now: Long)
 
-    // ---------- Hapus (soft delete) & pulihkan ----------
+    // ---------- Hapus permanen (tidak ada soft delete) ----------
 
-    /** Data tidak dihapus permanen: hanya diberi tanda deletedAt sehingga hilang dari daftar & laporan. */
-    @Query("UPDATE assets SET deletedAt = :now, updatedAt = :now, syncState = 'PENDING' WHERE id IN (:ids) AND deletedAt IS NULL")
-    suspend fun softDelete(ids: List<String>, now: Long): Int
-
-    @Query("UPDATE assets SET deletedAt = NULL, updatedAt = :now, syncState = 'PENDING' WHERE id = :id AND deletedAt IS NOT NULL")
-    suspend fun restore(id: String, now: Long): Int
-
-    // ---------- Hapus permanen (hanya aset yang sudah di "Aset terhapus") ----------
-
-    @Query("SELECT id FROM assets WHERE deletedAt IS NOT NULL")
-    suspend fun deletedIds(): List<String>
-
-    @Query("SELECT id, code, name FROM assets WHERE id IN (:ids) AND deletedAt IS NOT NULL")
-    suspend fun deletedBrief(ids: List<String>): List<AssetBrief>
+    @Query("SELECT id, code, name FROM assets WHERE id IN (:ids)")
+    suspend fun briefByIds(ids: List<String>): List<AssetBrief>
 
     @Query("SELECT photoPath FROM assets WHERE id IN (:ids) AND photoPath IS NOT NULL")
     suspend fun assetPhotos(ids: List<String>): List<String>
@@ -262,13 +241,6 @@ interface AssetDao {
     @Query("DELETE FROM insurance_items WHERE assetId IN (:ids)")
     suspend fun purgeInsuranceItems(ids: List<String>)
 
-    @Query("DELETE FROM assets WHERE id IN (:ids) AND deletedAt IS NOT NULL")
-    suspend fun purgeAssets(ids: List<String>): Int
-
-    @Query(
-        """SELECT a.id, a.code, a.name, c.name AS categoryName, l.name AS locationName, a.deletedAt AS deletedAt
-           FROM assets a JOIN categories c ON c.id = a.categoryId JOIN locations l ON l.id = a.locationId
-           WHERE a.deletedAt IS NOT NULL ORDER BY a.deletedAt DESC, a.code""",
-    )
-    fun observeDeleted(): Flow<List<DeletedAssetRow>>
+    @Query("DELETE FROM assets WHERE id IN (:ids)")
+    suspend fun deleteAssets(ids: List<String>): Int
 }

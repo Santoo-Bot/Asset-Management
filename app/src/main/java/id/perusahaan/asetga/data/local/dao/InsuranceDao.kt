@@ -30,8 +30,6 @@ interface InsuranceTypeDao {
     @Update
     suspend fun update(entity: InsuranceTypeEntity)
 
-    @Query("UPDATE insurance_types SET isActive = :active, updatedAt = :now, syncState = 'PENDING' WHERE id = :id")
-    suspend fun setActive(id: String, active: Boolean, now: Long)
 
     @Query("DELETE FROM insurance_types WHERE id = :id")
     suspend fun delete(id: String): Int
@@ -65,8 +63,6 @@ interface InsurerDao {
     @Update
     suspend fun update(entity: InsurerEntity)
 
-    @Query("UPDATE insurers SET isActive = :active, updatedAt = :now, syncState = 'PENDING' WHERE id = :id")
-    suspend fun setActive(id: String, active: Boolean, now: Long)
 
     @Query("DELETE FROM insurers WHERE id = :id")
     suspend fun delete(id: String): Int

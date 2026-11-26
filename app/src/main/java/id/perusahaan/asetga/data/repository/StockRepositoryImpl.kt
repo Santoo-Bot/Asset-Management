@@ -114,14 +114,14 @@ class StockRepositoryImpl @Inject constructor(
         return AppResult.Success(entity.id)
     }
 
-    override suspend fun setItemActive(id: String, active: Boolean): AppResult<Unit> {
-        session.denyUnless { it.canEditData }?.let { return it }
+    override suspend fun deleteItem(id: String): AppResult<Unit> {
+        session.denyUnless { it.canManageMaster }?.let { return AppResult.Failure("Hanya Admin GA yang dapat menghapus barang") }
         val item = dao.getById(id) ?: return AppResult.Failure("Barang tidak ditemukan")
-        dao.setActive(id, active, clock.millis())
-        audit.log(
-            AuditEntityType.ITEM, id, if (active) AuditAction.RESTORE else AuditAction.DEACTIVATE,
-            "Barang ${item.code} ${if (active) "diaktifkan kembali" else "dinonaktifkan"}",
-        )
+        db.withTransaction {
+            val txns = dao.deleteTxnsOfItem(id)
+            dao.deleteItem(id)
+            audit.log(AuditEntityType.ITEM, id, AuditAction.DELETE, "Barang ${item.code} ${item.name} dihapus permanen beserta $txns transaksi")
+        }
         return AppResult.Success(Unit)
     }
 

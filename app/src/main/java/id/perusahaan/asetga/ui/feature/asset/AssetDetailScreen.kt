@@ -157,9 +157,9 @@ fun AssetDetailScreen(
 }
 
 /**
- * Dua cara "menghapus" tanpa menghapus permanen:
+ * Dua pilihan:
  * 1. Tandai Write Off: aset dibuang/dijual, tetap tercatat (Admin & Staf).
- * 2. Hapus karena salah input: disembunyikan dari semua daftar, bisa dipulihkan (Admin).
+ * 2. Hapus permanen: aset & seluruh riwayatnya dihapus selamanya (Admin).
  */
 @Composable
 private fun DeleteAssetDialog(
@@ -185,9 +185,9 @@ private fun DeleteAssetDialog(
                     ChoiceRow(mode == 0, "Tandai Write Off", "Aset dibuang, rusak total, atau dijual. Tetap tercatat dan bisa dilihat dengan filter status.") { mode = 0 }
                 }
                 if (canDelete) {
-                    ChoiceRow(mode == 1, "Hapus karena salah input", "Hilang dari daftar, laporan, dan dashboard. Masih bisa dipulihkan Admin dari menu Aset terhapus.") { mode = 1 }
+                    ChoiceRow(mode == 1, "Hapus permanen", "Aset beserta riwayat mutasi, servis, polis, opname, dan fotonya dihapus selamanya. Tidak bisa dipulihkan.") { mode = 1 }
                 } else if (alreadyDisposed) {
-                    Text("Aset ini sudah berstatus Write Off. Penghapusan karena salah input hanya bisa dilakukan Admin GA.")
+                    Text("Aset ini sudah berstatus Write Off. Hapus permanen hanya bisa dilakukan Admin GA.")
                 }
                 if (mode == 0 && !alreadyDisposed) {
                     DateField(date, { date = it }, "Tanggal penghapusan/penjualan", required = true)
@@ -207,7 +207,7 @@ private fun DeleteAssetDialog(
             TextButton(
                 onClick = { if (mode == 0) onDispose(date!!, value, text) else onDelete(text) },
                 enabled = enabled,
-            ) { Text(if (mode == 0) "Tandai Write Off" else "Hapus", color = if (enabled) MaterialTheme.colorScheme.error else Color.Unspecified) }
+            ) { Text(if (mode == 0) "Tandai Write Off" else "Hapus permanen", color = if (enabled) MaterialTheme.colorScheme.error else Color.Unspecified) }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Batal") } },
     )

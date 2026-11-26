@@ -113,12 +113,12 @@ class RepositoryTest {
         assertTrue(MasterValidator.FIELD_PREFIX in dup.fieldErrors)
 
         assertTrue(master.saveCategory(saved.copy(usefulLifeYears = 6)) is AppResult.Success)
-        assertTrue(master.setActive(MasterType.CATEGORY, saved.id, false) is AppResult.Success)
+        assertTrue(master.delete(MasterType.CATEGORY, saved.id) is AppResult.Success)
 
         val logs = audit.observeForEntity(AuditEntityType.MASTER, saved.id).first()
         assertEquals(3, logs.size)
         assertTrue(logs.all { it.userName == "Admin GA" })
-        assertEquals(false, master.observeCategories(includeInactive = true).first().first { it.id == saved.id }.isActive)
+        assertTrue(master.observeCategories(includeInactive = true).first().none { it.id == saved.id })
     }
 
     @Test fun `pengaturan default terbaca dan bisa diubah`() = runTest {
@@ -132,7 +132,7 @@ class RepositoryTest {
         assertEquals(5.0, repo.current().defaultResidualPercent, 0.0)
     }
 
-    @Test fun `departemen wajib punya divisi dan divisi berisi departemen aktif tidak bisa dinonaktifkan`() = runTest {
+    @Test fun `departemen wajib punya divisi dan divisi berisi departemen tidak bisa dihapus`() = runTest {
         createAdmin()
         val noDivision = master.saveDepartment(Department("", "Keuangan")) as AppResult.Failure
         assertTrue(MasterValidator.FIELD_DIVISION in noDivision.fieldErrors)
@@ -142,9 +142,9 @@ class RepositoryTest {
         assertEquals("Keuangan & SDM", master.observeDepartments().first().single().divisionName)
         assertTrue(master.saveDivision(Division("", "keuangan & sdm")) is AppResult.Failure) // nama ganda
 
-        assertTrue(master.setActive(MasterType.DIVISION, div.id, false) is AppResult.Failure)
-        assertTrue(master.setActive(MasterType.DEPARTMENT, dept.id, false) is AppResult.Success)
-        assertTrue(master.setActive(MasterType.DIVISION, div.id, false) is AppResult.Success)
+        assertTrue(master.delete(MasterType.DIVISION, div.id) is AppResult.Failure)
+        assertTrue(master.delete(MasterType.DEPARTMENT, dept.id) is AppResult.Success)
+        assertTrue(master.delete(MasterType.DIVISION, div.id) is AppResult.Success)
     }
 
     @Test fun `master yang belum dipakai bisa dihapus, yang dipakai ditolak dengan rincian`() = runTest {
@@ -185,19 +185,16 @@ class RepositoryTest {
         assertTrue(master.delete(MasterType.LOCATION, loc.id) is AppResult.Failure)
     }
 
-    @Test fun `aset di Aset terhapus disebut terpisah saat hapus master`() = runTest {
-        createAdmin()
-        val loc = (master.saveLocation(Location("", "Gudang Lama", null)) as AppResult.Success).value
-        val cat = master.observeCategories().first().first { it.codePrefix == "IT" }
-        db.assetDao().insert(
-            id.perusahaan.asetga.data.local.entity.AssetEntity(
-                id = "t1", code = "IT-9", name = "Lama", categoryId = cat.id, acquisitionDate = java.time.LocalDate.of(2024, 1, 1),
-                acquisitionCost = 1, locationId = loc.id, condition = id.perusahaan.asetga.domain.model.AssetCondition.BAIK,
-                status = id.perusahaan.asetga.domain.model.AssetStatus.DIGUNAKAN, createdAt = 1, updatedAt = 1, deletedAt = 5,
-            ),
-        )
-        val r = master.delete(MasterType.LOCATION, loc.id) as AppResult.Failure
-        assertTrue(r.message, r.message.contains("1 aset di menu Aset terhapus"))
-        assertTrue(r.message.contains("hapus permanen"))
+    @Test fun `hapus pengguna permanen dengan batasan`() = runTest {
+        val admin = createAdmin()
+        val staf = (users.createUser("staf", "Staf", Role.STAFF, "staf12345") as AppResult.Success).value
+        assertTrue(users.deleteUser(admin.id) is AppResult.Failure) // diri sendiri
+        assertTrue(users.deleteUser(staf.id) is AppResult.Success)
+        assertEquals(null, db.userDao().getById(staf.id))
+        val admin2 = (users.createUser("admin2", "Admin Dua", Role.ADMIN, "admin1234") as AppResult.Success).value
+        session.login(admin2)
+        assertTrue(users.deleteUser(admin.id) is AppResult.Success) // masih ada admin lain
+        session.login(staf.copy(role = Role.STAFF))
+        assertTrue(users.deleteUser(admin2.id) is AppResult.Failure) // bukan admin
     }
 }

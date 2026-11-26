@@ -122,10 +122,15 @@ class ItemDetailViewModel @Inject constructor(
         }
     }
 
-    fun toggleActive() = viewModelScope.launch {
-        val current = item.value ?: return@launch
-        when (val r = repo.setItemActive(itemId, !current.isActive)) {
-            is AppResult.Success -> _messages.send(if (current.isActive) "Barang dinonaktifkan" else "Barang diaktifkan kembali")
+    val canDelete = session.currentUser?.role?.canManageMaster == true
+
+    private val _deleted = Channel<Unit>(Channel.BUFFERED)
+    /** Dipancarkan setelah barang dihapus permanen; layar ditutup. */
+    val deleted: Flow<Unit> = _deleted.receiveAsFlow()
+
+    fun deleteItem() = viewModelScope.launch {
+        when (val r = repo.deleteItem(itemId)) {
+            is AppResult.Success -> _deleted.send(Unit)
             is AppResult.Failure -> _messages.send(r.message)
         }
     }

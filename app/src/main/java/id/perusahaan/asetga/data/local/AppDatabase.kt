@@ -68,7 +68,7 @@ import java.util.UUID
         InsurancePolicyEntity::class,
         InsuranceItemEntity::class,
     ],
-    version = 8,
+    version = 9,
     exportSchema = true,
 )
 @TypeConverters(Converters::class)
@@ -236,7 +236,7 @@ object Migrations {
 
     /**
      * v8: hapus permanen semua data yang sebelumnya hanya ditandai terhapus (deletedAt), KECUALI aset
-     * (aset tetap memakai menu "Aset terhapus"). Urutan anak → induk agar relasi tetap konsisten.
+     * (aset ditangani di v9). Urutan anak → induk agar relasi tetap konsisten.
      * Data master hanya dihapus bila tidak lagi dirujuk.
      */
     val MIGRATION_7_8 = object : Migration(7, 8) {
@@ -269,7 +269,21 @@ object Migrations {
         ).forEach(db::execSQL)
     }
 
-    val ALL = arrayOf(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8)
+    /**
+     * v9: tidak ada lagi soft delete / nonaktif. Aset di "Aset terhapus" dipulihkan menjadi aktif,
+     * barang stok nonaktif diaktifkan kembali, dan akun pengguna yang dinonaktifkan dihapus.
+     */
+    val MIGRATION_8_9 = object : Migration(8, 9) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            val now = System.currentTimeMillis()
+            db.execSQL("UPDATE assets SET deletedAt = NULL, updatedAt = $now, syncState = 'PENDING' WHERE deletedAt IS NOT NULL")
+            db.execSQL("UPDATE items SET isActive = 1, updatedAt = $now, syncState = 'PENDING' WHERE isActive = 0")
+            db.execSQL("DELETE FROM users WHERE isActive = 0 OR deletedAt IS NOT NULL")
+            purgeSoftDeleted(db)
+        }
+    }
+
+    val ALL = arrayOf(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9)
 }
 
 /** Data awal wajib (semua build): kategori dengan umur ekonomis, satuan, dan pengaturan default. */

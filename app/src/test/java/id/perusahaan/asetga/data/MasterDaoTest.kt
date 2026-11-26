@@ -53,17 +53,6 @@ class MasterDaoTest {
         }
     }
 
-    @Test fun `nonaktifkan menyembunyikan dari daftar aktif tanpa menghapus`() = runTest {
-        val dao = db.locationDao()
-        dao.insert(LocationEntity("l1", "Gudang A", null, true, 1, 1))
-        dao.insert(LocationEntity("l2", "Gudang B", null, true, 1, 1))
-        dao.setActive("l1", false, 2)
-
-        assertEquals(listOf("Gudang B"), dao.observeAll(includeInactive = false).first().map { it.name })
-        assertEquals(2, dao.observeAll(includeInactive = true).first().size)
-        assertEquals(false, dao.getById("l1")?.isActive)
-    }
-
     @Test fun `cek nama ganda tidak peka huruf besar kecil dan mengecualikan diri sendiri`() = runTest {
         val dao = db.locationDao()
         dao.insert(LocationEntity("l1", "Gudang A", null, true, 1, 1))

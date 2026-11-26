@@ -133,26 +133,19 @@ class AssetDaoTest {
         assertTrue(repo.dispose(a.id, LocalDate.now(), null, "") is AppResult.Failure) // sudah Write Off
     }
 
-    @Test fun `hapus salah input hanya admin, tersembunyi, dan bisa dipulihkan`() = runTest {
+    @Test fun `hapus aset langsung permanen dan hanya admin`() = runTest {
         val a = (repo.save(input("Laptop A")) as AppResult.Success).value
         val b = (repo.save(input("Laptop B")) as AppResult.Success).value
 
         assertTrue(repo.delete(listOf(a.id), "salah input") is AppResult.Failure) // staf ditolak
         session.login(User("adm", "admin", "Admin GA", Role.ADMIN, hasPin = false, isActive = true))
         assertTrue(repo.delete(listOf(a.id), " ") is AppResult.Failure) // alasan wajib
-        assertEquals(2, (repo.delete(listOf(a.id, b.id), "data ganda") as AppResult.Success).value)
+        assertEquals(2, (repo.delete(listOf(a.id, b.id), "data ganda") as AppResult.Success).value.count)
 
         val dao = db.assetDao()
-        assertEquals(0, dao.count("", null, null, null, null, null).first())
+        assertEquals(0, dao.countAll()) // tidak ada soft delete: baris benar-benar hilang
+        assertEquals(null, dao.getById(a.id))
         assertEquals(null, repo.findByCode(a.code))
-        assertEquals(2, repo.observeDeleted().first().size)
-        // Kode lama tetap terpakai agar tidak dobel dengan aset lain.
-        assertEquals("IT-2024-003", (repo.save(input("Laptop C")) as AppResult.Success).value.code)
-
-        assertTrue(repo.restore(a.id) is AppResult.Success)
-        assertEquals(2, dao.count("", null, null, null, null, null).first())
-        assertEquals(1, repo.observeDeleted().first().size)
-        assertTrue(repo.restore(a.id) is AppResult.Failure) // sudah aktif
     }
 
     @Test fun `field pengadaan, memo, dan kode QR tersimpan dan scan cocok dengan kode QR`() = runTest {
@@ -215,14 +208,14 @@ class AssetDaoTest {
         assertTrue(AssetValidator.FIELD_QR in noCode.fieldErrors)
     }
 
-    @Test fun `pilih semua mengikuti filter dan hapus permanen membersihkan riwayat`() = runTest {
+    @Test fun `pilih semua mengikuti filter dan hapus membersihkan riwayat`() = runTest {
         val a = (repo.save(input("Laptop A")) as AppResult.Success).value
         val b = (repo.save(input("Laptop B")) as AppResult.Success).value
         val c = (repo.save(input("Printer C")) as AppResult.Success).value
         // Pilih semua = semua hasil filter.
-        assertEquals(setOf(a.id, b.id), repo.filteredIds(id.perusahaan.asetga.domain.model.AssetFilter(query = "laptop")).toSet())
+        val selected = repo.filteredIds(id.perusahaan.asetga.domain.model.AssetFilter(query = "laptop"))
+        assertEquals(setOf(a.id, b.id), selected.toSet())
 
-        // Riwayat mutasi untuk aset a.
         db.locationDao().insert(LocationEntity("loc-2", "Gudang", null, true, 1, 1))
         val ops = id.perusahaan.asetga.data.repository.OperationRepositoryImpl(
             db, db.assetDao(), db.mutationDao(), db.serviceDao(), db.locationDao(), db.departmentDao(), db.vendorDao(), session,
@@ -231,18 +224,9 @@ class AssetDaoTest {
         assertTrue(ops.recordMutation(id.perusahaan.asetga.domain.model.MutationInput(a.id, toLocationId = "loc-2")) is AppResult.Success)
 
         session.login(User("adm", "admin", "Admin GA", Role.ADMIN, hasPin = false, isActive = true))
-        assertTrue(repo.delete(listOf(a.id, b.id), "salah input") is AppResult.Success)
-        // Aset aktif tidak boleh ikut terhapus permanen.
-        assertEquals(1, (repo.purge(listOf(a.id, c.id)) as AppResult.Success).value.count)
+        assertEquals(2, (repo.delete(selected, "salah input") as AppResult.Success).value.count)
         assertEquals(null, db.assetDao().getById(a.id))
         assertTrue(ops.observeMutations(a.id).first().isEmpty())
         assertTrue(db.assetDao().getById(c.id) != null)
-
-        // Kosongkan semua.
-        assertEquals(1, (repo.purge(null) as AppResult.Success).value.count)
-        assertTrue(repo.observeDeleted().first().isEmpty())
-
-        session.login(User("u1", "staf", "Staf GA", Role.STAFF, hasPin = false, isActive = true))
-        assertTrue(repo.purge(null) is AppResult.Failure)
     }
 }

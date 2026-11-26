@@ -27,7 +27,6 @@ import id.perusahaan.asetga.domain.model.AssetListItem
 import id.perusahaan.asetga.domain.model.AssetStatus
 import id.perusahaan.asetga.domain.model.AuditAction
 import id.perusahaan.asetga.domain.model.AuditEntityType
-import id.perusahaan.asetga.domain.model.DeletedAsset
 import id.perusahaan.asetga.domain.model.PurgeResult
 import id.perusahaan.asetga.domain.model.SyncState
 import id.perusahaan.asetga.domain.repository.AssetRepository
@@ -255,55 +254,26 @@ class AssetRepositoryImpl @Inject constructor(
         return AppResult.Success(Unit)
     }
 
-    override suspend fun delete(ids: List<String>, reason: String): AppResult<Int> {
+    override suspend fun delete(ids: List<String>, reason: String): AppResult<PurgeResult> {
         session.denyUnless { it.canManageMaster }?.let { return AppResult.Failure("Hanya Admin GA yang dapat menghapus aset") }
         if (reason.isBlank()) return AppResult.Failure("Alasan penghapusan wajib diisi")
-        if (ids.isEmpty()) return AppResult.Success(0)
-        val now = clock.millis()
-        var total = 0
-        db.withTransaction {
-            ids.distinct().chunked(500).forEach { chunk ->
-                // Ambil kode sebelum ditandai agar audit log tetap informatif.
-                val targets = dao.listItemsByIds(chunk)
-                total += dao.softDelete(chunk, now)
-                audit.logBatch(AuditEntityType.ASSET, AuditAction.DEACTIVATE, targets.map { a -> a.id to "Aset ${a.code} ${a.name} dihapus (salah input): ${reason.trim()}" })
-            }
-        }
-        return AppResult.Success(total)
-    }
-
-    override suspend fun restore(id: String): AppResult<Unit> {
-        session.denyUnless { it.canManageMaster }?.let { return AppResult.Failure("Hanya Admin GA yang dapat memulihkan aset") }
-        val a = dao.getById(id) ?: return AppResult.Failure("Aset tidak ditemukan")
-        if (dao.restore(id, clock.millis()) == 0) return AppResult.Failure("Aset tidak dalam keadaan terhapus")
-        audit.log(AuditEntityType.ASSET, id, AuditAction.RESTORE, "Aset ${a.code} ${a.name} dipulihkan")
-        return AppResult.Success(Unit)
-    }
-
-    override suspend fun purge(ids: List<String>?): AppResult<PurgeResult> {
-        session.denyUnless { it.canManageMaster }?.let { return AppResult.Failure("Hanya Admin GA yang dapat menghapus permanen") }
         var count = 0
         val photos = mutableListOf<String>()
         db.withTransaction {
-            val targets = (ids ?: dao.deletedIds()).distinct()
-            targets.chunked(500).forEach { chunk ->
-                // Hanya aset yang sudah di-"hapus" (soft delete) yang boleh dihapus permanen.
-                val brief = dao.deletedBrief(chunk)
+            ids.distinct().chunked(500).forEach { chunk ->
+                val brief = dao.briefByIds(chunk)
                 val valid = brief.map { it.id }
                 if (valid.isEmpty()) return@forEach
                 photos += dao.assetPhotos(valid) + dao.servicePhotos(valid)
+                // Urutan anak → induk: riwayat terkait dihapus dulu, lalu asetnya.
                 dao.purgeMutations(valid)
                 dao.purgeServices(valid)
                 dao.purgeOpnameItems(valid)
                 dao.purgeInsuranceItems(valid)
-                count += dao.purgeAssets(valid)
-                audit.logBatch(AuditEntityType.ASSET, AuditAction.DELETE, brief.map { a -> a.id to "Aset ${a.code} ${a.name} dihapus permanen" })
+                count += dao.deleteAssets(valid)
+                audit.logBatch(AuditEntityType.ASSET, AuditAction.DELETE, brief.map { a -> a.id to "Aset ${a.code} ${a.name} dihapus permanen: ${reason.trim()}" })
             }
         }
         return AppResult.Success(PurgeResult(count, photos))
-    }
-
-    override fun observeDeleted(): Flow<List<DeletedAsset>> = dao.observeDeleted().map { rows ->
-        rows.map { DeletedAsset(it.id, it.code, it.name, it.categoryName, it.locationName, it.deletedAt) }
     }
 }
