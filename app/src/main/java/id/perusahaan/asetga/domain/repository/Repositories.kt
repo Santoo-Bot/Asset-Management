@@ -11,6 +11,7 @@ import id.perusahaan.asetga.domain.model.AuditAction
 import id.perusahaan.asetga.domain.model.AuditEntityType
 import id.perusahaan.asetga.domain.model.AuditLogEntry
 import id.perusahaan.asetga.domain.model.Category
+import id.perusahaan.asetga.domain.model.DeletedAsset
 import id.perusahaan.asetga.domain.model.OpnameItem
 import id.perusahaan.asetga.domain.model.OpnameScanOutcome
 import id.perusahaan.asetga.domain.model.OpnameSession
@@ -34,6 +35,7 @@ import id.perusahaan.asetga.domain.model.ThemeMode
 import id.perusahaan.asetga.domain.model.User
 import id.perusahaan.asetga.domain.model.Vendor
 import kotlinx.coroutines.flow.Flow
+import java.time.LocalDate
 
 /*
  * Kontrak repository yang dipakai lapisan UI/use case. Implementasi saat ini memakai Room
@@ -116,6 +118,14 @@ interface AssetRepository {
     /** Usulan kode otomatis PREFIX-TAHUN-NNN berdasarkan kategori & tahun perolehan. */
     suspend fun suggestCode(categoryId: String, year: Int): String
     suspend fun save(input: AssetInput): AppResult<Asset>
+
+    /** Tandai aset Dihapus/Dijual (aset tetap tercatat, penyusutan berhenti di [date]). Admin & Staf. */
+    suspend fun dispose(id: String, date: LocalDate, value: Long?, note: String): AppResult<Unit>
+
+    /** Hapus karena salah input (soft delete, bisa dipulihkan). Khusus Admin GA. Mengembalikan jumlah aset terhapus. */
+    suspend fun delete(ids: List<String>, reason: String): AppResult<Int>
+    suspend fun restore(id: String): AppResult<Unit>
+    fun observeDeleted(): Flow<List<DeletedAsset>>
 }
 
 interface OperationRepository {

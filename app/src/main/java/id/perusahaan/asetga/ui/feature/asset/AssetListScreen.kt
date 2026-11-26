@@ -22,10 +22,12 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.FilterAltOff
 import androidx.compose.material.icons.outlined.Inventory2
 import androidx.compose.material.icons.outlined.QrCode2
 import androidx.compose.material.icons.automirrored.outlined.Sort
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
@@ -36,9 +38,12 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -59,6 +64,7 @@ import id.perusahaan.asetga.domain.model.AssetSort
 import id.perusahaan.asetga.domain.model.AssetStatus
 import id.perusahaan.asetga.ui.components.AppTopBar
 import id.perusahaan.asetga.ui.components.EmptyState
+import id.perusahaan.asetga.ui.components.FormTextField
 import id.perusahaan.asetga.ui.components.OptionSheet
 import id.perusahaan.asetga.util.Fmt
 import java.io.File
@@ -79,6 +85,9 @@ fun AssetListScreen(
     val selection by vm.selection.collectAsStateWithLifecycle()
     val items = vm.assets.collectAsLazyPagingItems()
     var sheet by remember { mutableStateOf<FilterSheet?>(null) }
+    var confirmDelete by remember { mutableStateOf(false) }
+    val snackbar = remember { SnackbarHostState() }
+    LaunchedEffect(vm) { vm.messages.collect { snackbar.showSnackbar(it) } }
     val selecting = selection.isNotEmpty()
 
     Scaffold(
@@ -92,6 +101,9 @@ fun AssetListScreen(
                             Spacer(Modifier.width(4.dp))
                             Text("Label QR", color = MaterialTheme.colorScheme.onPrimary)
                         }
+                        if (vm.canDelete) {
+                            IconButton(onClick = { confirmDelete = true }) { Icon(Icons.Outlined.Delete, contentDescription = "Hapus terpilih") }
+                        }
                         IconButton(onClick = vm::clearSelection) { Icon(Icons.Filled.Close, contentDescription = "Batal pilih") }
                     },
                 )
@@ -99,6 +111,7 @@ fun AssetListScreen(
                 AppTopBar(title = "Aset" + (count?.let { " (${Fmt.number(it.toLong())})" } ?: ""))
             }
         },
+        snackbarHost = { SnackbarHost(snackbar) },
         floatingActionButton = {
             if (vm.canEdit && !selecting) {
                 ExtendedFloatingActionButton(
@@ -180,6 +193,26 @@ fun AssetListScreen(
                 }
             }
         }
+    }
+
+    if (confirmDelete) {
+        var reason by remember { mutableStateOf("") }
+        AlertDialog(
+            onDismissRequest = { confirmDelete = false },
+            title = { Text("Hapus ${selection.size} aset?") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Gunakan untuk data salah input. Aset hilang dari daftar dan laporan, tetapi masih bisa dipulihkan dari Lainnya → Aset terhapus. Untuk aset yang dibuang/dijual, gunakan status Dihapus/Dijual.")
+                    FormTextField(reason, { reason = it }, "Alasan penghapusan", required = true)
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { confirmDelete = false; vm.deleteSelected(reason) }, enabled = reason.isNotBlank()) {
+                    Text("Hapus", color = if (reason.isNotBlank()) MaterialTheme.colorScheme.error else androidx.compose.ui.graphics.Color.Unspecified)
+                }
+            },
+            dismissButton = { TextButton(onClick = { confirmDelete = false }) { Text("Batal") } },
+        )
     }
 
     when (sheet) {

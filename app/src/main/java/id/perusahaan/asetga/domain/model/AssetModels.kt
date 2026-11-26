@@ -94,3 +94,12 @@ data class AssetFilter(
 ) {
     val activeFilterCount: Int get() = listOfNotNull(categoryId, locationId, condition, status).size
 }
+
+data class DeletedAsset(
+    val id: String,
+    val code: String,
+    val name: String,
+    val categoryName: String,
+    val locationName: String,
+    val deletedAt: Long,
+)

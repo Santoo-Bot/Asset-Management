@@ -42,6 +42,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import id.perusahaan.asetga.domain.model.MasterType
 import id.perusahaan.asetga.domain.model.User
 import id.perusahaan.asetga.ui.feature.asset.AssetDetailScreen
+import id.perusahaan.asetga.ui.feature.asset.DeletedAssetsScreen
 import id.perusahaan.asetga.ui.feature.asset.AssetFormScreen
 import id.perusahaan.asetga.ui.feature.asset.AssetListScreen
 import id.perusahaan.asetga.ui.feature.audit.AuditLogScreen
@@ -161,6 +162,7 @@ fun MainScaffold(user: User) {
             composable<ImportExportRoute> { ImportExportScreen(onBack = nav::navigateUp) }
             composable<BackupRoute> { BackupScreen(onBack = nav::navigateUp) }
             composable<AuditLogRoute> { AuditLogScreen(onBack = nav::navigateUp) }
+            composable<DeletedAssetsRoute> { DeletedAssetsScreen(onBack = nav::navigateUp) }
             composable<OpnameListRoute> {
                 OpnameListScreen(onBack = nav::navigateUp, onOpenSession = { nav.navigate(OpnameSessionRoute(it)) })
             }
@@ -216,6 +218,7 @@ fun MainScaffold(user: User) {
                     onOpenImportExport = { nav.navigate(ImportExportRoute) },
                     onOpenBackup = { nav.navigate(BackupRoute) },
                     onOpenAuditLog = { nav.navigate(AuditLogRoute) },
+                    onOpenDeletedAssets = { nav.navigate(DeletedAssetsRoute) },
                     onOpenUsers = { nav.navigate(UsersRoute) },
                     onOpenSettings = { nav.navigate(SettingsRoute) },
                 )

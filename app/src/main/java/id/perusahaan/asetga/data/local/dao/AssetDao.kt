@@ -36,6 +36,15 @@ data class AssetDetailRow(
     val departmentName: String?,
 )
 
+data class DeletedAssetRow(
+    val id: String,
+    val code: String,
+    val name: String,
+    val categoryName: String,
+    val locationName: String,
+    val deletedAt: Long,
+)
+
 data class AssetTotals(val total: Int, val cost: Long)
 
 data class LabelCount(val label: String, val count: Int)
@@ -190,4 +199,20 @@ interface AssetDao {
 
     @Update
     suspend fun update(entity: AssetEntity)
+
+    // ---------- Hapus (soft delete) & pulihkan ----------
+
+    /** Data tidak dihapus permanen: hanya diberi tanda deletedAt sehingga hilang dari daftar & laporan. */
+    @Query("UPDATE assets SET deletedAt = :now, updatedAt = :now, syncState = 'PENDING' WHERE id IN (:ids) AND deletedAt IS NULL")
+    suspend fun softDelete(ids: List<String>, now: Long): Int
+
+    @Query("UPDATE assets SET deletedAt = NULL, updatedAt = :now, syncState = 'PENDING' WHERE id = :id AND deletedAt IS NOT NULL")
+    suspend fun restore(id: String, now: Long): Int
+
+    @Query(
+        """SELECT a.id, a.code, a.name, c.name AS categoryName, l.name AS locationName, a.deletedAt AS deletedAt
+           FROM assets a JOIN categories c ON c.id = a.categoryId JOIN locations l ON l.id = a.locationId
+           WHERE a.deletedAt IS NOT NULL ORDER BY a.deletedAt DESC, a.code""",
+    )
+    fun observeDeleted(): Flow<List<DeletedAssetRow>>
 }

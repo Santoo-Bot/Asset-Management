@@ -19,7 +19,11 @@ import id.perusahaan.asetga.domain.session.SessionManager
 import id.perusahaan.asetga.ui.feature.label.LabelSelection
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.FlowPreview
+import id.perusahaan.asetga.domain.model.AppResult
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.receiveAsFlow
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -44,6 +48,25 @@ class AssetListViewModel @Inject constructor(
 ) : ViewModel() {
 
     val canEdit: Boolean = session.currentUser?.role?.canEditData == true
+    val canDelete: Boolean = session.currentUser?.role?.canManageMaster == true
+
+    private val _messages = Channel<String>(Channel.BUFFERED)
+    val messages: Flow<String> = _messages.receiveAsFlow()
+
+    /** Hapus (soft delete) semua aset terpilih. Khusus Admin GA. */
+    fun deleteSelected(reason: String) {
+        val ids = _selection.value.toList()
+        if (ids.isEmpty()) return
+        viewModelScope.launch {
+            when (val r = repo.delete(ids, reason)) {
+                is AppResult.Success -> {
+                    clearSelection()
+                    _messages.send("${r.value} aset dihapus. Bisa dipulihkan dari Lainnya → Aset terhapus.")
+                }
+                is AppResult.Failure -> _messages.send(r.message)
+            }
+        }
+    }
 
     private val _filter = MutableStateFlow(AssetFilter())
     val filter: StateFlow<AssetFilter> = _filter.asStateFlow()

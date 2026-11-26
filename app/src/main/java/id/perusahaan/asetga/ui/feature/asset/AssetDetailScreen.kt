@@ -1,6 +1,7 @@
 package id.perusahaan.asetga.ui.feature.asset
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -18,10 +19,17 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.QrCode2
 import androidx.compose.material.icons.outlined.SearchOff
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.RadioButton
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -34,9 +42,14 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -48,6 +61,9 @@ import id.perusahaan.asetga.domain.model.AssetDetail
 import id.perusahaan.asetga.domain.model.AssetStatus
 import id.perusahaan.asetga.domain.model.AuditLogEntry
 import id.perusahaan.asetga.ui.components.AppTopBar
+import id.perusahaan.asetga.ui.components.DateField
+import id.perusahaan.asetga.ui.components.FormTextField
+import id.perusahaan.asetga.ui.components.MoneyField
 import id.perusahaan.asetga.ui.components.EmptyState
 import id.perusahaan.asetga.ui.components.LabeledValue
 import id.perusahaan.asetga.ui.components.SectionHeader
@@ -66,9 +82,27 @@ fun AssetDetailScreen(
 ) {
     val state by vm.state.collectAsStateWithLifecycle()
     val history by vm.history.collectAsStateWithLifecycle()
+    val busy by vm.busy.collectAsStateWithLifecycle()
+    val snackbar = remember { SnackbarHostState() }
+    var showDelete by remember { mutableStateOf(false) }
+    LaunchedEffect(vm) {
+        vm.events.collect { e ->
+            when (e) {
+                DetailEvent.Deleted -> onBack()
+                is DetailEvent.Message -> snackbar.showSnackbar(e.text)
+            }
+        }
+    }
 
     Scaffold(
-        topBar = { AppTopBar("Detail aset", onBack = onBack) },
+        topBar = {
+            AppTopBar("Detail aset", onBack = onBack, actions = {
+                if (vm.canEdit && state is AssetDetailState.Loaded) {
+                    IconButton(onClick = { showDelete = true }) { Icon(Icons.Outlined.Delete, contentDescription = "Hapus aset") }
+                }
+            })
+        },
+        snackbarHost = { SnackbarHost(snackbar) },
         bottomBar = {
             if (state is AssetDetailState.Loaded) {
                 Surface(tonalElevation = 3.dp) {
@@ -105,6 +139,89 @@ fun AssetDetailScreen(
                 HistorySection(history)
                 Spacer(Modifier.height(24.dp))
             }
+        }
+    }
+
+    val loaded = state as? AssetDetailState.Loaded
+    if (showDelete && loaded != null) {
+        DeleteAssetDialog(
+            detail = loaded.detail,
+            canDelete = vm.canDelete,
+            busy = busy,
+            onDismiss = { showDelete = false },
+            onDispose = { date, value, note -> showDelete = false; vm.dispose(date, value, note) },
+            onDelete = { reason -> showDelete = false; vm.delete(reason) },
+        )
+    }
+}
+
+/**
+ * Dua cara "menghapus" tanpa menghapus permanen:
+ * 1. Tandai Dihapus/Dijual: aset dibuang/dijual, tetap tercatat (Admin & Staf).
+ * 2. Hapus karena salah input: disembunyikan dari semua daftar, bisa dipulihkan (Admin).
+ */
+@Composable
+private fun DeleteAssetDialog(
+    detail: AssetDetail,
+    canDelete: Boolean,
+    busy: Boolean,
+    onDismiss: () -> Unit,
+    onDispose: (LocalDate, Long?, String) -> Unit,
+    onDelete: (String) -> Unit,
+) {
+    val alreadyDisposed = detail.asset.status == AssetStatus.DIHAPUS_DIJUAL
+    var mode by remember { mutableStateOf(if (alreadyDisposed && canDelete) 1 else 0) }
+    var date by remember { mutableStateOf<LocalDate?>(LocalDate.now()) }
+    var value by remember { mutableStateOf<Long?>(null) }
+    var text by remember { mutableStateOf("") }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Hapus ${detail.asset.code}?") },
+        text = {
+            Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(detail.asset.name, style = MaterialTheme.typography.titleSmall)
+                if (!alreadyDisposed) {
+                    ChoiceRow(mode == 0, "Tandai Dihapus/Dijual", "Aset dibuang, rusak total, atau dijual. Tetap tercatat dan bisa dilihat dengan filter status.") { mode = 0 }
+                }
+                if (canDelete) {
+                    ChoiceRow(mode == 1, "Hapus karena salah input", "Hilang dari daftar, laporan, dan dashboard. Masih bisa dipulihkan Admin dari menu Aset terhapus.") { mode = 1 }
+                } else if (alreadyDisposed) {
+                    Text("Aset ini sudah berstatus Dihapus/Dijual. Penghapusan karena salah input hanya bisa dilakukan Admin GA.")
+                }
+                if (mode == 0 && !alreadyDisposed) {
+                    DateField(date, { date = it }, "Tanggal penghapusan/penjualan", required = true)
+                    MoneyField(value, { value = it }, "Nilai jual (opsional)")
+                    FormTextField(text, { text = it }, "Keterangan (opsional)")
+                } else if (mode == 1 && canDelete) {
+                    FormTextField(text, { text = it }, "Alasan penghapusan", required = true, singleLine = false, minLines = 2)
+                }
+            }
+        },
+        confirmButton = {
+            val enabled = !busy && when {
+                mode == 0 && !alreadyDisposed -> date != null
+                mode == 1 && canDelete -> text.isNotBlank()
+                else -> false
+            }
+            TextButton(
+                onClick = { if (mode == 0) onDispose(date!!, value, text) else onDelete(text) },
+                enabled = enabled,
+            ) { Text(if (mode == 0) "Tandai Dihapus/Dijual" else "Hapus", color = if (enabled) MaterialTheme.colorScheme.error else Color.Unspecified) }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Batal") } },
+    )
+}
+
+@Composable
+private fun ChoiceRow(selected: Boolean, title: String, subtitle: String, onClick: () -> Unit) {
+    Row(
+        Modifier.fillMaxWidth().clickable(onClick = onClick).padding(vertical = 4.dp),
+        verticalAlignment = Alignment.Top,
+    ) {
+        RadioButton(selected = selected, onClick = onClick)
+        Column(Modifier.padding(top = 12.dp)) {
+            Text(title, style = MaterialTheme.typography.bodyLarge)
+            Text(subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }

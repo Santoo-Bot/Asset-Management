@@ -26,6 +26,7 @@ import id.perusahaan.asetga.domain.model.AssetListItem
 import id.perusahaan.asetga.domain.model.AssetStatus
 import id.perusahaan.asetga.domain.model.AuditAction
 import id.perusahaan.asetga.domain.model.AuditEntityType
+import id.perusahaan.asetga.domain.model.DeletedAsset
 import id.perusahaan.asetga.domain.model.SyncState
 import id.perusahaan.asetga.domain.repository.AssetRepository
 import id.perusahaan.asetga.domain.repository.AuditLogRepository
@@ -184,5 +185,61 @@ class AssetRepositoryImpl @Inject constructor(
             }
             AppResult.Success(entity.toDomain())
         }
+    }
+
+    override suspend fun dispose(id: String, date: LocalDate, value: Long?, note: String): AppResult<Unit> {
+        session.denyUnless { it.canEditData }?.let { return it }
+        val old = dao.getById(id)?.takeIf { it.deletedAt == null } ?: return AppResult.Failure("Aset tidak ditemukan")
+        if (old.status == AssetStatus.DIHAPUS_DIJUAL) return AppResult.Failure("Aset sudah berstatus Dihapus/Dijual")
+        if (date.isAfter(today())) return AppResult.Failure("Tanggal tidak boleh di masa depan")
+        if (date.isBefore(old.acquisitionDate)) return AppResult.Failure("Tanggal sebelum tanggal perolehan")
+        if (value != null && value < 0) return AppResult.Failure("Nilai jual tidak valid")
+        val now = clock.millis()
+        dao.update(
+            old.copy(
+                status = AssetStatus.DIHAPUS_DIJUAL, disposalDate = date, disposalValue = value,
+                updatedAt = now, syncState = SyncState.PENDING,
+            ),
+        )
+        audit.log(
+            AuditEntityType.ASSET, id, AuditAction.UPDATE,
+            "Aset ${old.code} ditandai Dihapus/Dijual (${Fmt.date(date)})" + (note.trimToNull()?.let { ": $it" } ?: ""),
+            ChangeSet().apply {
+                field("Status", old.status.label, AssetStatus.DIHAPUS_DIJUAL.label)
+                field("Nilai jual", null, value?.let(Fmt::rupiah))
+            }.build(),
+        )
+        return AppResult.Success(Unit)
+    }
+
+    override suspend fun delete(ids: List<String>, reason: String): AppResult<Int> {
+        session.denyUnless { it.canManageMaster }?.let { return AppResult.Failure("Hanya Admin GA yang dapat menghapus aset") }
+        if (reason.isBlank()) return AppResult.Failure("Alasan penghapusan wajib diisi")
+        if (ids.isEmpty()) return AppResult.Success(0)
+        val now = clock.millis()
+        var total = 0
+        db.withTransaction {
+            ids.distinct().chunked(500).forEach { chunk ->
+                // Ambil kode sebelum ditandai agar audit log tetap informatif.
+                val targets = dao.listItemsByIds(chunk)
+                total += dao.softDelete(chunk, now)
+                targets.forEach { a ->
+                    audit.log(AuditEntityType.ASSET, a.id, AuditAction.DEACTIVATE, "Aset ${a.code} ${a.name} dihapus (salah input): ${reason.trim()}")
+                }
+            }
+        }
+        return AppResult.Success(total)
+    }
+
+    override suspend fun restore(id: String): AppResult<Unit> {
+        session.denyUnless { it.canManageMaster }?.let { return AppResult.Failure("Hanya Admin GA yang dapat memulihkan aset") }
+        val a = dao.getById(id) ?: return AppResult.Failure("Aset tidak ditemukan")
+        if (dao.restore(id, clock.millis()) == 0) return AppResult.Failure("Aset tidak dalam keadaan terhapus")
+        audit.log(AuditEntityType.ASSET, id, AuditAction.RESTORE, "Aset ${a.code} ${a.name} dipulihkan")
+        return AppResult.Success(Unit)
+    }
+
+    override fun observeDeleted(): Flow<List<DeletedAsset>> = dao.observeDeleted().map { rows ->
+        rows.map { DeletedAsset(it.id, it.code, it.name, it.categoryName, it.locationName, it.deletedAt) }
     }
 }

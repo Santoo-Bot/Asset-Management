@@ -117,4 +117,35 @@ class AssetDaoTest {
         val logs = db.auditLogDao().observeForEntity(id.perusahaan.asetga.domain.model.AuditEntityType.ASSET, saved.id).first()
         assertEquals(2, logs.size)
     }
+
+    @Test fun `tandai Dihapus Dijual oleh staf`() = runTest {
+        val a = (repo.save(input("Printer")) as AppResult.Success).value
+        assertTrue(repo.dispose(a.id, LocalDate.now(), 500_000, "Rusak total") is AppResult.Success)
+        val e = db.assetDao().getById(a.id)!!
+        assertEquals(AssetStatus.DIHAPUS_DIJUAL, e.status)
+        assertEquals(500_000L, e.disposalValue)
+        assertTrue(repo.dispose(a.id, LocalDate.now(), null, "") is AppResult.Failure) // sudah Dihapus/Dijual
+    }
+
+    @Test fun `hapus salah input hanya admin, tersembunyi, dan bisa dipulihkan`() = runTest {
+        val a = (repo.save(input("Laptop A")) as AppResult.Success).value
+        val b = (repo.save(input("Laptop B")) as AppResult.Success).value
+
+        assertTrue(repo.delete(listOf(a.id), "salah input") is AppResult.Failure) // staf ditolak
+        session.login(User("adm", "admin", "Admin GA", Role.ADMIN, hasPin = false, isActive = true))
+        assertTrue(repo.delete(listOf(a.id), " ") is AppResult.Failure) // alasan wajib
+        assertEquals(2, (repo.delete(listOf(a.id, b.id), "data ganda") as AppResult.Success).value)
+
+        val dao = db.assetDao()
+        assertEquals(0, dao.count("", null, null, null, null).first())
+        assertEquals(null, repo.findByCode(a.code))
+        assertEquals(2, repo.observeDeleted().first().size)
+        // Kode lama tetap terpakai agar tidak dobel dengan aset lain.
+        assertEquals("IT-2024-003", (repo.save(input("Laptop C")) as AppResult.Success).value.code)
+
+        assertTrue(repo.restore(a.id) is AppResult.Success)
+        assertEquals(2, dao.count("", null, null, null, null).first())
+        assertEquals(1, repo.observeDeleted().first().size)
+        assertTrue(repo.restore(a.id) is AppResult.Failure) // sudah aktif
+    }
 }
