@@ -232,59 +232,19 @@ class PolicyDetailViewModel @Inject constructor(
 
 // ---------------- Pilih aset (manual) ----------------
 
-@OptIn(FlowPreview::class, ExperimentalCoroutinesApi::class)
 @HiltViewModel
 class InsuranceAssetPickerViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
-    private val assets: AssetRepository,
+    assets: AssetRepository,
     private val repo: InsuranceRepository,
     master: MasterDataRepository,
-) : ViewModel() {
+) : id.perusahaan.asetga.ui.components.AssetPickerViewModel(assets, master) {
     val policyId = savedStateHandle.toRoute<InsuranceAssetPickerRoute>().policyId
 
-    // Aset Write Off tidak bisa diasuransikan, jadi tidak ditampilkan di pemilih.
-    private val _filter = MutableStateFlow(AssetFilter(excludeWriteOff = true))
-    val filter: StateFlow<AssetFilter> = _filter.asStateFlow()
-    val items: Flow<PagingData<AssetListItem>> = _filter.debounce(250).flatMapLatest { assets.paging(it) }.cachedIn(viewModelScope)
-    val count: StateFlow<Int?> = _filter.debounce(250).flatMapLatest { assets.count(it) }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
-    val inPolicy: StateFlow<Set<String>> = repo.observeAssetIdsInPolicy(policyId)
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptySet())
-    val categories: StateFlow<List<Category>> = master.observeCategories()
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
-    val locations: StateFlow<List<Location>> = master.observeLocations()
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+    override fun existingIds(): Flow<Set<String>> = repo.observeAssetIdsInPolicy(policyId)
 
-    private val _selection = MutableStateFlow<Set<String>>(emptySet())
-    val selection: StateFlow<Set<String>> = _selection.asStateFlow()
-    private val _busy = MutableStateFlow(false)
-    val busy: StateFlow<Boolean> = _busy.asStateFlow()
-    private val _done = Channel<String>(Channel.BUFFERED)
-    /** Pesan hasil; layar ditutup setelah menerima pesan. */
-    val done: Flow<String> = _done.receiveAsFlow()
-
-    fun setQuery(q: String) = _filter.update { it.copy(query = q) }
-    fun setCategory(id: String?) = _filter.update { it.copy(categoryId = id) }
-    fun setLocation(id: String?) = _filter.update { it.copy(locationId = id) }
-    fun toggle(id: String) = _selection.update { if (id in it) it - id else it + id }
-
-    fun addSelected() = add { _selection.value.toList() }
-
-    /** Tambah semua aset yang cocok dengan filter (mis. semua kendaraan di satu lokasi). */
-    fun addAllFiltered() = add { assets.filteredIds(_filter.value) }
-
-    private fun add(ids: suspend () -> List<String>) {
-        if (_busy.value) return
-        _busy.value = true
-        viewModelScope.launch {
-            val r = repo.addAssets(policyId, ids())
-            _busy.value = false
-            _done.send(
-                when (r) {
-                    is AppResult.Success -> "${r.value.added} aset ditambahkan" + if (r.value.alreadyInPolicy > 0) " (${r.value.alreadyInPolicy} sudah ada)" else ""
-                    is AppResult.Failure -> r.message
-                },
-            )
-        }
+    override suspend fun addAssets(ids: List<String>): String = when (val r = repo.addAssets(policyId, ids)) {
+        is AppResult.Success -> "${r.value.added} aset ditambahkan" + if (r.value.alreadyInPolicy > 0) " (${r.value.alreadyInPolicy} sudah ada)" else ""
+        is AppResult.Failure -> r.message
     }
 }

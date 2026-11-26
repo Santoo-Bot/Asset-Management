@@ -187,10 +187,26 @@ interface OpnameRepository {
     fun observeSessions(): Flow<List<OpnameSession>>
     fun observeSession(id: String): Flow<OpnameSession?>
     fun observeItems(sessionId: String): Flow<List<OpnameItem>>
-    /** Membuat sesi + daftar aset yang seharusnya ada di lokasi tersebut. */
-    suspend fun start(locationId: String): AppResult<String>
+    fun observeAssetIds(sessionId: String): Flow<Set<String>>
+
+    /** Langkah 1: buat sesi (nama & tanggal). */
+    suspend fun create(name: String, date: java.time.LocalDate, note: String?): AppResult<String>
+
+    /** Langkah 2: tambah aset ke daftar sesi (manual / upload). Aset Write Off dilewati. */
+    suspend fun addAssets(sessionId: String, assetIds: List<String>): AppResult<id.perusahaan.asetga.domain.model.OpnameAddResult>
+    suspend fun previewImport(sessionId: String, sheet: List<List<String>>): id.perusahaan.asetga.domain.model.OpnameImportPreview
+    suspend fun commitImport(sessionId: String, preview: id.perusahaan.asetga.domain.model.OpnameImportPreview): AppResult<id.perusahaan.asetga.domain.model.OpnameAddResult>
+    suspend fun removeItem(sessionId: String, itemId: String): AppResult<Unit>
+
+    /** Langkah 3: cek fisik (scan atau tandai manual). */
     suspend fun scan(sessionId: String, code: String): OpnameScanOutcome
+    suspend fun updateItem(sessionId: String, itemId: String, found: Boolean, condition: id.perusahaan.asetga.domain.model.AssetCondition?, note: String?): AppResult<Unit>
+
+    /** Langkah 4: selesaikan sesi; laporan dibuat dari hasilnya. */
     suspend fun finish(sessionId: String, note: String): AppResult<Unit>
+
+    /** Hapus sesi beserta daftar & hasilnya (khusus Admin). */
+    suspend fun delete(sessionId: String): AppResult<Unit>
 }
 
 interface InsuranceRepository {

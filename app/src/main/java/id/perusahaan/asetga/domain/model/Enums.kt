@@ -49,7 +49,7 @@ enum class StockTxnType(val label: String) {
 enum class AuditResult(val label: String) {
     DITEMUKAN("Ditemukan"),
     TIDAK_DITEMUKAN("Tidak ditemukan"),
-    TAK_TERDAFTAR("Tidak terdaftar di lokasi ini"),
+    TAK_TERDAFTAR("Di luar daftar"),
 }
 
 enum class AuditEntityType(val label: String) {

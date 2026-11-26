@@ -326,8 +326,6 @@ class MasterDataRepositoryImpl @Inject constructor(
                 MasterType.LOCATION -> {
                     usageDao.detachLocationFromMutationsFrom(id)
                     usageDao.detachLocationFromMutationsTo(id)
-                    usageDao.deleteOpnameItemsAt(id)
-                    usageDao.deleteOpnameSessionsAt(id)
                     usageDao.deleteLocation(id)
                 }
                 MasterType.DIVISION -> {
@@ -367,7 +365,7 @@ class MasterDataRepositoryImpl @Inject constructor(
                     addIfUsed(usageDao.assetsInCategory(id), "aset")
                 }
                 MasterType.LOCATION -> {
-                    // Riwayat mutasi & stock opname tidak menahan; dibersihkan saat lokasi dihapus.
+                    // Riwayat mutasi tidak menahan; rujukannya dikosongkan saat lokasi dihapus.
                     addIfUsed(usageDao.assetsInLocation(id), "aset")
                     addIfUsed(usageDao.itemsInLocation(id), "barang stok")
                 }

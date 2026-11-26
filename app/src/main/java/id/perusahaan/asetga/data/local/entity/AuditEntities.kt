@@ -4,22 +4,22 @@ import androidx.room.Entity
 import androidx.room.ForeignKey
 import androidx.room.Index
 import androidx.room.PrimaryKey
+import id.perusahaan.asetga.domain.model.AssetCondition
 import id.perusahaan.asetga.domain.model.AuditAction
 import id.perusahaan.asetga.domain.model.AuditEntityType
 import id.perusahaan.asetga.domain.model.AuditResult
 import id.perusahaan.asetga.domain.model.SyncState
+import java.time.LocalDate
 
-/** Sesi stock opname / audit aset per lokasi. */
+/** Sesi stock opname: daftar aset yang diperiksa dipilih sendiri (manual / upload), tidak terikat satu lokasi. */
 @Entity(
     tableName = "audit_sessions",
-    foreignKeys = [
-        ForeignKey(entity = LocationEntity::class, parentColumns = ["id"], childColumns = ["locationId"], onDelete = ForeignKey.RESTRICT),
-    ],
-    indices = [Index(value = ["locationId"]), Index(value = ["startedAt"])],
+    indices = [Index(value = ["startedAt"])],
 )
 data class AuditSessionEntity(
     @PrimaryKey val id: String,
-    val locationId: String,
+    val name: String,
+    val opnameDate: LocalDate,
     val startedAt: Long,
     val finishedAt: Long? = null,
     val startedByUserId: String?,
@@ -48,6 +48,9 @@ data class AuditItemEntity(
     val createdAt: Long,
     val updatedAt: Long,
     val syncState: SyncState = SyncState.PENDING,
+    /** Kondisi fisik saat dicek (hanya untuk aset yang ditemukan). */
+    val condition: AssetCondition? = null,
+    val note: String? = null,
 )
 
 /** Catatan siapa mengubah apa dan kapan. Hanya ditambah, tidak pernah diubah. */

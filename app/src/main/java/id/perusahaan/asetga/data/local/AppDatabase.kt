@@ -68,7 +68,7 @@ import java.util.UUID
         InsurancePolicyEntity::class,
         InsuranceItemEntity::class,
     ],
-    version = 10,
+    version = 11,
     exportSchema = true,
 )
 @TypeConverters(Converters::class)
@@ -302,8 +302,31 @@ object Migrations {
         }
     }
 
+    /**
+     * v11: sesi opname tidak lagi terikat lokasi; punya nama & tanggal. Item opname mencatat kondisi fisik & catatan.
+     * Sesi lama diberi nama "Stock opname <lokasi>".
+     */
+    val MIGRATION_10_11 = object : Migration(10, 11) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            listOf(
+                "CREATE TABLE IF NOT EXISTS `_new_audit_sessions` (`id` TEXT NOT NULL, `name` TEXT NOT NULL, `opnameDate` INTEGER NOT NULL, " +
+                    "`startedAt` INTEGER NOT NULL, `finishedAt` INTEGER, `startedByUserId` TEXT, `note` TEXT, `createdAt` INTEGER NOT NULL, " +
+                    "`updatedAt` INTEGER NOT NULL, `deletedAt` INTEGER, `syncState` TEXT NOT NULL, PRIMARY KEY(`id`))",
+                "INSERT INTO `_new_audit_sessions` (id, name, opnameDate, startedAt, finishedAt, startedByUserId, note, createdAt, updatedAt, deletedAt, syncState) " +
+                    "SELECT s.id, 'Stock opname ' || COALESCE((SELECT l.name FROM locations l WHERE l.id = s.locationId), ''), s.startedAt / 86400000, " +
+                    "s.startedAt, s.finishedAt, s.startedByUserId, s.note, s.createdAt, s.updatedAt, s.deletedAt, s.syncState FROM audit_sessions s",
+                "DROP TABLE `audit_sessions`",
+                "ALTER TABLE `_new_audit_sessions` RENAME TO `audit_sessions`",
+                "CREATE INDEX IF NOT EXISTS `index_audit_sessions_startedAt` ON `audit_sessions` (`startedAt`)",
+                "ALTER TABLE `audit_items` ADD COLUMN `condition` TEXT",
+                "ALTER TABLE `audit_items` ADD COLUMN `note` TEXT",
+            ).forEach(db::execSQL)
+        }
+    }
+
     val ALL = arrayOf(
         MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10,
+        MIGRATION_10_11,
     )
 }
 

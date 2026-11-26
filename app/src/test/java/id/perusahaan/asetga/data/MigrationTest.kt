@@ -72,6 +72,24 @@ class MigrationTest {
         "CREATE INDEX IF NOT EXISTS `index_asset_mutations_mutationDate` ON `asset_mutations` (`mutationDate`)",
     )
 
+    /** Tabel stock opname versi 1–10 (sesi terikat lokasi). */
+    private val v10Audit = listOf(
+        "DROP TABLE audit_items",
+        "DROP TABLE audit_sessions",
+        "CREATE TABLE IF NOT EXISTS `audit_sessions` (`id` TEXT NOT NULL, `locationId` TEXT NOT NULL, `startedAt` INTEGER NOT NULL, `finishedAt` INTEGER, " +
+            "`startedByUserId` TEXT, `note` TEXT, `createdAt` INTEGER NOT NULL, `updatedAt` INTEGER NOT NULL, `deletedAt` INTEGER, `syncState` TEXT NOT NULL, " +
+            "PRIMARY KEY(`id`), FOREIGN KEY(`locationId`) REFERENCES `locations`(`id`) ON UPDATE NO ACTION ON DELETE RESTRICT )",
+        "CREATE INDEX IF NOT EXISTS `index_audit_sessions_locationId` ON `audit_sessions` (`locationId`)",
+        "CREATE INDEX IF NOT EXISTS `index_audit_sessions_startedAt` ON `audit_sessions` (`startedAt`)",
+        "CREATE TABLE IF NOT EXISTS `audit_items` (`id` TEXT NOT NULL, `sessionId` TEXT NOT NULL, `assetId` TEXT, `scannedCode` TEXT NOT NULL, " +
+            "`result` TEXT NOT NULL, `scannedAt` INTEGER, `createdAt` INTEGER NOT NULL, `updatedAt` INTEGER NOT NULL, `syncState` TEXT NOT NULL, PRIMARY KEY(`id`), " +
+            "FOREIGN KEY(`sessionId`) REFERENCES `audit_sessions`(`id`) ON UPDATE NO ACTION ON DELETE RESTRICT , " +
+            "FOREIGN KEY(`assetId`) REFERENCES `assets`(`id`) ON UPDATE NO ACTION ON DELETE RESTRICT )",
+        "CREATE INDEX IF NOT EXISTS `index_audit_items_sessionId` ON `audit_items` (`sessionId`)",
+        "CREATE INDEX IF NOT EXISTS `index_audit_items_assetId` ON `audit_items` (`assetId`)",
+        "CREATE INDEX IF NOT EXISTS `index_audit_items_sessionId_scannedCode` ON `audit_items` (`sessionId`, `scannedCode`)",
+    )
+
     @After fun cleanUp() {
         ctx.deleteDatabase(name)
     }
@@ -93,6 +111,7 @@ class MigrationTest {
         raw.execSQL("DROP TABLE insurers")
         raw.execSQL("DROP TABLE insurance_types")
         raw.execSQL("DROP TABLE asset_mutations")
+        v10Audit.forEach(raw::execSQL)
         v1Departments.forEach(raw::execSQL)
         raw.execSQL(v1Assets)
         v1AssetIndices.forEach(raw::execSQL)
@@ -119,7 +138,7 @@ class MigrationTest {
         assertEquals(12_000_000L, asset.acquisitionCost)
         assertNull(asset.qrCode)
         assertNull(asset.divisionId)
-        assertEquals(10, db.openHelper.readableDatabase.version)
+        assertEquals(11, db.openHelper.readableDatabase.version)
         assertEquals(AssetStatus.DIGUNAKAN, asset.status)
         db.close()
     }
@@ -196,6 +215,7 @@ class MigrationTest {
             "INSERT INTO users (id, username, fullName, role, passwordHash, pinHash, isActive, createdAt, updatedAt, deletedAt, syncState) " +
                 "VALUES ('u-on', 'aktif', 'Aktif', 'ADMIN', 'h', NULL, 1, 1, 1, NULL, 'PENDING')",
         ).forEach(raw::execSQL)
+        v10Audit.forEach(raw::execSQL)
         raw.version = 7
         raw.close()
 
@@ -210,6 +230,40 @@ class MigrationTest {
             assertNull(db.userDao().getById("u-off")) // akun nonaktif dihapus
             assertNotNull(db.userDao().getById("u-on"))
         }
+        db.close()
+    }
+
+    @Test fun `migrasi 10 ke 11 mempertahankan sesi opname lama`() {
+        ctx.deleteDatabase(name)
+        Room.databaseBuilder(ctx, AppDatabase::class.java, name).addCallback(DefaultData.callback).build().apply { openHelper.writableDatabase; close() }
+        val raw = SQLiteDatabase.openDatabase(ctx.getDatabasePath(name).path, null, SQLiteDatabase.OPEN_READWRITE)
+        val cat = raw.rawQuery("SELECT id FROM categories LIMIT 1", null).use { it.moveToFirst(); it.getString(0) }
+        v10Audit.forEach(raw::execSQL)
+        val startedAt = 1_735_700_000_000L // 1 Jan 2025
+        listOf(
+            "INSERT INTO locations (id, name, address, isActive, createdAt, updatedAt, deletedAt, syncState) VALUES ('loc', 'Kantor', NULL, 1, 1, 1, NULL, 'PENDING')",
+            "INSERT INTO assets ($assetCols) VALUES ('a1', 'IT-1', 'Laptop', '$cat', 19723, 1, 'loc', 'BAIK', 'DIGUNAKAN', 1, 1, 'PENDING')",
+            "INSERT INTO audit_sessions (id, locationId, startedAt, finishedAt, startedByUserId, note, createdAt, updatedAt, deletedAt, syncState) " +
+                "VALUES ('s1', 'loc', $startedAt, $startedAt, NULL, 'Lama', 1, 1, NULL, 'PENDING')",
+            "INSERT INTO audit_items (id, sessionId, assetId, scannedCode, result, scannedAt, createdAt, updatedAt, syncState) " +
+                "VALUES ('i1', 's1', 'a1', 'IT-1', 'DITEMUKAN', $startedAt, 1, 1, 'PENDING')",
+        ).forEach(raw::execSQL)
+        raw.version = 10
+        raw.close()
+
+        val db = open()
+        runBlocking {
+            val s = db.opnameDao().getSession("s1")!!
+            assertEquals("Stock opname Kantor", s.name)
+            assertEquals(java.time.LocalDate.of(2025, 1, 1), s.opnameDate)
+            assertEquals(1, s.total)
+            assertEquals(1, s.found)
+            assertEquals("Lama", s.note)
+            val item = db.opnameDao().items("s1").single()
+            assertEquals("Kantor", item.locationName)
+            assertNull(item.condition)
+        }
+        assertEquals(11, db.openHelper.readableDatabase.version)
         db.close()
     }
 }

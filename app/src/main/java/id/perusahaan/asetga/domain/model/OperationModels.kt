@@ -123,36 +123,76 @@ data class StockTxn(
 
 data class OpnameSession(
     val id: String,
-    val locationId: String,
-    val locationName: String,
+    val name: String,
+    val date: java.time.LocalDate,
     val startedAt: Long,
     val finishedAt: Long?,
     val startedBy: String?,
     val note: String?,
-    val expected: Int,
+    /** Jumlah aset dalam daftar sesi. */
+    val total: Int,
     val found: Int,
-    val unregistered: Int,
+    /** Ditemukan dengan kondisi fisik Rusak. */
+    val damaged: Int,
+    /** Hasil scan di luar daftar sesi. */
+    val outside: Int,
 ) {
-    val missing: Int get() = expected - found
+    /** Belum dicek (sesi berjalan) / tidak ditemukan (sesi selesai). */
+    val notFound: Int get() = total - found
     val isFinished: Boolean get() = finishedAt != null
+    /** Persentase aset dalam daftar yang ditemukan. */
+    val foundPercent: Int get() = if (total == 0) 0 else found * 100 / total
 }
 
 data class OpnameItem(
     val id: String,
     val assetId: String?,
-    val scannedCode: String,
+    /** Kode aset, atau kode hasil scan bila tidak dikenal. */
+    val code: String,
+    val name: String?,
+    val qrCode: String?,
+    val categoryName: String?,
+    val locationName: String?,
+    val userLocation: String?,
     val result: AuditResult,
-    val scannedAt: Long?,
-    val assetCode: String?,
-    val assetName: String?,
-    val assetLocation: String?,
+    /** Kondisi fisik saat dicek. */
+    val condition: AssetCondition?,
+    /** Kondisi yang tercatat di data aset. */
+    val systemCondition: AssetCondition?,
+    val note: String?,
+    val checkedAt: Long?,
 )
+
+data class OpnameAddResult(val added: Int, val alreadyInSession: Int, val skippedWriteOff: Int = 0) {
+    fun message(): String = buildString {
+        append("$added aset ditambahkan")
+        if (alreadyInSession > 0) append(", $alreadyInSession sudah ada di sesi")
+        if (skippedWriteOff > 0) append(", $skippedWriteOff Write Off dilewati")
+    }
+}
+
+/** Baris file upload daftar aset opname (kode aset atau kode QR). */
+data class OpnameImportRow(
+    val rowNumber: Int,
+    val code: String,
+    val assetId: String?,
+    val assetLabel: String?,
+    val errors: List<String>,
+    val alreadyInSession: Boolean = false,
+) {
+    val isValid: Boolean get() = errors.isEmpty() && assetId != null
+}
+
+data class OpnameImportPreview(val rows: List<OpnameImportRow>, val headerError: String? = null) {
+    val valid: List<OpnameImportRow> get() = rows.filter { it.isValid }
+    val invalid: List<OpnameImportRow> get() = rows.filterNot { it.isValid }
+}
 
 sealed interface OpnameScanOutcome {
     data class Found(val code: String, val name: String) : OpnameScanOutcome
     data class AlreadyScanned(val code: String, val name: String) : OpnameScanOutcome
-    /** Aset terdaftar tetapi tercatat di lokasi lain. */
-    data class OtherLocation(val code: String, val name: String, val location: String) : OpnameScanOutcome
+    /** Aset terdaftar tetapi tidak ada di daftar sesi ini. */
+    data class NotInList(val code: String, val name: String) : OpnameScanOutcome
     data class Unknown(val code: String) : OpnameScanOutcome
     data class Error(val message: String) : OpnameScanOutcome
 }

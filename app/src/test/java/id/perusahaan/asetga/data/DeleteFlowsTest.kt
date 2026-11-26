@@ -67,7 +67,7 @@ class DeleteFlowsTest {
         )
         val ops = OperationRepositoryImpl(db, db.assetDao(), db.mutationDao(), db.serviceDao(), db.locationDao(), db.departmentDao(), db.vendorDao(), session, audit, clock)
         val stock = StockRepositoryImpl(db, db.stockDao(), db.unitDao(), db.locationDao(), session, audit, clock)
-        val opname = OpnameRepositoryImpl(db, db.opnameDao(), db.assetDao(), db.locationDao(), session, audit, clock)
+        val opname = OpnameRepositoryImpl(db, db.opnameDao(), db.assetDao(), session, audit, clock)
         val insurance = InsuranceRepositoryImpl(db, db.insuranceDao(), db.insuranceTypeDao(), db.insurerDao(), db.assetDao(), session, audit, clock)
 
         fun <T> ok(r: AppResult<T>): T = (r as? AppResult.Success)?.value ?: error("Gagal: $r")
@@ -95,7 +95,8 @@ class DeleteFlowsTest {
         ok(ops.saveService(ServiceInput(assetId = ids[1], serviceDate = today, description = "Servis", vendorId = vendor.id, nextServiceDate = today.plusDays(10))))
         val policy = ok(insurance.savePolicy(PolicyInput(policyNumber = "P-1", typeId = type.id, insurerId = insurer.id)))
         ok(insurance.addAssets(policy, ids.take(10)))
-        val session1 = ok(opname.start(locA.id))
+        val session1 = ok(opname.create("Opname A", today, null))
+        ok(opname.addAssets(session1, ids.take(5)))
         opname.scan(session1, ids[2].let { db.assetDao().getById(it)!!.code })
         val item = ok(stock.saveItem(ItemInput(code = "ATK-1", name = "Kertas", unitId = unit.id, storageLocationId = locA.id, initialStock = "5")))
         ok(stock.recordTxn(StockTxnInput(item, StockTxnType.OUT, "1", today)))
@@ -113,11 +114,12 @@ class DeleteFlowsTest {
         // Riwayat audit tetap tersimpan setelah hapus permanen.
         assertTrue(db.auditLogDao().observeForEntity(id.perusahaan.asetga.domain.model.AuditEntityType.ASSET, ids[5]).first().size >= 2) // dibuat + dihapus
 
-        // Setelah aset hilang, master yang hanya dipakai aset bisa dihapus; yang masih dipakai stok/opname/polis tetap ditolak.
+        // Setelah aset hilang, master yang hanya dipakai aset bisa dihapus; yang masih dipakai stok/polis tetap ditolak.
         assertTrue(master.delete(MasterType.DEPARTMENT, dept.id) is AppResult.Success)
         assertTrue(master.delete(MasterType.DIVISION, div.id) is AppResult.Success)
         assertTrue(master.delete(MasterType.LOCATION, locB.id) is AppResult.Success)
-        assertTrue(master.delete(MasterType.LOCATION, locA.id) is AppResult.Failure) // stok & opname
+        assertTrue(master.delete(MasterType.LOCATION, locA.id) is AppResult.Failure) // stok
+        assertEquals(0, db.opnameDao().items(session1).size) // daftar opname ikut bersih saat aset dihapus
         assertTrue(master.delete(MasterType.INSURANCE_TYPE, type.id) is AppResult.Failure) // polis
 
         // Hapus seluruh data: operasional lalu semua.

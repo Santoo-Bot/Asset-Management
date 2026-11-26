@@ -54,7 +54,7 @@ fun MoreScreen(
             SectionHeader("Data")
             MenuRow(Icons.Outlined.Build, "Servis & perawatan", "Jadwal servis, terlambat, jatuh tempo, riwayat", onOpenServices)
             MenuRow(Icons.Outlined.Shield, "Asuransi", "Polis, tipe & perusahaan asuransi, aset yang ditanggung", onOpenInsurance)
-            MenuRow(Icons.Outlined.TaskAlt, "Stock opname aset", "Audit fisik aset per lokasi dengan scan", onOpenOpname)
+            MenuRow(Icons.Outlined.TaskAlt, "Stock opname aset", "Buat sesi, pilih aset, cek fisik, buat laporan", onOpenOpname)
             MenuRow(Icons.Outlined.Category, "Master data", "Kategori, lokasi, departemen, vendor, satuan", onOpenMaster)
             SectionHeader("File")
             MenuRow(Icons.Outlined.ImportExport, "Import & export", "Excel/CSV aset, servis, stok; template import", onOpenImportExport)

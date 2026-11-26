@@ -151,8 +151,6 @@ interface MasterUsageDao {
     @Query("SELECT COUNT(*) FROM items WHERE storageLocationId = :id")
     suspend fun itemsInLocation(id: String): Int
 
-    @Query("SELECT COUNT(*) FROM audit_sessions WHERE locationId = :id")
-    suspend fun opnameInLocation(id: String): Int
 
     @Query("SELECT COUNT(*) FROM asset_mutations WHERE fromLocationId = :id OR toLocationId = :id")
     suspend fun mutationsWithLocation(id: String): Int
@@ -197,11 +195,7 @@ interface MasterUsageDao {
     @Query("UPDATE asset_mutations SET toLocationId = NULL WHERE toLocationId = :id")
     suspend fun detachLocationFromMutationsTo(id: String)
 
-    @Query("DELETE FROM audit_items WHERE sessionId IN (SELECT id FROM audit_sessions WHERE locationId = :id)")
-    suspend fun deleteOpnameItemsAt(id: String)
 
-    @Query("DELETE FROM audit_sessions WHERE locationId = :id")
-    suspend fun deleteOpnameSessionsAt(id: String): Int
 
     @Query("SELECT COUNT(*) FROM service_records WHERE vendorId = :id")
     suspend fun servicesWithVendor(id: String): Int

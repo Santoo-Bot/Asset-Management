@@ -48,6 +48,7 @@ import id.perusahaan.asetga.ui.feature.audit.AuditLogScreen
 import id.perusahaan.asetga.ui.feature.dashboard.DashboardScreen
 import id.perusahaan.asetga.ui.feature.data.BackupScreen
 import id.perusahaan.asetga.ui.feature.data.ImportExportScreen
+import id.perusahaan.asetga.ui.feature.opname.OpnameAssetPickerScreen
 import id.perusahaan.asetga.ui.feature.opname.OpnameListScreen
 import id.perusahaan.asetga.ui.feature.opname.OpnameSessionScreen
 import id.perusahaan.asetga.ui.feature.insurance.AssetInsuranceSection
@@ -212,8 +213,24 @@ fun MainScaffold(user: User) {
             composable<OpnameListRoute> {
                 OpnameListScreen(onBack = nav::navigateUp, onOpenSession = { nav.navigate(OpnameSessionRoute(it)) })
             }
-            composable<OpnameSessionRoute> {
-                OpnameSessionScreen(onBack = nav::navigateUp, onOpenAsset = { nav.navigate(AssetDetailRoute(it)) })
+            composable<OpnameSessionRoute> { entry ->
+                val pickerMessage by entry.savedStateHandle.getStateFlow<String?>(PICKER_MESSAGE_KEY, null).collectAsStateWithLifecycle()
+                OpnameSessionScreen(
+                    onBack = nav::navigateUp,
+                    onOpenAsset = { nav.navigate(AssetDetailRoute(it)) },
+                    onPickAssets = { nav.navigate(OpnameAssetPickerRoute(it)) },
+                    message = pickerMessage,
+                    onMessageConsumed = { entry.savedStateHandle[PICKER_MESSAGE_KEY] = null },
+                )
+            }
+            composable<OpnameAssetPickerRoute> {
+                OpnameAssetPickerScreen(
+                    onBack = nav::navigateUp,
+                    onDone = { message ->
+                        nav.previousBackStackEntry?.savedStateHandle?.set(PICKER_MESSAGE_KEY, message)
+                        nav.popBackStack()
+                    },
+                )
             }
             composable<StockRoute> { entry ->
                 val scanned by entry.savedStateHandle.getStateFlow<String?>(SCAN_RESULT_KEY, null).collectAsStateWithLifecycle()
