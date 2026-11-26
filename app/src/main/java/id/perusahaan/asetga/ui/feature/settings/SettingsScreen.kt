@@ -118,13 +118,6 @@ fun SettingsScreen(onBack: () -> Unit, vm: SettingsViewModel = hiltViewModel()) 
             )
 
             if (user?.role?.canManageMaster == true) {
-                SectionHeader("Label QR")
-                ListItem(
-                    modifier = Modifier.clickable { dialog = SettingsDialog.COMPANY },
-                    leadingContent = { Icon(Icons.Outlined.Business, contentDescription = null) },
-                    headlineContent = { Text("Nama perusahaan pada label") },
-                    supportingContent = { Text(settings.companyName.ifBlank { "Belum diisi" }) },
-                )
                 SectionHeader("Penyusutan")
                 ListItem(
                     modifier = Modifier.clickable { dialog = SettingsDialog.RESIDUAL },

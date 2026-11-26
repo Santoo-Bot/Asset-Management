@@ -17,22 +17,27 @@ import com.google.zxing.qrcode.QRCodeWriter
 import com.google.zxing.qrcode.decoder.ErrorCorrectionLevel
 import java.io.File
 
-/** [qr] = isi QR (kode QR khusus atau kode aset). */
-data class LabelData(val code: String, val name: String, val location: String, val qr: String = code)
+/** [qr] = isi QR (kode QR khusus atau kode aset); dicetak sebagai simbol QR dan teks. */
+data class LabelData(val code: String, val category: String, val qr: String = code)
 
 /**
- * Menggambar label QR aset. Satu lembar A4 berisi grid [COLUMNS] × [ROWS] label (24 label),
- * QR digambar sebagai vektor sehingga tajam saat dicetak. Isi QR = kode aset.
+ * Label aset ukuran 50 × 20 mm: simbol QR, teks kode QR, dan kategori.
+ * Lembar A4 berisi grid [COLUMNS] × [ROWS] label; QR digambar sebagai vektor sehingga tajam saat dicetak.
+ * PNG satu label berukuran persis 50 × 20 mm (cocok untuk printer label).
  */
 object LabelRenderer {
     const val PAGE_W = 595 // A4 dalam point (1/72 inci)
     const val PAGE_H = 842
-    const val COLUMNS = 3
-    const val ROWS = 8
+    private const val MM = 72f / 25.4f
+    const val LABEL_W_MM = 50
+    const val LABEL_H_MM = 20
+    private val CELL_W = LABEL_W_MM * MM
+    private val CELL_H = LABEL_H_MM * MM
+    const val COLUMNS = 4
+    const val ROWS = 14
     const val PER_PAGE = COLUMNS * ROWS
-    private const val MARGIN = 18f
-    private val CELL_W = (PAGE_W - 2 * MARGIN) / COLUMNS
-    private val CELL_H = (PAGE_H - 2 * MARGIN) / ROWS
+    private val MARGIN_X = (PAGE_W - COLUMNS * CELL_W) / 2
+    private val MARGIN_Y = (PAGE_H - ROWS * CELL_H) / 2
 
     fun qrMatrix(content: String): BitMatrix = QRCodeWriter().encode(
         content, BarcodeFormat.QR_CODE, 0, 0,
@@ -57,61 +62,58 @@ object LabelRenderer {
         }
     }
 
-    /** Gambar satu label di area (left, top, CELL_W, CELL_H). */
-    private fun drawLabel(canvas: Canvas, label: LabelData, company: String, left: Float, top: Float) {
-        val pad = 8f
-        val border = Paint().apply { color = Color.rgb(200, 200, 200); style = Paint.Style.STROKE; strokeWidth = 0.5f }
-        canvas.drawRect(left, top, left + CELL_W, top + CELL_H, border)
+    private fun layout(text: String, paint: TextPaint, width: Int, maxLines: Int): StaticLayout =
+        StaticLayout.Builder.obtain(text, 0, text.length, paint, width)
+            .setMaxLines(maxLines).setEllipsize(TextUtils.TruncateAt.END).setAlignment(Layout.Alignment.ALIGN_NORMAL)
+            .setIncludePad(false).build()
 
+    /** Gambar satu label 50 × 20 mm di (left, top). */
+    private fun drawLabel(canvas: Canvas, label: LabelData, left: Float, top: Float, border: Boolean = true) {
+        val pad = 1.5f * MM
+        if (border) {
+            val p = Paint().apply { color = Color.rgb(210, 210, 210); style = Paint.Style.STROKE; strokeWidth = 0.4f }
+            canvas.drawRect(left, top, left + CELL_W, top + CELL_H, p)
+        }
         val qrSize = CELL_H - 2 * pad
         drawQr(canvas, label.qr, left + pad, top + pad, qrSize)
 
-        val textLeft = left + pad + qrSize + 8f
+        val textLeft = left + pad + qrSize + 1.5f * MM
         val textWidth = (left + CELL_W - pad - textLeft).toInt().coerceAtLeast(20)
-        var y = top + pad
 
-        if (company.isNotBlank()) {
-            val p = TextPaint(Paint.ANTI_ALIAS_FLAG).apply { textSize = 6.5f; color = Color.rgb(0, 96, 175) }
-            val text = TextUtils.ellipsize("Milik $company", p, textWidth.toFloat(), TextUtils.TruncateAt.END).toString()
-            canvas.drawText(text, textLeft, y + 7f, p)
-            y += 11f
-        }
-        val codePaint = TextPaint(Paint.ANTI_ALIAS_FLAG).apply { textSize = 10f; typeface = Typeface.DEFAULT_BOLD; color = Color.BLACK }
-        canvas.drawText(TextUtils.ellipsize(label.code, codePaint, textWidth.toFloat(), TextUtils.TruncateAt.END).toString(), textLeft, y + 10f, codePaint)
-        y += 15f
+        // Kode QR: tebal, diperkecil bila terlalu panjang agar tetap terbaca utuh (maks. 2 baris).
+        val codePaint = TextPaint(Paint.ANTI_ALIAS_FLAG).apply { typeface = Typeface.DEFAULT_BOLD; color = Color.BLACK }
+        var size = 9f
+        codePaint.textSize = size
+        while (size > 6f && codePaint.measureText(label.qr) > textWidth * 2) { size -= 0.5f; codePaint.textSize = size }
+        val code = layout(label.qr, codePaint, textWidth, 2)
+        val catPaint = TextPaint(Paint.ANTI_ALIAS_FLAG).apply { textSize = 7f; color = Color.rgb(60, 60, 60) }
+        val cat = layout(label.category, catPaint, textWidth, 2)
 
-        val namePaint = TextPaint(Paint.ANTI_ALIAS_FLAG).apply { textSize = 8f; color = Color.rgb(30, 30, 30) }
-        val layout = StaticLayout.Builder.obtain(label.name, 0, label.name.length, namePaint, textWidth)
-            .setMaxLines(3).setEllipsize(TextUtils.TruncateAt.END).setAlignment(Layout.Alignment.ALIGN_NORMAL).build()
-        canvas.save()
-        canvas.translate(textLeft, y)
-        layout.draw(canvas)
-        canvas.restore()
-
-        val locPaint = TextPaint(Paint.ANTI_ALIAS_FLAG).apply { textSize = 6.5f; color = Color.rgb(90, 90, 90) }
-        canvas.drawText(
-            TextUtils.ellipsize(label.location, locPaint, textWidth.toFloat(), TextUtils.TruncateAt.END).toString(),
-            textLeft, top + CELL_H - pad, locPaint,
-        )
+        val gap = 1.5f
+        val blockH = code.height + gap + cat.height
+        var y = top + (CELL_H - blockH) / 2
+        canvas.save(); canvas.translate(textLeft, y); code.draw(canvas); canvas.restore()
+        y += code.height + gap
+        canvas.save(); canvas.translate(textLeft, y); cat.draw(canvas); canvas.restore()
     }
 
-    private fun drawPage(canvas: Canvas, labels: List<LabelData>, company: String) {
+    private fun drawPage(canvas: Canvas, labels: List<LabelData>) {
         canvas.drawColor(Color.WHITE)
         labels.forEachIndexed { i, label ->
             val col = i % COLUMNS
             val row = i / COLUMNS
-            drawLabel(canvas, label, company, MARGIN + col * CELL_W, MARGIN + row * CELL_H)
+            drawLabel(canvas, label, MARGIN_X + col * CELL_W, MARGIN_Y + row * CELL_H)
         }
     }
 
     fun pageCount(total: Int): Int = (total + PER_PAGE - 1) / PER_PAGE
 
-    fun writePdf(labels: List<LabelData>, company: String, out: File) {
+    fun writePdf(labels: List<LabelData>, out: File) {
         val doc = PdfDocument()
         try {
             labels.chunked(PER_PAGE).forEachIndexed { index, chunk ->
                 val page = doc.startPage(PdfDocument.PageInfo.Builder(PAGE_W, PAGE_H, index + 1).create())
-                drawPage(page.canvas, chunk, company)
+                drawPage(page.canvas, chunk)
                 doc.finishPage(page)
             }
             out.outputStream().use { doc.writeTo(it) }
@@ -121,22 +123,22 @@ object LabelRenderer {
     }
 
     /** Render satu halaman ke bitmap (untuk pratinjau / PNG). [scale] 2 ≈ 144 dpi. */
-    fun renderPage(labels: List<LabelData>, company: String, page: Int, scale: Float): Bitmap {
+    fun renderPage(labels: List<LabelData>, page: Int, scale: Float): Bitmap {
         val chunk = labels.chunked(PER_PAGE).getOrElse(page) { emptyList() }
         val bmp = Bitmap.createBitmap((PAGE_W * scale).toInt(), (PAGE_H * scale).toInt(), Bitmap.Config.ARGB_8888)
         val canvas = Canvas(bmp)
         canvas.scale(scale, scale)
-        drawPage(canvas, chunk, company)
+        drawPage(canvas, chunk)
         return bmp
     }
 
-    /** Render satu label saja (PNG untuk ditempel/cetak printer label). */
-    fun renderSingle(label: LabelData, company: String, scale: Float = 4f): Bitmap {
+    /** Render satu label saja, 50 × 20 mm (PNG untuk printer label). [scale] 4 ≈ 288 dpi. */
+    fun renderSingle(label: LabelData, scale: Float = 4f): Bitmap {
         val bmp = Bitmap.createBitmap((CELL_W * scale).toInt(), (CELL_H * scale).toInt(), Bitmap.Config.ARGB_8888)
         val canvas = Canvas(bmp)
         canvas.scale(scale, scale)
         canvas.drawColor(Color.WHITE)
-        drawLabel(canvas, label, company, 0f, 0f)
+        drawLabel(canvas, label, 0f, 0f, border = false)
         return bmp
     }
 }

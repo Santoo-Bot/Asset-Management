@@ -234,7 +234,7 @@ private fun DetailBody(d: AssetDetail, photo: File?) {
     if (photo != null) {
         AsyncImage(
             model = photo, contentDescription = "Foto ${a.name}", contentScale = ContentScale.Crop,
-            modifier = Modifier.fillMaxWidth().aspectRatio(16f / 9f).background(MaterialTheme.colorScheme.surfaceContainerHigh),
+            modifier = Modifier.fillMaxWidth().aspectRatio(1f).background(MaterialTheme.colorScheme.surfaceContainerHigh),
         )
     }
     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {

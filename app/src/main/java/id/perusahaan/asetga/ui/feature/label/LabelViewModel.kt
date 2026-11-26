@@ -60,10 +60,9 @@ class LabelViewModel @Inject constructor(
         val ids = selection.assetIds
         viewModelScope.launch {
             val items = assets.getListItems(ids)
-            val labels = items.map { LabelData(it.code, it.name, it.locationName, it.qrContent) }
-            val company = settings.current().companyName
-            val preview = withContext(Dispatchers.Default) { if (labels.isEmpty()) null else LabelRenderer.renderPage(labels, company, 0, 1.5f) }
-            _state.value = LabelUiState(loading = false, labels = labels, company = company, preview = preview)
+            val labels = items.map { LabelData(it.code, it.categoryName, it.qrContent) }
+            val preview = withContext(Dispatchers.Default) { if (labels.isEmpty()) null else LabelRenderer.renderPage(labels, 0, 1.5f) }
+            _state.value = LabelUiState(loading = false, labels = labels, preview = preview)
         }
     }
 
@@ -71,7 +70,7 @@ class LabelViewModel @Inject constructor(
         val s = _state.value
         if (page !in 0 until s.pageCount) return
         viewModelScope.launch {
-            val bmp = withContext(Dispatchers.Default) { LabelRenderer.renderPage(s.labels, s.company, page, 1.5f) }
+            val bmp = withContext(Dispatchers.Default) { LabelRenderer.renderPage(s.labels, page, 1.5f) }
             _state.update { it.copy(page = page, preview = bmp) }
         }
     }
@@ -90,7 +89,7 @@ class LabelViewModel @Inject constructor(
 
     private fun pdfFile(s: LabelUiState): File {
         val file = File(ShareHelper.sharedDir(context), "label-aset-${System.currentTimeMillis()}.pdf")
-        LabelRenderer.writePdf(s.labels, s.company, file)
+        LabelRenderer.writePdf(s.labels, file)
         return file
     }
 
@@ -102,9 +101,9 @@ class LabelViewModel @Inject constructor(
         val dir = ShareHelper.sharedDir(context)
         val stamp = System.currentTimeMillis()
         val files = if (s.labels.size == 1) {
-            listOf(writePng(LabelRenderer.renderSingle(s.labels.first(), s.company), File(dir, "label-${s.labels.first().code}-$stamp.png")))
+            listOf(writePng(LabelRenderer.renderSingle(s.labels.first()), File(dir, "label-${s.labels.first().code}-$stamp.png")))
         } else {
-            (0 until s.pageCount).map { p -> writePng(LabelRenderer.renderPage(s.labels, s.company, p, 2f), File(dir, "label-aset-$stamp-hal${p + 1}.png")) }
+            (0 until s.pageCount).map { p -> writePng(LabelRenderer.renderPage(s.labels, p, 2f), File(dir, "label-aset-$stamp-hal${p + 1}.png")) }
         }
         LabelAction.SharePng(files)
     }

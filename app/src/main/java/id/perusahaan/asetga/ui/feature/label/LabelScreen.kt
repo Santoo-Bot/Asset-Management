@@ -104,12 +104,12 @@ fun LabelScreen(onBack: () -> Unit, vm: LabelViewModel = hiltViewModel()) {
             )
             else -> Column(Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState()).padding(16.dp)) {
                 Text(
-                    "${state.labels.size} label · ${state.pageCount} lembar A4 (${LabelRenderer.COLUMNS}×${LabelRenderer.ROWS} per lembar)",
+                    "${state.labels.size} label ${LabelRenderer.LABEL_W_MM}×${LabelRenderer.LABEL_H_MM} mm · ${state.pageCount} lembar A4 " +
+                        "(${LabelRenderer.COLUMNS}×${LabelRenderer.ROWS} per lembar)",
                     style = MaterialTheme.typography.titleSmall,
                 )
                 Text(
-                    if (state.company.isBlank()) "Tip: isi nama perusahaan di Pengaturan agar tercetak pada label."
-                    else "Label mencantumkan \"Milik ${state.company}\".",
+                    "Isi label: QR, kode QR, dan kategori. PNG satu aset berukuran pas 50×20 mm untuk printer label.",
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 Spacer(Modifier.height(12.dp))
