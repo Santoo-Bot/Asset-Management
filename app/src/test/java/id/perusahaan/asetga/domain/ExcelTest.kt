@@ -126,13 +126,13 @@ class ExcelTest {
             vendors = mapOf("pt sumber komputer" to "v-1"),
         )
         val base = arrayOf(
-            ImportColumn.QR to "", ImportColumn.NAME to "Tablet", ImportColumn.CATEGORY to "IT", ImportColumn.ACQ_DATE to "10/01/2024",
+            ImportColumn.NAME to "Tablet", ImportColumn.CATEGORY to "IT", ImportColumn.ACQ_DATE to "10/01/2024",
             ImportColumn.COST to "1000000", ImportColumn.LOCATION to "Kantor Pusat", ImportColumn.CONDITION to "Baik",
         )
         val sheet = listOf(
             header,
-            row(ImportColumn.CODE to "IT-2024-201", *base, ImportColumn.STATUS to "dipinjam karyawan", ImportColumn.VENDOR to "PT Sumber Komputer"),
-            row(ImportColumn.CODE to "IT-2024-202", *base, ImportColumn.STATUS to "Write Off", ImportColumn.VENDOR to "PT Lain"),
+            row(ImportColumn.CODE to "IT-2024-201", ImportColumn.QR to "IT-2024-201", *base, ImportColumn.STATUS to "dipinjam karyawan", ImportColumn.VENDOR to "PT Sumber Komputer"),
+            row(ImportColumn.CODE to "IT-2024-202", ImportColumn.QR to "IT-2024-202", *base, ImportColumn.STATUS to "Write Off", ImportColumn.VENDOR to "PT Lain"),
         )
         val preview = AssetImportParser.parse(sheet, withMaster, today)
         val ok = preview.valid.single().input!!
