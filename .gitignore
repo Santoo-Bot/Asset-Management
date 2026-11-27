@@ -13,3 +13,10 @@ build/
 keystore.properties
 # Pengecualian: kunci KHUSUS build debug (bukan rahasia) agar APK debug dari CI bisa saling meng-update.
 !app/signing/debug.keystore
+
+# Aplikasi desktop (Python)
+__pycache__/
+.pytest_cache/
+/desktop/data/
+/desktop/dist/
+*.spec

@@ -1,8 +1,15 @@
 name: Build & Test
 
 on:
+  # Perubahan yang hanya menyentuh aplikasi desktop tidak perlu membangun ulang APK.
   push:
+    paths-ignore:
+      - "desktop/**"
+      - ".github/workflows/desktop.yml"
   pull_request:
+    paths-ignore:
+      - "desktop/**"
+      - ".github/workflows/desktop.yml"
   workflow_dispatch:
 
 jobs:
@@ -29,6 +36,15 @@ jobs:
           # versionCode naik setiap build sehingga Android menerima APK baru sebagai update.
           ASETGA_VERSION_CODE: ${{ github.run_number }}
         run: ./gradlew assembleDebug
+
+      - name: Cek skema database desktop masih sama dengan Android
+        run: |
+          SCHEMA=$(ls app/schemas/*/*.json | sort -V | tail -1)
+          A=$(python3 -c "import json,sys;print(json.load(open(sys.argv[1]))['database']['identityHash'])" "$SCHEMA")
+          D=$(python3 -c "import json;print(json.load(open('desktop/asetga/resources/room_schema.json'))['database']['identityHash'])")
+          if [ "$A" != "$D" ]; then
+            echo "::warning::Skema Room berubah. Salin $SCHEMA ke desktop/asetga/resources/room_schema.json, jalankan desktop/tools/make_android_fixture.py, dan sesuaikan aplikasi desktop agar backup tetap bisa dipindah HP <-> laptop."
+          fi
 
       # Memastikan build rilis (R8/shrink + lint) tidak rusak sebelum keystore rilis tersedia. APK ini tanpa tanda tangan, tidak dibagikan.
       - name: Uji build rilis (tanpa tanda tangan)

@@ -52,3 +52,10 @@ UI hanya bergantung pada interface `domain/repository`.
 
 ## Commit
 Pesan commit dalam Bahasa Indonesia, ringkas, menjelaskan apa & kenapa. Jangan commit/push ke branch lain kecuali diminta.
+
+## Aplikasi desktop (Windows) — folder `desktop/`
+- Python 3.12 + PySide6 (Qt 6), dibungkus PyInstaller (satu folder, portable). Data di `<folder exe>/data` (`aset_ga.db` + `photos/`).
+- **Database identik dengan Room Android**: tabel dibuat dari `desktop/asetga/resources/room_schema.json` (skema Room, dilampirkan di Release `build-N`), termasuk `room_master_table` & `user_version`. Format backup `.gabak`, hash kata sandi, nilai enum, tanggal (epochDay) sama dengan Android → backup bisa dipindah HP ↔ laptop.
+- Bila skema Room berubah: salin JSON skema baru, sesuaikan `desktop/asetga/core`, jalankan `python desktop/tools/make_android_fixture.py` (memperbarui fixture `DesktopCompatTest`). CI Android memberi peringatan bila skema desktop tertinggal.
+- `asetga/core` = logika tanpa Qt (aturan sama dengan repository Android: peran, audit atomik, hapus permanen, Write Off). `asetga/ui` = layar.
+- Test: `cd desktop && python -m pytest -q tests`. CI `.github/workflows/desktop.yml` (windows-latest) → Release `desktop-N` berisi `AsetGA-desktop-N.zip`.
