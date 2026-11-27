@@ -52,6 +52,40 @@ class ExcelTest {
         assertEquals(27, XlsxReader.columnIndex("AB12"))
     }
 
+    private fun xlsxWithSheet(sheetXml: String): ByteArray {
+        val out = ByteArrayOutputStream()
+        java.util.zip.ZipOutputStream(out).use { zip ->
+            zip.putNextEntry(java.util.zip.ZipEntry("xl/worksheets/sheet1.xml"))
+            zip.write(sheetXml.toByteArray())
+            zip.closeEntry()
+        }
+        return out.toByteArray()
+    }
+
+    private fun sheetXml(rowAttr: String, cellRef: String) =
+        """<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData><row r="$rowAttr">""" +
+            """<c r="$cellRef" t="inlineStr"><is><t>x</t></is></c></row></sheetData></worksheet>"""
+
+    @Test fun `xlsx dengan nomor baris atau kolom di luar batas Excel ditolak`() {
+        // Sebelumnya nomor baris sebesar ini membuat pembaca membuat dua miliar daftar kosong sampai kehabisan memori.
+        listOf(
+            sheetXml("2000000000", "A2000000000"),
+            sheetXml("1048577", "A1048577"),
+            sheetXml("1", "XFE1"), // kolom ke-16.385
+            sheetXml("1", "ZZZZZZZZZZZZZZ1"), // referensi sangat panjang
+        ).forEach { xml ->
+            val r = runCatching { XlsxReader.readFirstSheet(ByteArrayInputStream(xlsxWithSheet(xml))) }
+            assertTrue(r.exceptionOrNull() is IllegalArgumentException)
+        }
+    }
+
+    @Test fun `xlsx dengan baris dan kolom terakhir yang masih sah tetap terbaca`() {
+        val rows = XlsxReader.readFirstSheet(ByteArrayInputStream(xlsxWithSheet(sheetXml("5", "XFD5"))))
+        assertEquals(5, rows.size)
+        assertEquals(16_384, rows[4].size)
+        assertEquals("x", rows[4].last())
+    }
+
     @Test fun `parse tanggal dan harga format Indonesia dan Excel`() {
         assertEquals(LocalDate.of(2024, 3, 5), AssetImportParser.parseDate("05/03/2024"))
         assertEquals(LocalDate.of(2024, 3, 5), AssetImportParser.parseDate("5-3-2024"))

@@ -3,6 +3,7 @@ package id.perusahaan.asetga.data
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import id.perusahaan.asetga.data.local.AppDatabase
 import id.perusahaan.asetga.data.repository.AuditLogRepositoryImpl
+import id.perusahaan.asetga.data.repository.LoginThrottle
 import id.perusahaan.asetga.data.repository.MasterDataRepositoryImpl
 import id.perusahaan.asetga.data.repository.SettingsRepositoryImpl
 import id.perusahaan.asetga.data.repository.UserRepositoryImpl
@@ -41,7 +42,7 @@ class RepositoryTest {
     @Before fun setUp() {
         db = inMemoryDb()
         audit = AuditLogRepositoryImpl(db.auditLogDao(), session, clock)
-        users = UserRepositoryImpl(db.userDao(), PasswordHasher(iterations = 1_000), session, audit, clock)
+        users = UserRepositoryImpl(db.userDao(), PasswordHasher(iterations = 1_000), session, audit, clock, LoginThrottle(db.settingsDao(), clock))
         master = MasterDataRepositoryImpl(
             db, db.assetDao(), db.categoryDao(), db.locationDao(), db.divisionDao(), db.departmentDao(), db.vendorDao(), db.unitDao(), db.masterUsageDao(), db.insuranceTypeDao(), db.insurerDao(), session, audit, clock,
         )

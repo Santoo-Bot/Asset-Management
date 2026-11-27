@@ -32,6 +32,7 @@ class UserRepositoryImpl @Inject constructor(
     private val session: SessionManager,
     private val audit: AuditLogRepository,
     private val clock: Clock,
+    private val throttle: LoginThrottle,
 ) : UserRepository {
 
     override fun observeUsers(): Flow<List<User>> = dao.observeAll().map { list -> list.map { it.toDomain() } }
@@ -42,20 +43,28 @@ class UserRepositoryImpl @Inject constructor(
 
     override suspend fun authenticate(username: String, password: String): AppResult<User> {
         val entity = dao.getByUsername(username.trim().lowercase())
+        val key = entity?.id ?: LoginThrottle.UNKNOWN_KEY
+        throttle.remainingSeconds(key).takeIf { it > 0 }?.let { return AppResult.Failure(LoginThrottle.message(it)) }
         // Tetap hitung hash walau user tidak ada agar waktu respons tidak membocorkan keberadaan username.
         val ok = withContext(Dispatchers.Default) {
             hasher.verify(password, entity?.passwordHash ?: DUMMY_HASH)
         }
-        return when {
-            entity == null || !ok -> AppResult.Failure("Username atau kata sandi salah")
-            !entity.isActive -> AppResult.Failure("Akun ini dinonaktifkan. Hubungi Admin GA.")
-            else -> AppResult.Success(entity.toDomain())
+        if (entity == null || !ok) {
+            throttle.recordFailure(key)
+            return AppResult.Failure("Username atau kata sandi salah")
         }
+        throttle.reset(key)
+        return if (!entity.isActive) AppResult.Failure("Akun ini dinonaktifkan. Hubungi Admin GA.") else AppResult.Success(entity.toDomain())
     }
 
+    override suspend fun lockedSeconds(userId: String): Long = throttle.remainingSeconds(userId)
+
     override suspend fun verifyPin(userId: String, pin: String): Boolean {
+        if (throttle.remainingSeconds(userId) > 0) return false
         val stored = dao.getById(userId)?.takeIf { it.isActive }?.pinHash ?: return false
-        return withContext(Dispatchers.Default) { hasher.verify(pin, stored) }
+        val ok = withContext(Dispatchers.Default) { hasher.verify(pin, stored) }
+        if (ok) throttle.reset(userId) else throttle.recordFailure(userId)
+        return ok
     }
 
     override suspend fun createUser(username: String, fullName: String, role: Role, password: String): AppResult<User> {

@@ -38,7 +38,8 @@ class BackupManager @Inject constructor(
         "aset-ga-backup-${LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd-HHmm"))}.gabak"
 
     suspend fun backup(target: Uri, passphrase: String): AppResult<Long> = withContext(Dispatchers.IO) {
-        if (session.currentUser?.role?.canEditData != true) return@withContext AppResult.Failure("Anda tidak memiliki akses backup")
+        // File backup memuat seluruh database, termasuk hash kata sandi/PIN semua pengguna.
+        if (session.currentUser?.role?.canManageMaster != true) return@withContext AppResult.Failure("Hanya Admin GA yang dapat membuat backup")
         if (passphrase.length < BackupCrypto.MIN_PASSPHRASE) return@withContext AppResult.Failure("Passphrase minimal ${BackupCrypto.MIN_PASSPHRASE} karakter")
         // Catat dulu agar log backup ikut tersimpan di dalam file backup.
         audit.log(AuditEntityType.SYSTEM, "backup", AuditAction.UPDATE, "Backup data dibuat")
@@ -105,16 +106,40 @@ class BackupManager @Inject constructor(
             val newDb = File(extracted, DB_ENTRY)
             if (!hasDb || !isSqlite(newDb)) return@withContext AppResult.Failure("Backup tidak berisi database yang valid")
 
-            // Ganti data: tutup database, salin file baru, ganti folder foto.
+            // Tolak backup dari versi aplikasi yang lebih baru: Room tidak bisa menurunkan skema dan aplikasi
+            // akan crash setiap dibuka. Backup versi lama aman karena dimigrasikan saat database dibuka.
+            val backupVersion = sqliteUserVersion(newDb)
+            val currentVersion = db.openHelper.readableDatabase.version
+            if (backupVersion < 1) return@withContext AppResult.Failure("Backup tidak berisi database Aset GA yang valid")
+            if (backupVersion > currentVersion) {
+                return@withContext AppResult.Failure("Backup dibuat oleh versi aplikasi yang lebih baru (skema $backupVersion, aplikasi ini $currentVersion). Perbarui aplikasi dulu.")
+            }
+
+            // Ganti data. Data lama disimpan dulu di folder sementara; bila ada langkah yang gagal, dikembalikan.
             db.close()
             val dbFile = context.getDatabasePath(AppDatabase.NAME)
-            File(dbFile.path + "-wal").delete()
-            File(dbFile.path + "-shm").delete()
-            newDb.copyTo(dbFile, overwrite = true)
+            val dbSiblings = listOf("-wal", "-shm").map { File(dbFile.path + it) }
             val photoDir = File(context.filesDir, PhotoStorage.DIR)
-            photoDir.deleteRecursively()
-            File(extracted, PhotoStorage.DIR).takeIf { it.exists() }?.copyRecursively(photoDir, overwrite = true)
-            photoDir.mkdirs()
+            val old = File(work, "old").apply { mkdirs() }
+            val oldDbFile = File(old, "db")
+            val oldPhotos = File(old, PhotoStorage.DIR)
+            val hadDb = dbFile.exists()
+            try {
+                if (hadDb) dbFile.copyTo(oldDbFile, overwrite = true)
+                if (photoDir.exists()) moveDir(photoDir, oldPhotos)
+                dbSiblings.forEach { it.delete() }
+                newDb.copyTo(dbFile, overwrite = true)
+                val newPhotos = File(extracted, PhotoStorage.DIR)
+                if (newPhotos.exists()) moveDir(newPhotos, photoDir) else photoDir.mkdirs()
+            } catch (e: Exception) {
+                runCatching {
+                    dbSiblings.forEach { it.delete() }
+                    if (hadDb) oldDbFile.copyTo(dbFile, overwrite = true) else dbFile.delete()
+                    photoDir.deleteRecursively()
+                    if (oldPhotos.exists()) moveDir(oldPhotos, photoDir) else photoDir.mkdirs()
+                }
+                return@withContext AppResult.Failure("Restore gagal dan data lama dikembalikan. Tutup lalu buka kembali aplikasi. (${e.message})")
+            }
             AppResult.Success(Unit)
         } catch (e: BackupCrypto.WrongPassphraseException) {
             AppResult.Failure(e.message ?: "Passphrase salah")
@@ -130,6 +155,19 @@ class BackupManager @Inject constructor(
     private fun isSqlite(file: File): Boolean = runCatching {
         file.inputStream().use { val head = ByteArray(16); it.read(head) == 16 && String(head, 0, 15, Charsets.US_ASCII) == "SQLite format 3" }
     }.getOrDefault(false)
+
+    /** Nilai `user_version` (= versi skema Room) dari header file SQLite: 4 byte big-endian di offset 60. */
+    private fun sqliteUserVersion(file: File): Int = runCatching {
+        file.inputStream().use { val head = ByteArray(100); if (it.read(head) == 100) java.nio.ByteBuffer.wrap(head, 60, 4).int else 0 }
+    }.getOrDefault(0)
+
+    /** Pindahkan folder; bila rename gagal (beda volume) salin lalu hapus asalnya. */
+    private fun moveDir(src: File, dst: File) {
+        dst.deleteRecursively()
+        if (src.renameTo(dst)) return
+        if (!src.copyRecursively(dst, overwrite = true)) throw IOException("Gagal menyalin ${src.name}")
+        src.deleteRecursively()
+    }
 
     companion object {
         const val DB_ENTRY = "db/${AppDatabase.NAME}"

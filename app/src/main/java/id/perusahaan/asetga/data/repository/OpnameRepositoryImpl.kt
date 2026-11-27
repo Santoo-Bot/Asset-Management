@@ -149,6 +149,8 @@ class OpnameRepositoryImpl @Inject constructor(
         val clean = code.trim()
         if (clean.isEmpty()) return OpnameScanOutcome.Error("Kode kosong")
         val asset = assetDao.getByCode(clean)
+        // Aset Write Off tidak ikut opname: tidak masuk daftar, tidak dicatat "di luar daftar".
+        asset?.takeIf { it.status == AssetStatus.WRITE_OFF }?.let { return OpnameScanOutcome.Error("${it.code} berstatus Write Off dan tidak ikut opname") }
         val now = clock.millis()
         return db.withTransaction {
             if (asset != null) {

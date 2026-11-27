@@ -58,7 +58,10 @@ fun MoreScreen(
             MenuRow(Icons.Outlined.Category, "Master data", "Kategori, lokasi, departemen, vendor, satuan", onOpenMaster)
             SectionHeader("File")
             MenuRow(Icons.Outlined.ImportExport, "Import & export", "Excel/CSV aset, servis, stok; template import", onOpenImportExport)
-            MenuRow(Icons.Outlined.Backup, "Backup & restore", "File terenkripsi ke HP atau Google Drive", onOpenBackup)
+            // Backup memuat seluruh database (termasuk hash kata sandi), jadi hanya untuk Admin GA.
+            if (user.role.canManageMaster) {
+                MenuRow(Icons.Outlined.Backup, "Backup & restore", "File terenkripsi ke HP atau Google Drive", onOpenBackup)
+            }
             SectionHeader("Sistem")
             if (user.role.canManageUsers) {
                 MenuRow(Icons.Outlined.Group, "Pengguna & peran", "Tambah pengguna, atur peran, reset kata sandi", onOpenUsers)

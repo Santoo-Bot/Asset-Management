@@ -117,6 +117,15 @@ class OpnameAndDashboardTest {
         assertEquals("Layar retak", opname.observeItems(id).first().first { it.assetId == "002" }.note)
     }
 
+    @Test fun `scan aset Write Off ditolak dan tidak masuk sesi`() = runTest {
+        val id = (opname.create("Opname", today, null) as AppResult.Success).value
+        opname.addAssets(id, listOf("001"))
+        val r = opname.scan(id, "IT-2024-005")
+        assertTrue(r is OpnameScanOutcome.Error && r.message.contains("Write Off"))
+        assertEquals(setOf("001"), opname.observeAssetIds(id).first())
+        assertEquals(1, opname.observeItems(id).first().size)
+    }
+
     @Test fun `sesi kosong tidak bisa diselesaikan dan hapus sesi khusus admin`() = runTest {
         val id = (opname.create("Kosong", today, null) as AppResult.Success).value
         assertTrue(opname.finish(id, "") is AppResult.Failure)

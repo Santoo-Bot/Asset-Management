@@ -148,15 +148,23 @@ object XlsxWriter {
 /** Pembaca XLSX minimal: lembar pertama, mengembalikan baris berisi teks (sel kosong = ""). */
 object XlsxReader {
     private const val MAX_ENTRY_BYTES = 50L * 1024 * 1024
+    private const val MAX_TOTAL_BYTES = 100L * 1024 * 1024
+    /** Batas lembar kerja Excel: 1.048.576 baris × 16.384 kolom. Nomor di luar itu = file rusak/berbahaya. */
+    const val MAX_ROW = 1_048_576
+    const val MAX_COLUMN = 16_384
 
     fun readFirstSheet(input: InputStream): List<List<String>> {
         val entries = mutableMapOf<String, ByteArray>()
+        var totalBytes = 0L
         ZipInputStream(input).use { zip ->
             var e = zip.nextEntry
             while (e != null) {
                 val name = e.name
                 if (name == "xl/sharedStrings.xml" || name == "xl/workbook.xml" || name == "xl/_rels/workbook.xml.rels" || name.startsWith("xl/worksheets/sheet")) {
-                    entries[name] = readLimited(zip)
+                    val bytes = readLimited(zip)
+                    totalBytes += bytes.size
+                    if (totalBytes > MAX_TOTAL_BYTES) throw IllegalArgumentException("File terlalu besar")
+                    entries[name] = bytes
                 }
                 e = zip.nextEntry
             }
@@ -245,9 +253,13 @@ object XlsxReader {
             var capture = false
             override fun startElement(uri: String?, localName: String?, qName: String, attrs: Attributes) {
                 when (local(qName)) {
-                    "row" -> rowIndex = attrs.getValue("r")?.toIntOrNull() ?: (rowIndex + 1)
+                    "row" -> {
+                        rowIndex = attrs.getValue("r")?.toIntOrNull() ?: (rowIndex + 1)
+                        if (rowIndex !in 1..MAX_ROW) throw IllegalArgumentException("File tidak valid: nomor baris di luar batas Excel")
+                    }
                     "c" -> {
                         col = attrs.getValue("r")?.let(::columnIndex) ?: (col + 1)
+                        if (col !in 0 until MAX_COLUMN) throw IllegalArgumentException("File tidak valid: nomor kolom di luar batas Excel")
                         type = attrs.getValue("t")
                         value.setLength(0)
                     }
@@ -287,6 +299,7 @@ object XlsxReader {
         for (ch in ref) {
             if (!ch.isLetter()) break
             n = n * 26 + (ch.uppercaseChar() - 'A' + 1)
+            if (n > MAX_COLUMN) return MAX_COLUMN // di luar batas; cegah overflow pada referensi sangat panjang
         }
         return n - 1
     }

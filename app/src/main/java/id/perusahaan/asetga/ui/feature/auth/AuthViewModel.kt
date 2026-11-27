@@ -3,6 +3,7 @@ package id.perusahaan.asetga.ui.feature.auth
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
+import id.perusahaan.asetga.data.repository.LoginThrottle
 import id.perusahaan.asetga.domain.security.CredentialRules.FIELD_CONFIRM
 import id.perusahaan.asetga.domain.model.AppResult
 import id.perusahaan.asetga.domain.model.Role
@@ -67,6 +68,10 @@ class AuthViewModel @Inject constructor(
 
     fun unlockWithPin(user: User, pin: String) {
         launchOp {
+            users.lockedSeconds(user.id).takeIf { it > 0 }?.let { wait ->
+                _state.update { it.copy(message = LoginThrottle.message(wait)) }
+                return@launchOp
+            }
             if (users.verifyPin(user.id, pin)) {
                 _state.value = AuthUiState()
                 session.unlock()

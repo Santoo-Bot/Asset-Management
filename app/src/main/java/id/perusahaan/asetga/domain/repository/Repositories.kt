@@ -86,6 +86,8 @@ interface UserRepository {
     suspend fun getUser(id: String): User?
     suspend fun authenticate(username: String, password: String): AppResult<User>
     suspend fun verifyPin(userId: String, pin: String): Boolean
+    /** Sisa detik penguncian karena terlalu banyak percobaan salah; 0 bila boleh mencoba. */
+    suspend fun lockedSeconds(userId: String): Long
     suspend fun createUser(username: String, fullName: String, role: Role, password: String): AppResult<User>
     suspend fun updateUser(id: String, fullName: String, role: Role, isActive: Boolean): AppResult<User>
     suspend fun changePassword(id: String, newPassword: String): AppResult<Unit>
