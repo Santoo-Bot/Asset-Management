@@ -82,11 +82,13 @@ class AuditAtomicityTest {
 
     @Test fun `pengguna tidak jadi dibuat atau dihapus bila audit gagal`() = runTest {
         val good = users(AuditLogRepositoryImpl(db.auditLogDao(), session, clock))
+        // Pengguna pertama wajib Admin; baru setelah itu Staf bisa ditambahkan.
+        assertTrue(good.createUser("admin", "Admin GA", Role.ADMIN, "admin1234") is AppResult.Success)
         val staf = (good.createUser("staf", "Staf GA", Role.STAFF, "staf12345") as AppResult.Success).value
-        assertEquals(1, db.userDao().count())
+        assertEquals(2, db.userDao().count())
 
         assertTrue(runCatching { users(failing).createUser("baru", "Orang Baru", Role.VIEWER, "baru12345") }.isFailure)
-        assertEquals(1, db.userDao().count())
+        assertEquals(2, db.userDao().count())
 
         assertTrue(runCatching { users(failing).deleteUser(staf.id) }.isFailure)
         assertNotNull(db.userDao().getById(staf.id))
