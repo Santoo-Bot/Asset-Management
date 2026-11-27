@@ -41,9 +41,15 @@ jobs:
         run: python -m pytest -q tests
 
       - name: Tangkapan layar tampilan (data contoh)
+        id: shots
+        continue-on-error: true
+        run: python tools/screenshots.py screenshots
+
+      - name: Paketkan tangkapan layar (berisi GALAT.txt bila gagal)
         shell: pwsh
         run: |
-          python tools/screenshots.py screenshots
+          New-Item -ItemType Directory -Force -Path screenshots | Out-Null
+          if (-not (Get-ChildItem screenshots)) { "Tidak ada tangkapan layar" | Set-Content screenshots/GALAT.txt }
           Compress-Archive -Path screenshots/* -DestinationPath "tampilan-${{ github.run_number }}.zip"
 
       - name: Tulis nomor build

@@ -54,8 +54,8 @@ def seed(ctx) -> None:
             accessories="Charger, Tas laptop" if name.startswith("Laptop") else "",
         ), qr_same_as_code=True))
     ctx.assets.write_off(ids[5], today - dt.timedelta(days=30), 150_000, "Rusak total")
-    ctx.ops.record_mutation(ids[0], today - dt.timedelta(days=60), locs["Kantor Pusat"], "Budi · Ruang 301")
-    ctx.ops.record_mutation(ids[2], today - dt.timedelta(days=20), locs["Cabang Bandung"], "Sari · Lt 2")
+    ctx.ops.record_mutation(ids[0], today - dt.timedelta(days=60), locs["Kantor Pusat"], "Budi · Ruang 302")
+    ctx.ops.record_mutation(ids[2], today - dt.timedelta(days=20), locs["Gudang"], "Sari · Lt 3")
     ctx.ops.save_service(ServiceInput(ids[0], service_date=today - dt.timedelta(days=90), type=ServiceType.PREVENTIF, vendor_id=ven,
                                       cost=350_000, description="Pembersihan & ganti pasta termal", next_service_date=today + dt.timedelta(days=12)))
     ctx.ops.save_service(ServiceInput(ids[2], service_date=today - dt.timedelta(days=5), type=ServiceType.KOREKTIF, cost=450_000,
@@ -129,4 +129,13 @@ def main(out: str) -> None:
 
 
 if __name__ == "__main__":
-    main(sys.argv[1] if len(sys.argv) > 1 else "screenshots")
+    target = sys.argv[1] if len(sys.argv) > 1 else "screenshots"
+    try:
+        main(target)
+    except BaseException:
+        # Log CI tidak selalu bisa dibaca: simpan galat bersama tangkapan layar.
+        import traceback
+
+        Path(target).mkdir(parents=True, exist_ok=True)
+        (Path(target) / "GALAT.txt").write_text(traceback.format_exc(), encoding="utf-8")
+        raise
