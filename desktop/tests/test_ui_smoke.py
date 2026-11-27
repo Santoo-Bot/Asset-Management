@@ -159,7 +159,7 @@ def test_alur_lengkap_tahap_1(win, app):
     win.login.pw.setText("Rahasia123")
     win.login._login()
     assert win.stack.currentWidget() is win.shell
-    assert "Pengguna" not in [win.shell.nav.item(i).text() for i in range(win.shell.nav.count())]
+    assert "Pengguna" not in [win.shell.nav.item(i).toolTip() for i in range(win.shell.nav.count())]
     win.shell.nav.setCurrentRow(0)
     assert win.shell.assets.add_btn.isHidden()
 
@@ -234,7 +234,7 @@ def test_tahap_2_mutasi_servis_stok_label_scan(win, app, monkeypatch):
     ItemDetailDialog(win, ctx, iid).close()
 
     # Halaman baru: scan (aset, barang, tidak ditemukan), stok, servis.
-    names = [win.shell.nav.item(i).text() for i in range(win.shell.nav.count())]
+    names = [win.shell.nav.item(i).toolTip() for i in range(win.shell.nav.count())]
     win.shell.nav.setCurrentRow(names.index("Scan"))
     win.shell.scan.input.setText(labels[0].qr.lower())
     win.shell.scan._lookup()

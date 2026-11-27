@@ -101,7 +101,7 @@ def main(out: str) -> None:
     win.login.pw.setText("Rahasia123")
     win.login._login()
     nav = win.shell.nav
-    names = [nav.item(i).text() for i in range(nav.count())]
+    names = [nav.item(i).toolTip() for i in range(nav.count())]
     for i, n in enumerate(names):
         nav.setCurrentRow(i)
         if n == "Aset":
@@ -120,6 +120,9 @@ def main(out: str) -> None:
     f.show()
     shot("21-form-aset", f)
     f.close()
+    win.shell.set_compact(False)
+    shot("23-aset-menu-penuh")
+    win.shell.set_compact(True)
     theme.apply(app, "DARK")
     win._theme_changed("DARK")
     nav.setCurrentRow(0)
