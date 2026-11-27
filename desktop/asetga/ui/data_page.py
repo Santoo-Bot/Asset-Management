@@ -84,6 +84,16 @@ class DataPage(QWidget):
         l1.addLayout(r1)
         v.addWidget(g1)
 
+        g3 = QGroupBox("Export servis & stok")
+        l3 = QHBoxLayout(g3)
+        for text, kind, fmt_ in (("Riwayat servis (.xlsx)", "services", "xlsx"), ("Riwayat servis (.csv)", "services", "csv"),
+                                 ("Stok & transaksi (.xlsx)", "stock", "xlsx"), ("Stok (.csv)", "stock", "csv")):
+            b = button(text)
+            b.clicked.connect(lambda _=False, k=kind, f=fmt_: self._export_other(k, f))
+            l3.addWidget(b)
+        l3.addStretch(1)
+        v.addWidget(g3)
+
         self.g2 = QGroupBox("Backup & restore (khusus Admin GA)")
         l2 = QVBoxLayout(self.g2)
         l2.addWidget(label(
@@ -140,6 +150,26 @@ class DataPage(QWidget):
             error(self, f"Gagal menyimpan file: {e}. Tutup file di Excel bila sedang terbuka.")
             return
         info(self, f"{n} aset diexport ke:\n{path}")
+
+    def _export_other(self, kind: str, ext: str) -> None:
+        from ..core import excel
+
+        stamp = fmt.today().strftime("%Y%m%d")
+        stem = "servis" if kind == "services" else "stok"
+        path = self._save_path("Export", f"{stem}-{stamp}.{ext}", "Excel (*.xlsx)" if ext == "xlsx" else "CSV (*.csv)")
+        if not path:
+            return
+        try:
+            if kind == "services":
+                n = excel.export_services(self.ctx.ops, path, ext, self.ctx.audit)
+                what = "catatan servis"
+            else:
+                n = excel.export_stock(self.ctx.stock, path, ext, self.ctx.audit)
+                what = "barang"
+        except OSError as e:
+            error(self, f"Gagal menyimpan file: {e}. Tutup file di Excel bila sedang terbuka.")
+            return
+        info(self, f"{n} {what} diexport ke:\n{path}")
 
     def _import(self) -> None:
         path, _ = QFileDialog.getOpenFileName(self, "Pilih file Excel", self.ctx.last_dir(), "Excel (*.xlsx)")

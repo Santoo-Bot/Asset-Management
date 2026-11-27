@@ -15,6 +15,9 @@ from .audit_page import AuditPage
 from .auth import LockPage, LoginPage, SetupPage
 from .data_page import DataPage
 from .masters_page import MastersPage
+from .scan_page import ScanPage
+from .services_page import ServicesPage
+from .stock_page import StockPage
 from .users_page import UsersPage
 from .widgets import label
 
@@ -63,6 +66,9 @@ class Shell(QWidget):
         h.addWidget(page_wrap, 1)
 
         self.assets = AssetsPage(ctx)
+        self.scan = ScanPage(ctx)
+        self.stock = StockPage(ctx)
+        self.services = ServicesPage(ctx)
         self.masters = MastersPage(ctx)
         self.data = DataPage(ctx)
         self.users = UsersPage(ctx)
@@ -71,6 +77,9 @@ class Shell(QWidget):
         # (judul menu, halaman, boleh tampil?)
         self.pages = [
             ("Aset", self.assets, lambda r: True),
+            ("Scan", self.scan, lambda r: True),
+            ("Stok", self.stock, lambda r: True),
+            ("Servis", self.services, lambda r: True),
             ("Master data", self.masters, lambda r: True),
             ("Import / Export & Backup", self.data, lambda r: True),
             ("Pengguna", self.users, lambda r: r.can_manage_users),

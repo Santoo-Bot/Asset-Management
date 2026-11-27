@@ -23,15 +23,22 @@ Penting:
 - Versi aplikasi HP dan laptop harus memakai struktur database yang sama. Kalau muncul pesan versi berbeda, perbarui aplikasi yang lebih lama.
 - Passphrase backup tidak disimpan di mana pun. Kalau lupa, backup tidak bisa dibuka.
 
-## Fitur (tahap 1)
+## Fitur
 
+**Tahap 1**
 - Login dengan peran Admin GA / Staf GA / Viewer. Login dibatasi bila terlalu banyak salah. Aplikasi terkunci otomatis setelah 5 menit tidak dipakai.
 - Aset: daftar dengan cari, filter, urutkan, pilih semua, dan hapus permanen. Form dengan foto. Detail berisi nilai buku, penyusutan, dan riwayat perubahan. Ada juga Write Off.
-- Master data: kategori, lokasi, divisi, departemen, vendor, satuan, tipe & perusahaan asuransi, status aset.
-- Import/export Excel dengan template dan kolom yang sama dengan Android, serta export CSV.
-- Backup & restore terenkripsi, audit log, dan kelola pengguna.
+- Master data, pengguna, audit log, import/export Excel aset & CSV, backup & restore terenkripsi.
 
-Menyusul di tahap berikutnya: mutasi, servis, stok, label QR & cetak, scan, stock opname, asuransi, dashboard, dan pengingat.
+**Tahap 2**
+- **Mutasi** (lokasi dan pengguna / detail lokasi) dan **servis** (jenis, vendor, biaya, foto, jadwal berikutnya), keduanya dari detail aset. Riwayatnya tampil di tab detail aset.
+- Menu **Servis**: jadwal servis (terlambat / jatuh tempo / terjadwal) dan riwayat semua servis.
+- Menu **Stok**: barang habis pakai, barang masuk/keluar (stok tidak bisa minus), status Reorder, import barang dari Excel, scan barcode di kolom cari.
+- **Label QR 50 × 20 mm**: dari detail aset atau beberapa aset terpilih di daftar (tombol Label QR). Bisa disimpan sebagai PDF (1 label per halaman), PNG, atau langsung dicetak ke printer.
+- Menu **Scan**: pakai scanner barcode/QR USB (bekerja seperti keyboard) atau ketik kode. Cocok dengan kode aset, kode QR, atau kode/barcode barang.
+- Export riwayat servis dan stok & transaksi (Excel/CSV) di menu Import / Export & Backup.
+
+Menyusul di tahap 3: stock opname, asuransi, dashboard, pengingat, dan pengaturan.
 
 ## Untuk pengembang
 

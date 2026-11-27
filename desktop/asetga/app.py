@@ -73,6 +73,13 @@ def main() -> int:
     if smoke:
         from PySide6.QtCore import QTimer
 
+        # Pastikan modul label (reportlab + Pillow) ikut terbungkus di exe.
+        from .core import labels
+
+        sample = [labels.LabelData("IT-2024-001", "Elektronik & IT", "IT-2024-001")]
+        labels.write_pdf(sample, folder / "uji-label.pdf")
+        labels.render_png(sample[0]).save(folder / "uji-label.png")
+
         QTimer.singleShot(2000, app.quit)
     code = app.exec()
     lock.unlock()

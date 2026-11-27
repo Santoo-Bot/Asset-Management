@@ -11,8 +11,10 @@ from ..core.audit import AuditLog
 from ..core.db import DB_NAME, Database
 from ..core.excel import ExcelService
 from ..core.masters import MasterService
+from ..core.operations import OperationService
 from ..core.photos import PhotoStorage, referenced_photos
 from ..core.session import Session
+from ..core.stock import StockService
 from ..core.users import UserService
 
 
@@ -37,6 +39,8 @@ class AppContext:
         self.masters = MasterService(self.db, self.session, self.audit)
         self.assets = AssetService(self.db, self.session, self.audit)
         self.excel = ExcelService(self.assets, self.masters)
+        self.ops = OperationService(self.db, self.session, self.audit)
+        self.stock = StockService(self.db, self.session, self.audit)
 
     def cleanup_photos(self) -> int:
         """Foto yatim (tidak dirujuk data) dibersihkan saat aplikasi dibuka, sama dengan Android."""

@@ -716,3 +716,219 @@ class ExcelService:
         audit.log(AuditEntityType.ASSET, "import", AuditAction.IMPORT,
                   f"Import aset dari Excel: {created} baru, {updated} diperbarui, {len(preview.unchanged)} tanpa perubahan, {failed_count} gagal")
         return {"created": created, "updated": updated, "unchanged": len(preview.unchanged), "failed": preview.invalid + failed}
+
+
+# ======================================================================== servis & stok
+def _write_sheet(wb, title: str, headers: list[str], rows: list[list], widths: list[int] | None = None, first: bool = False):
+    ws = wb.active if first else wb.create_sheet(title)
+    ws.title = title
+    ws.append(headers)
+    for r in rows:
+        ws.append([_safe_text(v) if isinstance(v, str) else v for v in r])
+    _style_header(ws, widths)
+    return ws
+
+
+def _write_csv(path, headers: list[str], rows: list[list]) -> None:
+    def text(v) -> str:
+        if isinstance(v, float):
+            return str(int(v)) if v.is_integer() else str(v).replace(".", ",")
+        return "" if v is None else str(v)
+
+    with open(path, "w", encoding="utf-8-sig", newline="") as f:
+        w = csv.writer(f, delimiter=";", lineterminator="\r\n")
+        w.writerow(headers)
+        for r in rows:
+            w.writerow([_safe_text(text(v)) for v in r])
+
+
+SERVICE_HEADERS = ["Tanggal", "Kode Aset", "Nama Aset", "Jenis", "Vendor", "Biaya", "Deskripsi", "Servis Berikutnya", "Status Jadwal"]
+STOCK_HEADERS = ["Kode", "Barcode", "Nama Barang", "Satuan", "Lokasi Simpan", "Stok Awal", "Min. Stok", "Stok Akhir", "Status"]
+TXN_HEADERS = ["Tanggal", "Kode Barang", "Nama Barang", "Jenis", "Jumlah", "Referensi", "Catatan", "Dicatat oleh"]
+STOCK_TEMPLATE_HEADERS = ["Kode Barang*", "Barcode", "Nama Barang*", "Satuan*", "Lokasi Simpan", "Stok Awal", "Min. Stok", "Catatan"]
+
+
+def service_rows(ops) -> list[list]:
+    from .models import ServiceType
+    from .operations import service_due_status
+
+    today = fmt.today()
+    out = []
+    for s in ops.services():
+        nxt = fmt.from_epoch_day(s["nextServiceDate"])
+        out.append([fmt.date(fmt.from_epoch_day(s["serviceDate"])), s["assetCode"], s["assetName"], ServiceType[s["type"]].label,
+                    s["vendorName"] or "", s["cost"], s["description"], fmt.date(nxt) if nxt else "",
+                    service_due_status(nxt, today) if nxt else ""])
+    return out
+
+
+def stock_rows(stock) -> tuple[list[list], list[list]]:
+    from .models import StockTxnType
+    from .stock import needs_reorder, round2
+
+    items = [[i["code"], i["barcode"] or "", i["name"], i["unitName"], i["storageLocationName"] or "", i["initialStock"], i["minStock"],
+              round2(i["currentStock"]), "Reorder" if needs_reorder(i["currentStock"], i["minStock"]) else "Aman"] for i in stock.items()]
+    txns = [[fmt.date(fmt.from_epoch_day(t["txnDate"])), t["itemCode"], t["itemName"], StockTxnType[t["type"]].label,
+             t["qty"] if t["type"] == "IN" else -t["qty"], t["reference"] or "", t["note"] or "", t["createdBy"] or ""]
+            for t in stock.all_txns()]
+    return items, txns
+
+
+def export_services(ops, path, kind: str, audit=None) -> int:
+    from openpyxl import Workbook
+
+    rows = service_rows(ops)
+    if kind == "xlsx":
+        wb = Workbook()
+        _write_sheet(wb, "Servis", SERVICE_HEADERS, rows, first=True)
+        wb.save(path)
+    else:
+        _write_csv(path, SERVICE_HEADERS, rows)
+    if audit:
+        audit.log(AuditEntityType.SYSTEM, "SERVICES", AuditAction.UPDATE, f"Export Riwayat servis ({kind.upper()})")
+    return len(rows)
+
+
+def export_stock(stock, path, kind: str, audit=None) -> int:
+    """XLSX: lembar Stok + Transaksi. CSV hanya lembar Stok (sama dengan Android)."""
+    from openpyxl import Workbook
+
+    items, txns = stock_rows(stock)
+    if kind == "xlsx":
+        wb = Workbook()
+        _write_sheet(wb, "Stok", STOCK_HEADERS, items, first=True)
+        _write_sheet(wb, "Transaksi", TXN_HEADERS, txns)
+        wb.save(path)
+    else:
+        _write_csv(path, STOCK_HEADERS, items)
+    if audit:
+        audit.log(AuditEntityType.SYSTEM, "STOCK", AuditAction.UPDATE, f"Export Stok & transaksi ({kind.upper()})")
+    return len(items)
+
+
+def write_stock_template(masters, path) -> None:
+    from openpyxl import Workbook
+
+    units = masters.list(MasterType.UNIT)
+    locs = masters.list(MasterType.LOCATION)
+    wb = Workbook()
+    _write_sheet(wb, "Import Barang", STOCK_TEMPLATE_HEADERS,
+                 [["ATK-001", "8991234567890", "Kertas A4 80 gram", units[0]["name"] if units else "Rim", locs[0]["name"] if locs else "",
+                   20, 5, "Contoh baris, hapus sebelum import"]], [18, 22, 32, 14, 24, 12, 12, 34], first=True)
+    guide = [[units[i]["name"] if i < len(units) else "", locs[i]["name"] if i < len(locs) else ""] for i in range(max(len(units), len(locs)))]
+    _write_sheet(wb, "Petunjuk", ["Satuan", "Lokasi Simpan"], guide, [24, 30])
+    wb.save(path)
+
+
+@dataclass
+class StockRow:
+    row_number: int
+    input: object | None
+    errors: list[str]
+
+    @property
+    def is_valid(self) -> bool:
+        return self.input is not None and not self.errors
+
+
+@dataclass
+class StockPreview:
+    rows: list[StockRow]
+    header_error: str | None = None
+
+    @property
+    def valid(self):
+        return [r for r in self.rows if r.is_valid]
+
+    @property
+    def invalid(self):
+        return [r for r in self.rows if not r.is_valid]
+
+
+def parse_stock(sheet: list[list[str]], units: dict[str, str], locations: dict[str, str], codes: set[str], barcodes: set[str]) -> StockPreview:
+    """Hanya barang baru; kode/barcode yang sudah ada ditolak. Kolom dicocokkan lewat judul."""
+    from .stock import FIELD_UNIT, ItemInput, validate_item
+
+    if not sheet:
+        return StockPreview([], "File kosong")
+    header = [normalize_header(h) for h in sheet[0]]
+
+    def col(*names: str) -> int:
+        return next((i for i, h in enumerate(header) if h in names), -1)
+
+    c_code, c_bar, c_name = col("kodebarang", "kode"), col("barcode"), col("namabarang", "nama")
+    c_unit, c_loc = col("satuan"), col("lokasisimpan", "lokasi")
+    c_init, c_min, c_notes = col("stokawal"), col("minstok", "minimumstok"), col("catatan")
+    missing = [n for n, i in (("Kode Barang", c_code), ("Nama Barang", c_name), ("Satuan", c_unit)) if i < 0]
+    if missing:
+        return StockPreview([], f"Kolom wajib tidak ditemukan: {', '.join(missing)}. Gunakan template dari aplikasi.")
+    seen_c: set[str] = set()
+    seen_b: set[str] = set()
+    rows: list[StockRow] = []
+    for i, cells in enumerate(sheet[1:]):
+        if all(not str(x).strip() for x in cells):
+            continue
+        cell = lambda idx: (cells[idx] if 0 <= idx < len(cells) else "").strip()  # noqa: E731
+        errors: list[str] = []
+        c = cell(c_code).upper()
+        if c:
+            if c in codes:
+                errors.append(f"Kode {c} sudah ada di aplikasi")
+            if c in seen_c:
+                errors.append(f"Kode {c} ganda di file")
+            seen_c.add(c)
+        b = cell(c_bar)
+        if b:
+            if b.upper() in barcodes:
+                errors.append(f"Barcode {b} sudah dipakai barang lain")
+            if b.upper() in seen_b:
+                errors.append(f"Barcode {b} ganda di file")
+            seen_b.add(b.upper())
+        u_raw = cell(c_unit)
+        unit_id = units.get(u_raw.lower()) if u_raw else None
+        if unit_id is None:
+            errors.append("Satuan kosong" if not u_raw else f'Satuan "{u_raw}" tidak dikenal')
+        l_raw = cell(c_loc)
+        loc_id = locations.get(l_raw.lower()) if l_raw else None
+        if l_raw and loc_id is None:
+            errors.append(f'Lokasi "{l_raw}" tidak dikenal')
+        inp = ItemInput(code=c, barcode=b, name=cell(c_name), unit_id=unit_id, storage_location_id=loc_id,
+                        initial_stock=cell(c_init) or "0", min_stock=cell(c_min) or "0", notes=cell(c_notes))
+        errors += [m for f, m in validate_item(inp).items() if f != FIELD_UNIT]
+        rows.append(StockRow(i + 2, inp if not errors else None, errors))
+    return StockPreview(rows)
+
+
+def preview_stock(stock, masters, path) -> StockPreview:
+    try:
+        sheet = read_first_sheet(path)
+    except Exception as e:  # noqa: BLE001
+        return StockPreview([], f"File tidak dapat dibaca: {e or 'format bukan .xlsx'}")
+    if len(sheet) > MAX_IMPORT_ROWS + 1:
+        return StockPreview([], f"Maksimal {MAX_IMPORT_ROWS} baris per import")
+    items = stock.items()
+    return parse_stock(
+        sheet,
+        {u["name"].lower(): u["id"] for u in masters.list(MasterType.UNIT)},
+        {loc["name"].lower(): loc["id"] for loc in masters.list(MasterType.LOCATION)},
+        {i["code"].upper() for i in items},
+        {i["barcode"].upper() for i in items if i["barcode"]},
+    )
+
+
+def commit_stock(stock, preview: StockPreview, audit, progress=None) -> dict:
+    stock.session.require(lambda r: r.can_edit_data, "Anda tidak memiliki akses untuk import")
+    ok = 0
+    failed: list[StockRow] = []
+    valid = preview.valid
+    for i, row in enumerate(valid):
+        try:
+            stock.save_item(row.input)
+            ok += 1
+        except AppError as e:
+            failed.append(StockRow(row.row_number, None, [e.message, *e.fields.values()]))
+        if progress:
+            progress(i + 1, len(valid))
+    audit.log(AuditEntityType.ITEM, "import", AuditAction.IMPORT,
+              f"Import barang dari Excel: {ok} berhasil, {len(failed) + len(preview.invalid)} gagal")
+    return {"imported": ok, "failed": preview.invalid + failed}

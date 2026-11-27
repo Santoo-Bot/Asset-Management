@@ -59,7 +59,7 @@ def test_alur_lengkap_tahap_1(win, app):
     # Semua menu bisa dibuka.
     for row in range(win.shell.nav.count()):
         win.shell.nav.setCurrentRow(row)
-    assert win.shell.nav.count() == 6
+    assert win.shell.nav.count() == 9
 
     # Master data: setiap dialog bisa dibuat; simpan lokasi & divisi/departemen.
     for t in MasterType:
@@ -157,3 +157,91 @@ def test_alur_lengkap_tahap_1(win, app):
     assert "Pengguna" not in [win.shell.nav.item(i).text() for i in range(win.shell.nav.count())]
     win.shell.nav.setCurrentRow(0)
     assert win.shell.assets.add_btn.isHidden()
+
+
+def test_tahap_2_mutasi_servis_stok_label_scan(win, app, monkeypatch):
+    from PySide6.QtWidgets import QDialog
+
+    from asetga.core.assets import AssetInput
+    from asetga.core.models import MasterType, Role, StockTxnType
+    from asetga.ui.asset_detail import AssetDetailDialog
+    from asetga.ui.label_dialog import LabelDialog, labels_for_assets
+    from asetga.ui.operation_dialogs import MutationDialog, ServiceDialog
+    from asetga.ui.stock_page import ItemDetailDialog, ItemDialog, TxnDialog
+
+    # Dialog modal tidak ditunggu di test.
+    opened = []
+    monkeypatch.setattr(QDialog, "exec", lambda self: opened.append(type(self).__name__) or 0)
+    ctx = win.ctx
+    ctx.users.create("admin", "Admin GA", Role.ADMIN, "Rahasia123")
+    win.login.username.setText("admin")
+    win.login.pw.setText("Rahasia123")
+    win.login._login()
+    loc = ctx.masters.save_location("", "Kantor Pusat", None)
+    gudang = ctx.masters.save_location("", "Gudang", None)
+    cat = next(c["id"] for c in ctx.masters.list(MasterType.CATEGORY) if c["codePrefix"] == "IT")
+    aid = ctx.assets.save(AssetInput(name="Laptop", category_id=cat, acquisition_date=dt.date(2024, 1, 15), acquisition_cost=10,
+                                     location_id=loc), qr_same_as_code=True)
+
+    m = MutationDialog(win, ctx, aid)
+    m.location.set_value(gudang)
+    m.user_loc.setText("Sari")
+    m._submit()
+    assert m.result() == QDialog.DialogCode.Accepted, m.banner.text()
+    assert ctx.assets.get_row(aid)["locationId"] == gudang
+
+    s = ServiceDialog(win, ctx, aid)
+    s._submit()
+    assert "description" in {k for k, lb in s.form._errors.items() if not lb.isHidden()}
+    s.desc.setPlainText("Bersihkan kipas")
+    s.cost.setText("150.000")
+    s.next.set_value(dt.date.today() + dt.timedelta(days=10))
+    s._submit()
+    assert s.result() == QDialog.DialogCode.Accepted, s.banner.text()
+    sid = ctx.ops.services_for_asset(aid)[0]["id"]
+    ServiceDialog(win, ctx, aid, sid).close()
+
+    det = AssetDetailDialog(win, ctx, aid)
+    det._render()
+    det.close()
+
+    labels = labels_for_assets(ctx, [aid])
+    assert labels[0].qr.startswith("IT-2024-")
+    ld = LabelDialog(win, ctx, labels)
+    assert not ld.preview.pixmap().isNull()
+    ld.close()
+
+    # Stok
+    unit = ctx.masters.list(MasterType.UNIT)[0]["id"]
+    d = ItemDialog(win, ctx, barcode="899000")
+    d.code.setText("atk-9")
+    d.name.setText("Map plastik")
+    d.unit.set_value(unit)
+    d.initial.setText("3")
+    d.minimum.setText("5")
+    d._submit()
+    assert d.result() == QDialog.DialogCode.Accepted, d.banner.text()
+    iid = d.saved_id
+    t = TxnDialog(win, ctx, iid, StockTxnType.OUT)
+    t.qty.setText("9")
+    t._submit()
+    assert t.result() != QDialog.DialogCode.Accepted and "Stok tersedia" in t.form._errors["qty"].text()
+    ItemDetailDialog(win, ctx, iid).close()
+
+    # Halaman baru: scan (aset, barang, tidak ditemukan), stok, servis.
+    names = [win.shell.nav.item(i).text() for i in range(win.shell.nav.count())]
+    win.shell.nav.setCurrentRow(names.index("Scan"))
+    win.shell.scan.input.setText(labels[0].qr.lower())
+    win.shell.scan._lookup()
+    win.shell.scan.input.setText("899000")
+    win.shell.scan._lookup()
+    win.shell.scan.input.setText("tidak-ada")
+    win.shell.scan._lookup()
+    assert opened[-2:] == ["AssetDetailDialog", "ItemDetailDialog"]
+    assert not win.shell.scan.banner.isHidden() and win.shell.scan.history.model_.rowCount() == 3
+    win.shell.nav.setCurrentRow(names.index("Stok"))
+    assert win.shell.stock.table.model_.rowCount() == 1 and "1 perlu reorder" in win.shell.stock.count.text()
+    win.shell.nav.setCurrentRow(names.index("Servis"))
+    assert win.shell.services.sched.model_.rowCount() == 1
+    win.shell.services.tabs.setCurrentIndex(1)
+    assert win.shell.services.hist.model_.rowCount() == 1

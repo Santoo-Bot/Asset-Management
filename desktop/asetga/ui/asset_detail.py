@@ -12,6 +12,7 @@ from ..core import fmt
 from ..core.audit import changes_text
 from ..core.models import WRITE_OFF_ID, AssetCondition, parse_accessories
 from .asset_form import AssetFormDialog
+from .operation_dialogs import service_cells
 from .widgets import DateField, FormDialog, MoneyField, Table, button, label, primary
 
 
@@ -42,10 +43,19 @@ class AssetDetailDialog(QDialog):
         self.lay.addWidget(self.content, 1)
         bb = QDialogButtonBox()
         role = ctx.session.role
+        label_btn = button("Label QR")
+        label_btn.clicked.connect(self._label)
+        bb.addButton(label_btn, QDialogButtonBox.ButtonRole.ActionRole)
         if role and role.can_edit_data:
             self.edit_btn = primary("Ubah")
             self.edit_btn.clicked.connect(self._edit)
             bb.addButton(self.edit_btn, QDialogButtonBox.ButtonRole.ActionRole)
+            mut = button("Mutasi…")
+            mut.clicked.connect(self._mutation)
+            bb.addButton(mut, QDialogButtonBox.ButtonRole.ActionRole)
+            svc = button("Catat servis…")
+            svc.clicked.connect(lambda: self._service(None))
+            bb.addButton(svc, QDialogButtonBox.ButtonRole.ActionRole)
             self.wo_btn = button("Write Off…", danger=True)
             self.wo_btn.clicked.connect(self._write_off)
             bb.addButton(self.wo_btn, QDialogButtonBox.ButtonRole.ActionRole)
@@ -168,11 +178,50 @@ class AssetDetailDialog(QDialog):
         for i, w in enumerate((130, 120, 70, 220)):
             hist.setColumnWidth(i, w)
         tabs.addTab(hist, "Riwayat perubahan")
+
+        muts = Table(["Tanggal", "Dari", "Ke", "Pengguna / detail lokasi", "Dicatat oleh"])
+        muts.set_rows([
+            (m["id"], [fmt.date_numeric(fmt.from_epoch_day(m["mutationDate"])), m["fromLocation"] or "-", m["toLocation"] or "-",
+                       f"{m['fromUserLocation'] or '-'} → {m['toUserLocation'] or '-'}", m["createdBy"] or "-"])
+            for m in self.ctx.ops.mutations(self.asset_id)
+        ])
+        for i, w in enumerate((90, 140, 140, 220)):
+            muts.setColumnWidth(i, w)
+        tabs.addTab(muts, f"Mutasi ({muts.model_.rowCount()})")
+
+        svcs = Table(["Tanggal", "Jenis", "Vendor", "Biaya", "Deskripsi", "Berikutnya"])
+        svcs.set_rows([(x["id"], service_cells(x)) for x in self.ctx.ops.services_for_asset(self.asset_id)], align_right={3})
+        for i, w in enumerate((90, 80, 130, 110, 220)):
+            svcs.setColumnWidth(i, w)
+        role = self.ctx.session.role
+        if role and role.can_edit_data:
+            svcs.activated_row.connect(self._service)
+            svcs.setToolTip("Klik dua kali untuk mengubah catatan servis")
+        tabs.addTab(svcs, f"Servis ({svcs.model_.rowCount()})")
         root.addWidget(tabs, 1)
 
     def _edit(self) -> None:
         dlg = AssetFormDialog(self, self.ctx, self.asset_id)
         if dlg.exec() == QDialog.DialogCode.Accepted:
+            self.changed = True
+            self._render()
+
+    def _label(self) -> None:
+        from .label_dialog import LabelDialog, labels_for_assets
+
+        LabelDialog(self, self.ctx, labels_for_assets(self.ctx, [self.asset_id])).exec()
+
+    def _mutation(self) -> None:
+        from .operation_dialogs import MutationDialog
+
+        if MutationDialog(self, self.ctx, self.asset_id).exec() == QDialog.DialogCode.Accepted:
+            self.changed = True
+            self._render()
+
+    def _service(self, service_id) -> None:
+        from .operation_dialogs import ServiceDialog
+
+        if ServiceDialog(self, self.ctx, self.asset_id, service_id).exec() == QDialog.DialogCode.Accepted:
             self.changed = True
             self._render()
 

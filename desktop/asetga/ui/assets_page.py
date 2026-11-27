@@ -60,8 +60,11 @@ class AssetsPage(QWidget):
         self.delete_btn.clicked.connect(self._delete)
         reset = button("Reset filter")
         reset.clicked.connect(self._reset_filters)
+        self.label_btn = button("Label QR")
+        self.label_btn.clicked.connect(self._labels)
         bar.addWidget(self.open_btn)
         bar.addWidget(self.select_all)
+        bar.addWidget(self.label_btn)
         bar.addWidget(self.delete_btn)
         bar.addStretch(1)
         bar.addWidget(reset)
@@ -149,6 +152,15 @@ class AssetsPage(QWidget):
         dlg.exec()
         if dlg.changed:
             self.refresh()
+
+    def _labels(self) -> None:
+        from .label_dialog import LabelDialog, labels_for_assets
+
+        ids = self.table.selected_data()
+        if not ids:
+            info(self, "Pilih aset yang akan dibuatkan label (klik baris, Ctrl/Shift + klik, atau Pilih semua).")
+            return
+        LabelDialog(self, self.ctx, labels_for_assets(self.ctx, ids)).exec()
 
     def _delete(self) -> None:
         ids = self.table.selected_data()

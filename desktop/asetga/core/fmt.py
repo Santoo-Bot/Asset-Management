@@ -32,6 +32,16 @@ def number(value: int | float) -> str:
     return f"{int(round(value)):,}".replace(",", ".")
 
 
+def qty(value: float) -> str:
+    """Jumlah stok, maks. 2 desimal: 1.234,5 (sama dengan Fmt.qty di Android)."""
+    v = round(float(value), 2)
+    neg = v < 0
+    whole, _, frac = f"{abs(v):.2f}".partition(".")
+    frac = frac.rstrip("0")
+    text = f"{int(whole):,}".replace(",", ".") + (f",{frac}" if frac else "")
+    return ("-" if neg else "") + text
+
+
 def rupiah(value: int | None) -> str:
     if value is None:
         return "-"

@@ -141,3 +141,23 @@ def parse_accessories(text: str | None) -> list[str]:
 def normalize_accessories(text: str | None) -> str | None:
     """Bentuk baku untuk disimpan: "Charger, Casing"; None bila kosong."""
     return ", ".join(parse_accessories(text)) or None
+
+
+class ServiceType(Enum):
+    PREVENTIF = "Preventif"
+    KOREKTIF = "Korektif"
+    KALIBRASI = "Kalibrasi"
+    INSPEKSI = "Inspeksi"
+
+    @property
+    def label(self) -> str:
+        return self.value
+
+
+class StockTxnType(Enum):
+    IN = "Masuk"
+    OUT = "Keluar"
+
+    @property
+    def label(self) -> str:
+        return self.value

@@ -49,6 +49,9 @@ jobs:
           pyinstaller --noconfirm --clean --windowed --name AsetGA
           --icon asetga/resources/icon.ico
           --add-data "asetga/resources;asetga/resources"
+          --collect-submodules reportlab.pdfbase
+          --collect-submodules reportlab.graphics.barcode
+          --collect-data reportlab
           run.py
 
       - name: Uji jalan exe (buka & tutup sendiri)
@@ -61,6 +64,8 @@ jobs:
           $p = Start-Process -FilePath dist/AsetGA/AsetGA.exe -PassThru -Wait
           if ($p.ExitCode -ne 0) { throw "AsetGA.exe keluar dengan kode $($p.ExitCode)" }
           if (-not (Test-Path "$env:ASETGA_DATA_DIR\aset_ga.db")) { throw "Database tidak dibuat" }
+          if (-not (Test-Path "$env:ASETGA_DATA_DIR\uji-label.pdf")) { throw "Label PDF tidak dibuat" }
+          if (-not (Test-Path "$env:ASETGA_DATA_DIR\uji-label.png")) { throw "Label PNG tidak dibuat" }
 
       - name: Paketkan zip
         shell: pwsh
