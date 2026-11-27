@@ -51,11 +51,14 @@ import id.perusahaan.asetga.ui.components.AppTopBar
 import id.perusahaan.asetga.ui.components.FormTextField
 import id.perusahaan.asetga.ui.components.OptionSheet
 import id.perusahaan.asetga.ui.components.PasswordField
+import id.perusahaan.asetga.ui.components.REAUTH_LABEL
+import id.perusahaan.asetga.ui.components.ReauthDialog
+import id.perusahaan.asetga.ui.components.ReauthViewModel
 import id.perusahaan.asetga.ui.components.SectionHeader
 import id.perusahaan.asetga.util.Fmt
 import kotlinx.coroutines.launch
 
-private enum class SettingsDialog { PIN, PASSWORD, RESIDUAL, COMPANY, HOUR, RESET, LOGOUT }
+private enum class SettingsDialog { PIN, PASSWORD, RESIDUAL, COMPANY, HOUR, RESET, LOGOUT, LOCK_OFF }
 
 @Composable
 fun SettingsScreen(onBack: () -> Unit, vm: SettingsViewModel = hiltViewModel()) {
@@ -99,11 +102,11 @@ fun SettingsScreen(onBack: () -> Unit, vm: SettingsViewModel = hiltViewModel()) 
 
             SectionHeader("Keamanan")
             ListItem(
-                modifier = Modifier.clickable { vm.setAppLock(!settings.appLockEnabled) },
+                modifier = Modifier.clickable { if (settings.appLockEnabled) dialog = SettingsDialog.LOCK_OFF else vm.setAppLock(true) },
                 leadingContent = { Icon(Icons.Outlined.Lock, contentDescription = null) },
                 headlineContent = { Text("Kunci aplikasi") },
                 supportingContent = { Text("Minta biometrik/PIN saat dibuka atau setelah 1 menit di latar belakang") },
-                trailingContent = { Switch(checked = settings.appLockEnabled, onCheckedChange = { vm.setAppLock(it) }) },
+                trailingContent = { Switch(checked = settings.appLockEnabled, onCheckedChange = { if (it) vm.setAppLock(true) else dialog = SettingsDialog.LOCK_OFF }) },
             )
             ListItem(
                 modifier = Modifier.clickable { dialog = SettingsDialog.PIN },
@@ -170,6 +173,13 @@ fun SettingsScreen(onBack: () -> Unit, vm: SettingsViewModel = hiltViewModel()) 
             onDismiss = { dialog = null },
             onSelect = { h -> if (h != null) vm.setReminderHour(h); dialog = null },
         )
+        SettingsDialog.LOCK_OFF -> ReauthDialog(
+            title = "Matikan kunci aplikasi?",
+            message = "Siapa pun yang membuka aplikasi ini langsung masuk sebagai Anda. Masukkan kata sandi untuk melanjutkan.",
+            confirmLabel = "Matikan",
+            onConfirmed = { dialog = null; vm.setAppLock(false) },
+            onDismiss = { dialog = null },
+        )
         SettingsDialog.RESET -> ResetDialog(onConfirm = { scope -> dialog = null; vm.resetData(scope) }, onDismiss = { dialog = null })
         SettingsDialog.LOGOUT -> AlertDialog(
             onDismissRequest = { dialog = null },
@@ -183,10 +193,12 @@ fun SettingsScreen(onBack: () -> Unit, vm: SettingsViewModel = hiltViewModel()) 
 }
 
 @Composable
-private fun PinDialog(hasPin: Boolean, vm: SettingsViewModel, onDismiss: () -> Unit) {
+private fun PinDialog(hasPin: Boolean, vm: SettingsViewModel, onDismiss: () -> Unit, reauth: ReauthViewModel = hiltViewModel()) {
     val scope = rememberCoroutineScope()
     var pin by remember { mutableStateOf("") }
     var confirm by remember { mutableStateOf("") }
+    var password by remember { mutableStateOf("") }
+    var passwordError by remember { mutableStateOf<String?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -195,20 +207,29 @@ private fun PinDialog(hasPin: Boolean, vm: SettingsViewModel, onDismiss: () -> U
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 PasswordField(pin, { if (it.length <= 8 && it.all(Char::isDigit)) pin = it }, "PIN baru (4–8 digit)", keyboardType = KeyboardType.NumberPassword)
                 PasswordField(confirm, { if (it.length <= 8 && it.all(Char::isDigit)) confirm = it }, "Ulangi PIN", keyboardType = KeyboardType.NumberPassword, error = error)
+                PasswordField(password, { password = it; passwordError = null }, REAUTH_LABEL, error = passwordError)
             }
         },
         confirmButton = {
-            TextButton(onClick = {
+            TextButton(enabled = password.isNotEmpty(), onClick = {
                 if (pin != confirm) {
                     error = "PIN tidak sama"
                 } else {
-                    scope.launch { error = vm.setPin(pin); if (error == null) onDismiss() }
+                    scope.launch {
+                        passwordError = reauth.verify(password)
+                        if (passwordError == null) { error = vm.setPin(pin); if (error == null) onDismiss() }
+                    }
                 }
             }) { Text("Simpan") }
         },
         dismissButton = {
             Row {
-                if (hasPin) TextButton(onClick = { scope.launch { if (vm.setPin(null) == null) onDismiss() } }) { Text("Hapus PIN") }
+                if (hasPin) TextButton(enabled = password.isNotEmpty(), onClick = {
+                    scope.launch {
+                        passwordError = reauth.verify(password)
+                        if (passwordError == null && vm.setPin(null) == null) onDismiss()
+                    }
+                }) { Text("Hapus PIN") }
                 TextButton(onClick = onDismiss) { Text("Batal") }
             }
         },
@@ -280,9 +301,13 @@ private fun TextInputDialog(title: String, initial: String, label: String, onSav
 }
 
 @Composable
-private fun ResetDialog(onConfirm: (ResetScope) -> Unit, onDismiss: () -> Unit) {
+private fun ResetDialog(onConfirm: (ResetScope) -> Unit, onDismiss: () -> Unit, reauth: ReauthViewModel = hiltViewModel()) {
+    val routine = rememberCoroutineScope()
     var scope by remember { mutableStateOf(ResetScope.OPERATIONAL) }
     var typed by remember { mutableStateOf("") }
+    var password by remember { mutableStateOf("") }
+    var passwordError by remember { mutableStateOf<String?>(null) }
+    var busy by remember { mutableStateOf(false) }
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("Hapus seluruh data?") },
@@ -302,10 +327,21 @@ private fun ResetDialog(onConfirm: (ResetScope) -> Unit, onDismiss: () -> Unit) 
                     color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall,
                 )
                 FormTextField(typed, { typed = it }, "Ketik HAPUS untuk konfirmasi")
+                PasswordField(password, { password = it; passwordError = null }, REAUTH_LABEL, error = passwordError)
             }
         },
         confirmButton = {
-            TextButton(onClick = { onConfirm(scope) }, enabled = typed.trim().equals("HAPUS", ignoreCase = true)) {
+            TextButton(
+                onClick = {
+                    busy = true
+                    routine.launch {
+                        passwordError = reauth.verify(password)
+                        busy = false
+                        if (passwordError == null) onConfirm(scope)
+                    }
+                },
+                enabled = !busy && password.isNotEmpty() && typed.trim().equals("HAPUS", ignoreCase = true),
+            ) {
                 Text("Hapus", color = MaterialTheme.colorScheme.error)
             }
         },

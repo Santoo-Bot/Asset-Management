@@ -27,7 +27,18 @@ class PhotoStorage @Inject constructor(
 ) {
     private val photoDir: File get() = File(context.filesDir, DIR).apply { mkdirs() }
 
-    fun resolve(relativePath: String?): File? = relativePath?.let { File(context.filesDir, it) }?.takeIf { it.exists() }
+    /**
+     * File foto untuk path relatif dari database, atau null bila path keluar dari folder foto
+     * (mis. "../databases/aset_ga.db" dari database hasil restore yang dimanipulasi).
+     */
+    private fun safeFile(relativePath: String?): File? {
+        if (relativePath.isNullOrBlank()) return null
+        val file = File(context.filesDir, relativePath)
+        val root = photoDir.canonicalFile
+        return file.takeIf { it.canonicalFile.startsWith(root) && it.canonicalFile != root }
+    }
+
+    fun resolve(relativePath: String?): File? = safeFile(relativePath)?.takeIf { it.exists() }
 
     /** Uri sementara untuk kamera (ActivityResultContracts.TakePicture). */
     fun newCameraUri(): Uri {
@@ -74,7 +85,7 @@ class PhotoStorage @Inject constructor(
     }
 
     fun delete(relativePath: String?) {
-        relativePath?.let { File(context.filesDir, it).delete() }
+        safeFile(relativePath)?.delete()
     }
 
     /** Hapus file foto yang tidak lagi dirujuk data mana pun. Mengembalikan jumlah file yang dihapus. */

@@ -36,6 +36,7 @@ import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.remember
@@ -43,6 +44,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import kotlinx.coroutines.launch
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import id.perusahaan.asetga.domain.model.Role
 import id.perusahaan.asetga.domain.security.CredentialRules.FIELD_FULL_NAME
@@ -52,6 +54,8 @@ import id.perusahaan.asetga.ui.components.AppTopBar
 import id.perusahaan.asetga.ui.components.ErrorBanner
 import id.perusahaan.asetga.ui.components.FormTextField
 import id.perusahaan.asetga.ui.components.PasswordField
+import id.perusahaan.asetga.ui.components.REAUTH_LABEL
+import id.perusahaan.asetga.ui.components.ReauthViewModel
 import id.perusahaan.asetga.ui.components.StatusChip
 import id.perusahaan.asetga.ui.theme.AppTheme
 
@@ -107,6 +111,10 @@ private fun UserEditorSheet(
     onDismiss: () -> Unit,
 ) {
     var confirmDelete by remember { mutableStateOf(false) }
+    var password by remember { mutableStateOf("") }
+    var passwordError by remember { mutableStateOf<String?>(null) }
+    val scope = rememberCoroutineScope()
+    val reauth: ReauthViewModel = hiltViewModel()
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
         Column(
             Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).imePadding().navigationBarsPadding().padding(horizontal = 16.dp),
@@ -138,9 +146,18 @@ private fun UserEditorSheet(
             if (s.existing != null && !isSelf) {
                 if (confirmDelete) {
                     ErrorBanner("Hapus akun ${s.existing.fullName} secara permanen? Pengguna ini tidak bisa masuk lagi.")
+                    PasswordField(password, { password = it; passwordError = null }, REAUTH_LABEL, error = passwordError)
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        TextButton(onClick = onDelete) { Text("Ya, hapus permanen", color = MaterialTheme.colorScheme.error) }
-                        TextButton(onClick = { confirmDelete = false }) { Text("Batal") }
+                        TextButton(
+                            enabled = password.isNotEmpty(),
+                            onClick = {
+                                scope.launch {
+                                    passwordError = reauth.verify(password)
+                                    if (passwordError == null) onDelete()
+                                }
+                            },
+                        ) { Text("Ya, hapus permanen", color = MaterialTheme.colorScheme.error) }
+                        TextButton(onClick = { confirmDelete = false; password = ""; passwordError = null }) { Text("Batal") }
                     }
                 } else {
                     OutlinedButton(onClick = { confirmDelete = true }, modifier = Modifier.fillMaxWidth().height(52.dp)) {

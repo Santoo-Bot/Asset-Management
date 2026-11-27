@@ -30,6 +30,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -46,6 +47,8 @@ import id.perusahaan.asetga.domain.security.BackupCrypto
 import id.perusahaan.asetga.domain.session.SessionManager
 import id.perusahaan.asetga.ui.components.AppTopBar
 import id.perusahaan.asetga.ui.components.PasswordField
+import id.perusahaan.asetga.ui.components.REAUTH_LABEL
+import id.perusahaan.asetga.ui.components.ReauthViewModel
 import id.perusahaan.asetga.ui.components.SectionHeader
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
@@ -117,7 +120,7 @@ private fun restartApp(context: Context) {
 }
 
 @Composable
-fun BackupScreen(onBack: () -> Unit, vm: BackupViewModel = hiltViewModel()) {
+fun BackupScreen(onBack: () -> Unit, vm: BackupViewModel = hiltViewModel(), reauth: ReauthViewModel = hiltViewModel()) {
     val busy by vm.busy.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val snackbar = remember { SnackbarHostState() }
@@ -125,12 +128,15 @@ fun BackupScreen(onBack: () -> Unit, vm: BackupViewModel = hiltViewModel()) {
     var confirm by remember { mutableStateOf("") }
     var restoreUri by remember { mutableStateOf<Uri?>(null) }
     var restorePass by remember { mutableStateOf("") }
+    var accountPass by remember { mutableStateOf("") }
+    var accountPassError by remember { mutableStateOf<String?>(null) }
+    val routine = rememberCoroutineScope()
     var restoreDone by remember { mutableStateOf(false) }
 
     val createDoc = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument(BackupManager.MIME)) { uri ->
         if (uri != null) vm.backup(uri, pass)
     }
-    val openDoc = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri -> restoreUri = uri; restorePass = "" }
+    val openDoc = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri -> restoreUri = uri; restorePass = ""; accountPass = ""; accountPassError = null }
 
     LaunchedEffect(vm) {
         vm.events.collect { e ->
@@ -194,11 +200,20 @@ fun BackupScreen(onBack: () -> Unit, vm: BackupViewModel = hiltViewModel()) {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text("Semua data saat ini akan diganti. Aplikasi akan dimulai ulang setelah restore.")
                     PasswordField(restorePass, { restorePass = it }, "Passphrase backup")
+                    PasswordField(accountPass, { accountPass = it; accountPassError = null }, REAUTH_LABEL, error = accountPassError)
                     if (busy) LinearProgressIndicator(Modifier.fillMaxWidth())
                 }
             },
             confirmButton = {
-                TextButton(onClick = { vm.restore(uri, restorePass) }, enabled = !busy && restorePass.isNotEmpty()) { Text("Restore") }
+                TextButton(
+                    onClick = {
+                        routine.launch {
+                            accountPassError = reauth.verify(accountPass)
+                            if (accountPassError == null) vm.restore(uri, restorePass)
+                        }
+                    },
+                    enabled = !busy && restorePass.isNotEmpty() && accountPass.isNotEmpty(),
+                ) { Text("Restore") }
             },
             dismissButton = { TextButton(onClick = { restoreUri = null }, enabled = !busy) { Text("Batal") } },
         )
