@@ -224,7 +224,7 @@ class ExcelTest {
         assertNotNull(AssetImportParser.parseAuto(listOf(listOf("Nama Aset*"), listOf("x")), lookups, existing, today).headerError)
     }
 
-    @Test fun `satu alur: file tanpa kolom wajib tetap bisa memperbarui tetapi aset baru ditolak jelas`() {
+    @Test fun `satu alur dengan file tanpa kolom wajib tetap memperbarui tetapi aset baru ditolak jelas`() {
         val p = AssetImportParser.parseAuto(
             listOf(listOf("Kode Aset*", "Nama Aset*"), listOf("IT-2024-001", "Baru"), listOf("IT-2024-555", "Item")),
             lookups, existing, today,
