@@ -47,7 +47,8 @@ import id.perusahaan.asetga.ui.feature.asset.AssetListScreen
 import id.perusahaan.asetga.ui.feature.audit.AuditLogScreen
 import id.perusahaan.asetga.ui.feature.dashboard.DashboardScreen
 import id.perusahaan.asetga.ui.feature.data.BackupScreen
-import id.perusahaan.asetga.ui.feature.data.ImportExportScreen
+import id.perusahaan.asetga.ui.feature.data.AssetImportScreen
+import id.perusahaan.asetga.ui.feature.data.StockImportScreen
 import id.perusahaan.asetga.ui.feature.opname.OpnameAssetPickerScreen
 import id.perusahaan.asetga.ui.feature.opname.OpnameListScreen
 import id.perusahaan.asetga.ui.feature.opname.OpnameSessionScreen
@@ -123,6 +124,7 @@ fun MainScaffold(user: User) {
                 AssetListScreen(
                     onOpenAsset = { nav.navigate(AssetDetailRoute(it)) },
                     onAddAsset = { nav.navigate(AssetFormRoute()) },
+                    onImportAssets = { nav.navigate(AssetImportRoute) },
                     onPrintLabels = { nav.navigate(LabelRoute) },
                 )
             }
@@ -167,7 +169,8 @@ fun MainScaffold(user: User) {
                 )
             }
             composable<LabelRoute> { LabelScreen(onBack = nav::navigateUp) }
-            composable<ImportExportRoute> { ImportExportScreen(onBack = nav::navigateUp) }
+            composable<AssetImportRoute> { AssetImportScreen(onBack = nav::navigateUp) }
+            composable<StockImportRoute> { StockImportScreen(onBack = nav::navigateUp) }
             composable<BackupRoute> { BackupScreen(onBack = nav::navigateUp) }
             composable<AuditLogRoute> { AuditLogScreen(onBack = nav::navigateUp) }
             composable<InsuranceListRoute> {
@@ -240,6 +243,7 @@ fun MainScaffold(user: User) {
                     onScan = { nav.navigate(ScanPickRoute("Scan barcode barang")) },
                     onOpenItem = { nav.navigate(ItemDetailRoute(it)) },
                     onAddItem = { barcode -> nav.navigate(ItemFormRoute(barcode = barcode)) },
+                    onImportItems = { nav.navigate(StockImportRoute) },
                 )
             }
             composable<ScanPickRoute> { entry ->
@@ -278,7 +282,6 @@ fun MainScaffold(user: User) {
                     onOpenMaster = { nav.navigate(MasterMenuRoute) },
                     onOpenServices = { nav.navigate(ServiceListRoute) },
                     onOpenOpname = { nav.navigate(OpnameListRoute) },
-                    onOpenImportExport = { nav.navigate(ImportExportRoute) },
                     onOpenBackup = { nav.navigate(BackupRoute) },
                     onOpenAuditLog = { nav.navigate(AuditLogRoute) },
                     onOpenInsurance = { nav.navigate(InsuranceListRoute) },

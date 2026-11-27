@@ -26,6 +26,16 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import id.perusahaan.asetga.ui.feature.data.ExportDialog
+import id.perusahaan.asetga.ui.feature.data.DataFilesViewModel
+import id.perusahaan.asetga.ui.feature.data.DataFilesEffect
+import id.perusahaan.asetga.data.file.ExportKind
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.IconButton
+import androidx.compose.material.icons.outlined.IosShare
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -98,7 +108,19 @@ fun ServiceStatusChip(status: ServiceDueStatus) {
 @Composable
 fun ServiceListScreen(onBack: () -> Unit, onOpenAsset: (String) -> Unit, vm: ServiceListViewModel = hiltViewModel()) {
     var tab by rememberSaveable { mutableIntStateOf(0) }
-    Scaffold(topBar = { AppTopBar("Servis & perawatan", onBack = onBack) }) { padding ->
+    val snackbar = remember { SnackbarHostState() }
+    val files: DataFilesViewModel = hiltViewModel()
+    DataFilesEffect(files) { snackbar.showSnackbar(it) }
+    var exportDialog by remember { mutableStateOf(false) }
+    if (exportDialog) ExportDialog(ExportKind.SERVICES, files) { exportDialog = false }
+    Scaffold(
+        topBar = {
+            AppTopBar("Servis & perawatan", onBack = onBack, actions = {
+                IconButton(onClick = { exportDialog = true }) { Icon(Icons.Outlined.IosShare, contentDescription = "Export riwayat servis") }
+            })
+        },
+        snackbarHost = { SnackbarHost(snackbar) },
+    ) { padding ->
         Column(Modifier.fillMaxSize().padding(padding)) {
             TabRow(selectedTabIndex = tab) {
                 Tab(selected = tab == 0, onClick = { tab = 0 }, text = { Text("Jadwal") })

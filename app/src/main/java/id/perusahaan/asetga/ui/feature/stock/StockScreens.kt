@@ -55,6 +55,12 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import id.perusahaan.asetga.ui.feature.data.ExportDialog
+import id.perusahaan.asetga.ui.feature.data.DataFilesViewModel
+import id.perusahaan.asetga.ui.feature.data.DataFilesEffect
+import id.perusahaan.asetga.ui.components.AddMenuFab
+import id.perusahaan.asetga.data.file.ExportKind
+import androidx.compose.material.icons.outlined.IosShare
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -96,6 +102,7 @@ fun StockListScreen(
     onScan: () -> Unit,
     onOpenItem: (String) -> Unit,
     onAddItem: (barcode: String?) -> Unit,
+    onImportItems: () -> Unit,
     vm: StockListViewModel = hiltViewModel(),
 ) {
     val items by vm.items.collectAsStateWithLifecycle()
@@ -103,6 +110,9 @@ fun StockListScreen(
     val reorderOnly by vm.reorderOnly.collectAsStateWithLifecycle()
     val reorderCount by vm.reorderCount.collectAsStateWithLifecycle()
     val snackbar = remember { SnackbarHostState() }
+    val files: DataFilesViewModel = hiltViewModel()
+    DataFilesEffect(files) { snackbar.showSnackbar(it) }
+    var exportDialog by remember { mutableStateOf(false) }
 
     LaunchedEffect(scannedCode) {
         if (scannedCode != null) {
@@ -129,16 +139,18 @@ fun StockListScreen(
     Scaffold(
         topBar = {
             AppTopBar("Stok barang", actions = {
+                IconButton(onClick = { exportDialog = true }) { Icon(Icons.Outlined.IosShare, contentDescription = "Export stok") }
                 IconButton(onClick = onScan) { Icon(Icons.Filled.QrCodeScanner, contentDescription = "Scan barcode barang") }
             })
         },
         snackbarHost = { SnackbarHost(snackbar) },
         floatingActionButton = {
             if (vm.canEdit) {
-                ExtendedFloatingActionButton(onClick = { onAddItem(null) }, icon = { Icon(Icons.Filled.Add, null) }, text = { Text("Tambah barang") })
+                AddMenuFab(text = "Tambah barang", onManual = { onAddItem(null) }, onImport = onImportItems, onTemplate = files::stockTemplate)
             }
         },
     ) { padding ->
+        if (exportDialog) ExportDialog(ExportKind.STOCK, files) { exportDialog = false }
         Column(Modifier.fillMaxSize().padding(padding)) {
             OutlinedTextField(
                 value = query, onValueChange = vm::setQuery, singleLine = true,

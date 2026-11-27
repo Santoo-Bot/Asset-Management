@@ -37,7 +37,6 @@ fun MoreScreen(
     onOpenMaster: () -> Unit,
     onOpenServices: () -> Unit,
     onOpenOpname: () -> Unit,
-    onOpenImportExport: () -> Unit,
     onOpenBackup: () -> Unit,
     onOpenAuditLog: () -> Unit,
     onOpenInsurance: () -> Unit,
@@ -56,10 +55,9 @@ fun MoreScreen(
             MenuRow(Icons.Outlined.Shield, "Asuransi", "Polis, tipe & perusahaan asuransi, aset yang ditanggung", onOpenInsurance)
             MenuRow(Icons.Outlined.TaskAlt, "Stock opname aset", "Buat sesi, pilih aset, cek fisik, buat laporan", onOpenOpname)
             MenuRow(Icons.Outlined.Category, "Master data", "Kategori, lokasi, departemen, vendor, satuan", onOpenMaster)
-            SectionHeader("File")
-            MenuRow(Icons.Outlined.ImportExport, "Import & export", "Excel/CSV aset, servis, stok; template import", onOpenImportExport)
             // Backup memuat seluruh database (termasuk hash kata sandi), jadi hanya untuk Admin GA.
             if (user.role.canManageMaster) {
+                SectionHeader("File")
                 MenuRow(Icons.Outlined.Backup, "Backup & restore", "File terenkripsi ke HP atau Google Drive", onOpenBackup)
             }
             SectionHeader("Sistem")

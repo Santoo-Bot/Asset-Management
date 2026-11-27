@@ -33,7 +33,8 @@ import kotlinx.serialization.Serializable
 
 const val SCAN_RESULT_KEY = "scan_result"
 
-@Serializable data object ImportExportRoute
+@Serializable data object AssetImportRoute
+@Serializable data object StockImportRoute
 @Serializable data object BackupRoute
 @Serializable data object AuditLogRoute
 @Serializable data object OpnameListRoute

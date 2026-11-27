@@ -60,6 +60,12 @@ import androidx.paging.LoadState
 import androidx.paging.compose.collectAsLazyPagingItems
 import androidx.paging.compose.itemKey
 import id.perusahaan.asetga.domain.model.AssetCondition
+import id.perusahaan.asetga.ui.feature.data.ExportDialog
+import id.perusahaan.asetga.ui.feature.data.DataFilesViewModel
+import id.perusahaan.asetga.ui.feature.data.DataFilesEffect
+import id.perusahaan.asetga.ui.components.AddMenuFab
+import id.perusahaan.asetga.data.file.ExportKind
+import androidx.compose.material.icons.outlined.IosShare
 import id.perusahaan.asetga.domain.model.AssetListItem
 import id.perusahaan.asetga.domain.model.AssetSort
 import id.perusahaan.asetga.domain.model.AssetStatus
@@ -76,6 +82,7 @@ private enum class FilterSheet { CATEGORY, LOCATION, DIVISION, DEPARTMENT, CONDI
 fun AssetListScreen(
     onOpenAsset: (String) -> Unit,
     onAddAsset: () -> Unit,
+    onImportAssets: () -> Unit,
     onPrintLabels: () -> Unit,
     vm: AssetListViewModel = hiltViewModel(),
 ) {
@@ -93,6 +100,9 @@ fun AssetListScreen(
     var confirmDelete by remember { mutableStateOf(false) }
     val snackbar = remember { SnackbarHostState() }
     LaunchedEffect(vm) { vm.messages.collect { snackbar.showSnackbar(it) } }
+    val files: DataFilesViewModel = hiltViewModel()
+    DataFilesEffect(files) { snackbar.showSnackbar(it) }
+    var exportDialog by remember { mutableStateOf(false) }
     val selecting = selection.isNotEmpty()
 
     Scaffold(
@@ -119,6 +129,7 @@ fun AssetListScreen(
                 AppTopBar(
                     title = "Aset" + (count?.let { " (${Fmt.number(it.toLong())})" } ?: ""),
                     actions = {
+                        IconButton(onClick = { exportDialog = true }) { Icon(Icons.Outlined.IosShare, contentDescription = "Export aset") }
                         if ((count ?: 0) > 0) {
                             IconButton(onClick = vm::selectAll) { Icon(Icons.Filled.SelectAll, contentDescription = "Pilih semua aset") }
                         }
@@ -129,11 +140,7 @@ fun AssetListScreen(
         snackbarHost = { SnackbarHost(snackbar) },
         floatingActionButton = {
             if (vm.canEdit && !selecting) {
-                ExtendedFloatingActionButton(
-                    onClick = onAddAsset,
-                    icon = { Icon(Icons.Filled.Add, contentDescription = null) },
-                    text = { Text("Tambah aset") },
-                )
+                AddMenuFab(text = "Tambah aset", onManual = onAddAsset, onImport = onImportAssets, onTemplate = files::assetTemplate)
             }
         },
     ) { padding ->
@@ -228,6 +235,8 @@ fun AssetListScreen(
             }
         }
     }
+
+    if (exportDialog) ExportDialog(ExportKind.ASSETS, files) { exportDialog = false }
 
     if (confirmDelete) {
         var reason by remember { mutableStateOf("") }
