@@ -223,7 +223,8 @@ class AssetFormViewModel @Inject constructor(
                 }
                 is AppResult.Failure -> {
                     _state.update { it.copy(saving = false, errors = r.fieldErrors) }
-                    _events.send(AssetFormEvent.Message(r.message))
+                    // Bila ada kolom yang salah, layar menyebut nama kolomnya sendiri.
+                    if (r.fieldErrors.isEmpty()) _events.send(AssetFormEvent.Message(r.message))
                 }
             }
         }

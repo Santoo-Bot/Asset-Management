@@ -27,7 +27,9 @@ import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.outlined.Build
 import androidx.compose.material.icons.outlined.ErrorOutline
 import androidx.compose.material.icons.outlined.Inventory
+import androidx.compose.material.icons.outlined.AccountBalance
 import androidx.compose.material.icons.outlined.Inventory2
+import androidx.compose.material.icons.outlined.Payments
 import androidx.compose.material.icons.outlined.ReportProblem
 import androidx.compose.material.icons.outlined.Schedule
 import androidx.compose.material.icons.outlined.Shield
@@ -116,7 +118,7 @@ fun DashboardScreen(
         LazyColumn(Modifier.fillMaxSize().padding(padding), contentPadding = PaddingValues(bottom = 24.dp)) {
             item {
                 Text(
-                    "Halo, ${userName.substringBefore(' ')}",
+                    "${greeting()}, ${userName.substringBefore(' ')}",
                     style = MaterialTheme.typography.titleLarge,
                     modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp),
                 )
@@ -154,6 +156,13 @@ fun DashboardScreen(
     }
 }
 
+private fun greeting(): String = when (java.time.LocalTime.now().hour) {
+    in 4..10 -> "Selamat pagi"
+    in 11..14 -> "Selamat siang"
+    in 15..17 -> "Selamat sore"
+    else -> "Selamat malam"
+}
+
 private data class Stat(val label: String, val value: String, val icon: ImageVector, val tone: Tone, val onClick: (() -> Unit)?)
 private enum class Tone { NEUTRAL, PRIMARY, WARNING, DANGER }
 
@@ -162,8 +171,8 @@ private fun StatGrid(s: DashboardSummary, onOpenAssets: () -> Unit, onOpenStock:
     val stats = listOf(
         Stat("Total aset", Fmt.number(s.totalAssets.toLong()), Icons.Outlined.Inventory2, Tone.PRIMARY, onOpenAssets),
         Stat("Aset rusak", Fmt.number(s.damaged.toLong()), Icons.Outlined.ReportProblem, if (s.damaged > 0) Tone.WARNING else Tone.NEUTRAL, onOpenAssets),
-        Stat("Nilai perolehan", Fmt.rupiah(s.totalCost), Icons.Outlined.Inventory2, Tone.NEUTRAL, null),
-        Stat("Nilai buku", Fmt.rupiah(s.totalBookValue), Icons.Outlined.Inventory2, Tone.NEUTRAL, null),
+        Stat("Nilai perolehan", Fmt.rupiah(s.totalCost), Icons.Outlined.Payments, Tone.NEUTRAL, null),
+        Stat("Nilai buku", Fmt.rupiah(s.totalBookValue), Icons.Outlined.AccountBalance, Tone.NEUTRAL, null),
         Stat("Garansi habis ≤90 hari", Fmt.number(s.warrantyExpiring.toLong()), Icons.Outlined.VerifiedUser, if (s.warrantyExpiring > 0) Tone.WARNING else Tone.NEUTRAL, null),
         Stat("Servis terlambat", Fmt.number(s.serviceOverdue.toLong()), Icons.Outlined.Build, if (s.serviceOverdue > 0) Tone.DANGER else Tone.NEUTRAL, onOpenServices),
         Stat("Servis jatuh tempo ≤30 hari", Fmt.number(s.serviceDueSoon.toLong()), Icons.Outlined.Schedule, if (s.serviceDueSoon > 0) Tone.WARNING else Tone.NEUTRAL, onOpenServices),
@@ -266,7 +275,7 @@ private fun ActionRow(a: ActionItem, onClick: () -> Unit) {
         overlineContent = { Text(a.kind.label) },
         headlineContent = { Text(a.title, maxLines = 1, overflow = TextOverflow.Ellipsis) },
         supportingContent = { Text(a.subtitle) },
-        trailingContent = { Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null, tint = Color.Gray) },
+        trailingContent = { Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
     )
 }
 

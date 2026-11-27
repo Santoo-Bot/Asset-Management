@@ -204,7 +204,12 @@ fun AssetListScreen(
                 EmptyState(
                     icon = Icons.Outlined.Inventory2,
                     title = if (filter.query.isBlank() && filter.activeFilterCount == 0) "Belum ada aset" else "Tidak ada aset yang cocok",
-                    message = if (vm.canEdit && filter.query.isBlank() && filter.activeFilterCount == 0) "Ketuk Tambah aset untuk mendaftarkan aset pertama." else null,
+                    message = when {
+                        filter.query.isBlank() && filter.activeFilterCount == 0 ->
+                            if (vm.canEdit) "Ketuk Tambah aset untuk mendaftarkan aset pertama." else null
+                        filter.activeFilterCount > 0 -> "Coba kata kunci lain, atau ketuk Reset untuk menghapus filter."
+                        else -> "Coba kata kunci lain. Pencarian memeriksa kode, nama, no. seri, dan PIC."
+                    },
                 )
             } else {
                 LazyColumn(contentPadding = PaddingValues(bottom = 96.dp)) {

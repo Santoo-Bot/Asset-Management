@@ -3,7 +3,9 @@ package id.perusahaan.asetga.ui.feature.data
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
@@ -29,6 +31,8 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
+import androidx.compose.foundation.relocation.BringIntoViewRequester
+import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -210,8 +214,23 @@ fun ImportExportScreen(onBack: () -> Unit, vm: ImportExportViewModel = hiltViewM
     }
 }
 
+/** Hasil muncul di bawah tombol; geser layar otomatis agar tidak terlewat di layar kecil. */
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+private fun ScrollIntoView(content: @Composable () -> Unit) {
+    val requester = remember { BringIntoViewRequester() }
+    LaunchedEffect(Unit) { requester.bringIntoView() }
+    Box(Modifier.bringIntoViewRequester(requester)) { content() }
+}
+
 @Composable
 private fun PreviewSection(p: ImportPreview, busy: Boolean, onCommit: () -> Unit, onCancel: () -> Unit) {
+    ScrollIntoView { PreviewCard(p, busy, onCommit, onCancel) }
+    ErrorRows(p.invalid.map { it.rowNumber to it.errors })
+}
+
+@Composable
+private fun PreviewCard(p: ImportPreview, busy: Boolean, onCommit: () -> Unit, onCancel: () -> Unit) {
     InfoCard("Hasil pemeriksaan") {
         if (p.headerError != null) {
             Text(p.headerError, color = MaterialTheme.colorScheme.error)
@@ -229,11 +248,16 @@ private fun PreviewSection(p: ImportPreview, busy: Boolean, onCommit: () -> Unit
         }
         OutlinedButton(onClick = onCancel, enabled = !busy, modifier = Modifier.fillMaxWidth()) { Text("Batal") }
     }
-    ErrorRows(p.invalid.map { it.rowNumber to it.errors })
 }
 
 @Composable
 private fun ResultSection(r: ImportResult, onDone: () -> Unit) {
+    ScrollIntoView { ResultCard(r, onDone) }
+    ErrorRows(r.failed.map { it.rowNumber to it.errors })
+}
+
+@Composable
+private fun ResultCard(r: ImportResult, onDone: () -> Unit) {
     InfoCard("Import selesai") {
         Text(
             if (r.mode == ImportMode.UPDATE) "${r.imported} aset berhasil diperbarui" + if (r.unchanged > 0) " · ${r.unchanged} tanpa perubahan" else ""
@@ -243,7 +267,6 @@ private fun ResultSection(r: ImportResult, onDone: () -> Unit) {
         if (r.failed.isNotEmpty()) Text("${r.failed.size} baris tidak diimport (lihat di bawah)", color = MaterialTheme.colorScheme.error)
         OutlinedButton(onClick = onDone, modifier = Modifier.fillMaxWidth().padding(top = 8.dp)) { Text("Selesai") }
     }
-    ErrorRows(r.failed.map { it.rowNumber to it.errors })
 }
 
 @Composable

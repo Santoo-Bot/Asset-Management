@@ -10,16 +10,23 @@ import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.activity.compose.BackHandler
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -57,8 +64,26 @@ fun AssetFormScreen(
     val input = state.input
     val err = state.errors
 
+    // Isian awal dicatat saat data selesai dimuat; beda dari itu berarti ada perubahan yang belum disimpan.
+    val initial = remember(state.loading) { state.input }
+    val dirty = !state.loading && !state.saving && input != initial
+    var confirmLeave by remember { mutableStateOf(false) }
+    BackHandler(enabled = dirty) { confirmLeave = true }
+    val leave = { if (dirty) confirmLeave = true else onBack() }
+
+    // Isian yang salah bisa berada di luar layar, jadi sebutkan namanya.
+    LaunchedEffect(err) {
+        if (err.isNotEmpty()) {
+            val names = FIELD_NAMES.filter { (key, _) -> key in err }.map { it.second }
+            snackbar.showSnackbar(
+                if (names.isEmpty()) "Periksa kembali isian yang ditandai merah"
+                else "Perlu diperbaiki: ${names.joinToString(", ")}",
+            )
+        }
+    }
+
     Scaffold(
-        topBar = { AppTopBar(if (state.isNew) "Tambah aset" else "Ubah aset", onBack = onBack) },
+        topBar = { AppTopBar(if (state.isNew) "Tambah aset" else "Ubah aset", onBack = leave) },
         snackbarHost = { SnackbarHost(snackbar) },
         bottomBar = { BottomActionBar("Simpan aset", vm::save, loading = state.saving, enabled = !state.loading && !state.photoBusy, modifier = Modifier.imePadding()) },
     ) { padding ->
@@ -91,7 +116,10 @@ fun AssetFormScreen(
                 label = "Kode QR", required = true, error = err[AssetValidator.FIELD_QR],
                 supporting = "Isi label QR. Boleh sama dengan kode aset",
             )
-            FormTextField(input.name, { v -> vm.update { it.copy(name = v) } }, "Nama aset", required = true, error = err[AssetValidator.FIELD_NAME])
+            FormTextField(
+                input.name, { v -> vm.update { it.copy(name = v) } }, "Nama aset", required = true, error = err[AssetValidator.FIELD_NAME],
+                capitalization = KeyboardCapitalization.Words,
+            )
             SelectField(
                 label = "Kategori", options = options.categories,
                 selected = options.categories.firstOrNull { it.id == input.categoryId },
@@ -136,7 +164,10 @@ fun AssetFormScreen(
                 MoneyField(input.disposalValue, { v -> vm.update { it.copy(disposalValue = v) } }, "Nilai jual (opsional)")
             }
             DateField(input.warrantyUntil, { d -> vm.update { it.copy(warrantyUntil = d) } }, "Garansi s/d", error = err[AssetValidator.FIELD_WARRANTY])
-            FormTextField(input.notes, { v -> vm.update { it.copy(notes = v) } }, "Catatan", singleLine = false, minLines = 2)
+            FormTextField(
+                input.notes, { v -> vm.update { it.copy(notes = v) } }, "Catatan", singleLine = false, minLines = 2,
+                capitalization = KeyboardCapitalization.Sentences,
+            )
             FormTextField(
                 input.userLocationDetail, { v -> vm.update { it.copy(userLocationDetail = v) } }, "Pengguna / detail lokasi",
                 supporting = "Mis. Budi · Ruang 301, meja 4",
@@ -170,4 +201,28 @@ fun AssetFormScreen(
             Spacer(Modifier.height(24.dp))
         }
     }
+
+    if (confirmLeave) {
+        AlertDialog(
+            onDismissRequest = { confirmLeave = false },
+            title = { Text("Buang perubahan?") },
+            text = { Text("Isian yang belum disimpan akan hilang.") },
+            confirmButton = { TextButton(onClick = { confirmLeave = false; onBack() }) { Text("Buang") } },
+            dismissButton = { TextButton(onClick = { confirmLeave = false }) { Text("Lanjut mengisi") } },
+        )
+    }
 }
+
+/** Urutan isian di form, dipakai untuk menyebut kolom yang salah. */
+private val FIELD_NAMES = listOf(
+    AssetValidator.FIELD_CODE to "Kode aset",
+    AssetValidator.FIELD_QR to "Kode QR",
+    AssetValidator.FIELD_NAME to "Nama aset",
+    AssetValidator.FIELD_CATEGORY to "Kategori",
+    AssetValidator.FIELD_ACQ_DATE to "Tgl perolehan",
+    AssetValidator.FIELD_COST to "Harga perolehan",
+    AssetValidator.FIELD_LOCATION to "Lokasi",
+    AssetValidator.FIELD_STATUS to "Status",
+    AssetValidator.FIELD_DISPOSAL_DATE to "Tanggal write off",
+    AssetValidator.FIELD_WARRANTY to "Garansi",
+)

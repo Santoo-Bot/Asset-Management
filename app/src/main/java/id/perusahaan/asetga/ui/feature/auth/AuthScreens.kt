@@ -38,6 +38,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -129,13 +130,21 @@ fun SetupAdminScreen(vm: AuthViewModel = hiltViewModel()) {
         onAction = submit,
         message = state.message.takeIf { state.fieldErrors.isEmpty() },
     ) {
-        FormTextField(fullName, { fullName = it }, "Nama lengkap", required = true, error = state.fieldErrors[FIELD_FULL_NAME])
+        FormTextField(
+            fullName, { fullName = it }, "Nama lengkap", required = true, error = state.fieldErrors[FIELD_FULL_NAME],
+            capitalization = KeyboardCapitalization.Words,
+        )
         FormTextField(
             username, { username = it.lowercase().trim() }, "Username", required = true,
             error = state.fieldErrors[FIELD_USERNAME], supporting = "Huruf kecil, angka, titik, atau garis bawah",
         )
         PasswordField(password, { password = it }, "Kata sandi", error = state.fieldErrors[FIELD_PASSWORD], supporting = "Minimal 8 karakter, berisi huruf dan angka")
         PasswordField(confirm, { confirm = it }, "Ulangi kata sandi", error = state.fieldErrors[FIELD_CONFIRM], imeAction = ImeAction.Done, onImeAction = submit)
+        Text(
+            "Data aplikasi tersimpan di HP ini saja. Catat kata sandi Anda: jika hanya ada satu Admin dan kata sandinya lupa, tidak ada yang bisa mengatur ulang.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
     }
 }
 
