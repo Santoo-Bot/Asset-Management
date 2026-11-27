@@ -34,6 +34,11 @@ import androidx.compose.material3.Text
 import androidx.compose.foundation.relocation.BringIntoViewRequester
 import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.runtime.Composable
+import id.perusahaan.asetga.ui.components.ExcelMenuButton
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.AlertDialog
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -154,45 +159,35 @@ fun ImportExportScreen(onBack: () -> Unit, vm: ImportExportViewModel = hiltViewM
         }
     }
 
+    var exportDialog by remember { mutableStateOf(false) }
+
     Scaffold(topBar = { AppTopBar("Import & export", onBack = onBack) }, snackbarHost = { SnackbarHost(snackbar) }) { padding ->
         Column(Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState())) {
             if (state.busy) LinearProgressIndicator(Modifier.fillMaxWidth())
-            SectionHeader("Export")
-            Column(Modifier.padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    ExportKind.entries.forEach { k -> FilterChip(selected = state.exportKind == k, onClick = { vm.setKind(k) }, label = { Text(k.label) }) }
-                }
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    ExportFormat.entries.forEach { f -> FilterChip(selected = state.exportFormat == f, onClick = { vm.setFormat(f) }, label = { Text(f.label) }) }
-                }
-                if (state.exportFormat == ExportFormat.CSV && state.exportKind == ExportKind.STOCK) {
-                    Text("CSV hanya berisi lembar Stok. Pilih Excel untuk menyertakan transaksi.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-                Button(onClick = vm::export, enabled = !state.busy, modifier = Modifier.fillMaxWidth().height(52.dp)) {
-                    Icon(Icons.Outlined.IosShare, null); Spacer(Modifier.padding(4.dp)); Text("Export & bagikan")
-                }
-            }
+            Text(
+                if (vm.canImport) {
+                    "Pilih Import untuk menambah atau memperbarui aset dari file Excel, Export untuk mengunduh data, atau Unduh template untuk format import.\n\n" +
+                        "Kode Aset yang belum ada ditambahkan sebagai aset baru (kolom bertanda * wajib diisi). " +
+                        "Kode yang sudah ada diperbarui: sel kosong = nilai lama dibiarkan, sel terisi menimpa. Kode tidak bisa diubah. " +
+                        "Setiap baris diperiksa dan ditandai baru atau diperbarui sebelum disimpan. Template juga bisa diganti dengan hasil export aset."
+                } else {
+                    "Pilih Export untuk mengunduh data aset, servis, atau stok."
+                },
+                style = MaterialTheme.typography.bodyMedium,
+                modifier = Modifier.padding(16.dp),
+            )
+            ExcelMenuButton(
+                modifier = Modifier.padding(horizontal = 16.dp),
+                enabled = !state.busy,
+                onImport = if (vm.canImport) { { pickFile.launch(arrayOf("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "application/octet-stream")) } } else null,
+                onExport = { exportDialog = true },
+                onTemplate = if (vm.canImport) { { vm.shareTemplate() } } else null,
+                importLabel = "Import aset dari Excel",
+                exportLabel = "Export data…",
+                templateLabel = "Unduh template import aset",
+            )
 
             if (vm.canImport) {
-                SectionHeader("Import aset dari Excel")
-                Column(Modifier.padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text(
-                        "1. Unduh template, atau export aset lalu ubah di Excel/Google Sheets (lembar Petunjuk berisi nilai yang valid).\n" +
-                            "2. Pilih file .xlsx untuk diperiksa. Setiap baris ditandai baru atau diperbarui sebelum disimpan.\n\n" +
-                            "Kode Aset yang belum ada ditambahkan sebagai aset baru (kolom bertanda * wajib diisi). " +
-                            "Kode yang sudah ada diperbarui: sel kosong = nilai lama dibiarkan, sel terisi menimpa. Kode tidak bisa diubah.",
-                        style = MaterialTheme.typography.bodyMedium,
-                    )
-                    OutlinedButton(onClick = vm::shareTemplate, enabled = !state.busy, modifier = Modifier.fillMaxWidth()) {
-                        Icon(Icons.Outlined.Download, null); Spacer(Modifier.padding(4.dp)); Text("Unduh / bagikan template")
-                    }
-                    OutlinedButton(
-                        onClick = { pickFile.launch(arrayOf("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "application/octet-stream")) },
-                        enabled = !state.busy, modifier = Modifier.fillMaxWidth(),
-                    ) {
-                        Icon(Icons.Outlined.FileUpload, null); Spacer(Modifier.padding(4.dp)); Text("Pilih file .xlsx")
-                    }
-                }
                 state.progress?.let { (done, total) ->
                     Text("Menyimpan $done / $total…", Modifier.padding(16.dp))
                     LinearProgressIndicator(progress = { done.toFloat() / total.coerceAtLeast(1) }, modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp))
@@ -202,6 +197,28 @@ fun ImportExportScreen(onBack: () -> Unit, vm: ImportExportViewModel = hiltViewM
             }
             Spacer(Modifier.height(32.dp))
         }
+    }
+
+    if (exportDialog) {
+        AlertDialog(
+            onDismissRequest = { exportDialog = false },
+            title = { Text("Export data") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        ExportKind.entries.forEach { k -> FilterChip(selected = state.exportKind == k, onClick = { vm.setKind(k) }, label = { Text(k.label) }) }
+                    }
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        ExportFormat.entries.forEach { f -> FilterChip(selected = state.exportFormat == f, onClick = { vm.setFormat(f) }, label = { Text(f.label) }) }
+                    }
+                    if (state.exportFormat == ExportFormat.CSV && state.exportKind == ExportKind.STOCK) {
+                        Text("CSV hanya berisi lembar Stok. Pilih Excel untuk menyertakan transaksi.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+            },
+            confirmButton = { TextButton(onClick = { exportDialog = false; vm.export() }, enabled = !state.busy) { Text("Export & bagikan") } },
+            dismissButton = { TextButton(onClick = { exportDialog = false }) { Text("Batal") } },
+        )
     }
 }
 

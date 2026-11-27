@@ -83,6 +83,7 @@ import id.perusahaan.asetga.domain.model.InsuranceImportPreview
 import id.perusahaan.asetga.domain.model.InsuredAsset
 import id.perusahaan.asetga.domain.validation.OperationValidator
 import id.perusahaan.asetga.ui.components.AppTopBar
+import id.perusahaan.asetga.ui.components.ExcelMenuButton
 import id.perusahaan.asetga.ui.components.BottomActionBar
 import id.perusahaan.asetga.ui.components.DateField
 import id.perusahaan.asetga.ui.components.EmptyState
@@ -268,12 +269,19 @@ fun PolicyDetailScreen(
     Scaffold(
         topBar = {
             AppTopBar(policy?.policyNumber ?: "Polis", onBack = onBack, actions = {
+                ExcelMenuButton(
+                    inTopBar = true,
+                    onImport = if (vm.canEdit) { { pickFile.launch(arrayOf("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "application/octet-stream")) } } else null,
+                    onExport = { vm.exportPolicy() },
+                    onTemplate = if (vm.canEdit) { { vm.shareTemplate() } } else null,
+                    importLabel = "Upload aset (Kode Aset / Kode QR)",
+                    exportLabel = "Export polis ke Excel",
+                    templateLabel = "Unduh template upload",
+                )
                 Box {
                     IconButton(onClick = { menu = true }) { Icon(Icons.Filled.MoreVert, contentDescription = "Menu") }
                     DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
                         if (vm.canEdit) DropdownMenuItem(text = { Text("Ubah polis") }, onClick = { menu = false; onEdit(vm.policyId) })
-                        DropdownMenuItem(text = { Text("Export ke Excel") }, onClick = { menu = false; vm.exportPolicy() })
-                        if (vm.canEdit) DropdownMenuItem(text = { Text("Unduh template upload") }, onClick = { menu = false; vm.shareTemplate() })
                         if (vm.canDelete) DropdownMenuItem(text = { Text("Hapus polis", color = MaterialTheme.colorScheme.error) }, onClick = { menu = false; confirmDelete = true })
                     }
                 }
@@ -288,10 +296,6 @@ fun PolicyDetailScreen(
                             Icon(Icons.AutoMirrored.Outlined.PlaylistAdd, null); Spacer(Modifier.width(4.dp)); Text("Pilih aset")
                         }
                         FilledTonalButton(onClick = onScan, modifier = Modifier.height(52.dp)) { Icon(Icons.Filled.QrCodeScanner, "Scan") }
-                        FilledTonalButton(
-                            onClick = { pickFile.launch(arrayOf("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "application/octet-stream")) },
-                            modifier = Modifier.height(52.dp),
-                        ) { Icon(Icons.Outlined.FileUpload, "Upload Excel"); Spacer(Modifier.width(4.dp)); Text("Upload") }
                     }
                 }
             }
@@ -331,7 +335,7 @@ fun PolicyDetailScreen(
                     )
                 } else {
                     Text(
-                        if (vm.canEdit) "Belum ada aset. Tambahkan lewat Pilih aset, Scan QR, atau Upload Excel (kolom Kode Aset / Kode QR)." else "Belum ada aset.",
+                        if (vm.canEdit) "Belum ada aset. Tambahkan lewat Pilih aset, Scan QR, atau tombol Excel di kanan atas (kolom Kode Aset / Kode QR)." else "Belum ada aset.",
                         Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }

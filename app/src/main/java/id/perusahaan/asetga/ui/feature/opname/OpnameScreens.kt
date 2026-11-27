@@ -92,6 +92,7 @@ import id.perusahaan.asetga.domain.repository.MasterDataRepository
 import id.perusahaan.asetga.domain.repository.OpnameRepository
 import id.perusahaan.asetga.domain.session.SessionManager
 import id.perusahaan.asetga.ui.components.AppTopBar
+import id.perusahaan.asetga.ui.components.ExcelMenuButton
 import id.perusahaan.asetga.ui.components.AssetPickerScreen
 import id.perusahaan.asetga.ui.components.AssetPickerViewModel
 import id.perusahaan.asetga.ui.components.BarcodeScannerView
@@ -364,7 +365,6 @@ fun OpnameSessionScreen(
     var scanning by remember { mutableStateOf(false) }
     var manual by remember { mutableStateOf(false) }
     var finishing by remember { mutableStateOf(false) }
-    var addMenu by remember { mutableStateOf(false) }
     var topMenu by remember { mutableStateOf(false) }
     var confirmDelete by remember { mutableStateOf(false) }
     var selected by remember { mutableStateOf<OpnameItem?>(null) }
@@ -387,6 +387,16 @@ fun OpnameSessionScreen(
     Scaffold(
         topBar = {
             AppTopBar(s?.name ?: "Stock opname", onBack = onBack, actions = {
+                if (active) {
+                    ExcelMenuButton(
+                        inTopBar = true,
+                        onImport = { pickFile.launch(arrayOf(XLSX_MIME, "application/octet-stream")) },
+                        onExport = null,
+                        onTemplate = { vm.shareTemplate() },
+                        importLabel = "Upload daftar aset",
+                        templateLabel = "Unduh template upload",
+                    )
+                }
                 if (vm.canDelete) {
                     Box {
                         IconButton(onClick = { topMenu = true }) { Icon(Icons.Filled.MoreVert, contentDescription = "Menu") }
@@ -406,18 +416,8 @@ fun OpnameSessionScreen(
                 s == null -> Unit
                 active -> Surface(tonalElevation = 3.dp) {
                     Row(Modifier.navigationBarsPadding().padding(12.dp, 10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Box(Modifier.weight(1f)) {
-                            OutlinedButton(onClick = { addMenu = true }, modifier = Modifier.fillMaxWidth().height(52.dp)) {
-                                Icon(Icons.AutoMirrored.Outlined.PlaylistAdd, null); Spacer(Modifier.width(4.dp)); Text("Tambah aset", maxLines = 1)
-                            }
-                            DropdownMenu(expanded = addMenu, onDismissRequest = { addMenu = false }) {
-                                DropdownMenuItem(text = { Text("Pilih dari daftar aset") }, onClick = { addMenu = false; onPickAssets(vm.sessionId) })
-                                DropdownMenuItem(text = { Text("Upload Excel") }, onClick = {
-                                    addMenu = false
-                                    pickFile.launch(arrayOf(XLSX_MIME, "application/octet-stream"))
-                                })
-                                DropdownMenuItem(text = { Text("Unduh template upload") }, onClick = { addMenu = false; vm.shareTemplate() })
-                            }
+                        OutlinedButton(onClick = { onPickAssets(vm.sessionId) }, modifier = Modifier.weight(1f).height(52.dp)) {
+                            Icon(Icons.AutoMirrored.Outlined.PlaylistAdd, null); Spacer(Modifier.width(4.dp)); Text("Tambah aset", maxLines = 1)
                         }
                         FilledTonalButton(onClick = { scanning = !showCamera }, modifier = Modifier.height(52.dp)) {
                             Icon(if (showCamera) Icons.Filled.Close else Icons.Filled.QrCodeScanner, null)
@@ -446,7 +446,7 @@ fun OpnameSessionScreen(
                     SummaryRow(s)
                     if (s.total == 0 && active) {
                         Text(
-                            "Langkah berikutnya: tekan Tambah aset untuk memilih aset dari daftar atau upload Excel (kolom Kode Aset / Kode QR). " +
+                            "Langkah berikutnya: tekan Tambah aset untuk memilih aset dari daftar, atau pakai tombol Excel di kanan atas untuk upload (kolom Kode Aset / Kode QR). " +
                                 "Setelah itu cek fisik dengan Scan atau ketuk aset untuk menandai.",
                             Modifier.padding(16.dp), color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
