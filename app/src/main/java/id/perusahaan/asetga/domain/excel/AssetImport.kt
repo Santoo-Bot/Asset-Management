@@ -59,26 +59,29 @@ data class ImportLookups(
     val existingCodes: Set<String>,
 )
 
-/** ADD: semua baris menjadi aset baru. UPDATE: baris mengubah aset yang kodenya sudah ada. */
-enum class ImportMode { ADD, UPDATE }
+/** NEW: kode belum ada, dibuat sebagai aset baru. UPDATE: kode sudah ada, aset diperbarui. */
+enum class ImportAction { NEW, UPDATE }
 
 data class ImportRow(
     /** Nomor baris di Excel (header = baris 1). */
     val rowNumber: Int,
     val input: AssetInput?,
     val errors: List<String>,
-    /** Mode UPDATE: baris valid tetapi seluruh isinya sama dengan data yang sudah ada. */
+    /** Baris UPDATE yang valid tetapi seluruh isinya sama dengan data yang sudah ada. */
     val unchanged: Boolean = false,
+    val action: ImportAction = ImportAction.NEW,
 ) {
     val isValid: Boolean get() = input != null && errors.isEmpty()
 }
 
-data class ImportPreview(val rows: List<ImportRow>, val headerError: String? = null, val mode: ImportMode = ImportMode.ADD) {
+data class ImportPreview(val rows: List<ImportRow>, val headerError: String? = null) {
     val valid: List<ImportRow> get() = rows.filter { it.isValid }
     val invalid: List<ImportRow> get() = rows.filterNot { it.isValid }
     /** Baris valid yang benar-benar akan disimpan (mode UPDATE melewati baris tanpa perubahan). */
     val toSave: List<ImportRow> get() = valid.filterNot { it.unchanged }
     val unchanged: List<ImportRow> get() = valid.filter { it.unchanged }
+    val created: List<ImportRow> get() = toSave.filter { it.action == ImportAction.NEW }
+    val updated: List<ImportRow> get() = toSave.filter { it.action == ImportAction.UPDATE }
 }
 
 /** Validasi per baris file import; tidak menyentuh database (lookup diberikan pemanggil). */
@@ -136,15 +139,14 @@ object AssetImportParser {
      * Sel kosong berarti "biarkan nilai lama"; sel terisi menimpa. Kode Aset adalah kunci dan tidak bisa diubah.
      */
     fun parseUpdate(sheet: List<List<String>>, lookups: ImportLookups, existing: Map<String, AssetInput>, today: LocalDate): ImportPreview {
-        val mode = ImportMode.UPDATE
-        if (sheet.isEmpty()) return ImportPreview(emptyList(), "File kosong", mode)
+        if (sheet.isEmpty()) return ImportPreview(emptyList(), "File kosong")
         val header = sheet.first().map(::normalizeHeader)
         val index = ImportColumn.entries.associateWith { col -> header.indexOf(normalizeHeader(col.header)) }
         if (index.getValue(ImportColumn.CODE) < 0) {
-            return ImportPreview(emptyList(), "Kolom ${ImportColumn.CODE.header} tidak ditemukan. Gunakan template atau hasil export dari aplikasi.", mode)
+            return ImportPreview(emptyList(), "Kolom ${ImportColumn.CODE.header} tidak ditemukan. Gunakan template atau hasil export dari aplikasi.")
         }
         if (index.filterKeys { it != ImportColumn.CODE }.values.none { it >= 0 }) {
-            return ImportPreview(emptyList(), "Tidak ada kolom yang akan diperbarui selain Kode Aset", mode)
+            return ImportPreview(emptyList(), "Tidak ada kolom yang akan diperbarui selain Kode Aset")
         }
 
         val codesInFile = mutableSetOf<String>()
@@ -253,7 +255,48 @@ object AssetImportParser {
             if (errors.isEmpty()) AssetValidator.validate(merged, today).values.forEach { errors += it }
             ImportRow(rowNumber, if (errors.isEmpty()) merged else null, errors, unchanged = errors.isEmpty() && merged == base)
         }
-        return ImportPreview(rows, null, mode)
+        return ImportPreview(rows)
+    }
+
+    /**
+     * Satu alur untuk tambah dan perbarui: baris yang Kode Aset-nya sudah ada diperbarui ([parseUpdate]),
+     * sisanya dibuat sebagai aset baru ([parse]). Nomor baris tetap mengacu ke file asli.
+     */
+    fun parseAuto(sheet: List<List<String>>, lookups: ImportLookups, existing: Map<String, AssetInput>, today: LocalDate): ImportPreview {
+        if (sheet.isEmpty()) return ImportPreview(emptyList(), "File kosong")
+        val headerRow = sheet.first()
+        val index = headerRow.map(::normalizeHeader).let { h -> ImportColumn.entries.associateWith { c -> h.indexOf(normalizeHeader(c.header)) } }
+        val codeIdx = index.getValue(ImportColumn.CODE)
+        if (codeIdx < 0) return ImportPreview(emptyList(), "Kolom ${ImportColumn.CODE.header} tidak ditemukan. Gunakan template atau hasil export dari aplikasi.")
+
+        val dataRows = sheet.drop(1).mapIndexed { i, cells -> (i + 2) to cells }.filter { (_, cells) -> !cells.all { it.isBlank() } }
+        val (updRows, addRows) = dataRows.partition { (_, cells) -> AssetValidator.normalizeCode(cells.getOrNull(codeIdx).orEmpty()) in existing }
+
+        fun errorRows(src: List<Pair<Int, List<String>>>, message: String, action: ImportAction) =
+            src.map { (n, _) -> ImportRow(n, null, listOf(message), action = action) }
+
+        val newRows = if (addRows.isEmpty()) {
+            emptyList()
+        } else {
+            val missing = index.filter { (c, i) -> c.required && i < 0 }.keys
+            if (missing.isNotEmpty()) {
+                errorRows(addRows, "Aset baru memerlukan kolom ${missing.joinToString { it.header }} (tidak ada di file)", ImportAction.NEW)
+            } else {
+                val p = parse(listOf(headerRow) + addRows.map { it.second }, lookups, today)
+                p.rows.map { it.copy(rowNumber = addRows[it.rowNumber - 2].first, action = ImportAction.NEW) }
+            }
+        }
+        val changedRows = if (updRows.isEmpty()) {
+            emptyList()
+        } else {
+            val p = parseUpdate(listOf(headerRow) + updRows.map { it.second }, lookups, existing, today)
+            if (p.headerError != null) {
+                errorRows(updRows, p.headerError, ImportAction.UPDATE)
+            } else {
+                p.rows.map { it.copy(rowNumber = updRows[it.rowNumber - 2].first, action = ImportAction.UPDATE) }
+            }
+        }
+        return ImportPreview((newRows + changedRows).sortedBy { it.rowNumber })
     }
 
     fun parse(sheet: List<List<String>>, lookups: ImportLookups, today: LocalDate): ImportPreview {

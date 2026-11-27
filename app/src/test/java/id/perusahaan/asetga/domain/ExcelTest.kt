@@ -197,6 +197,42 @@ class ExcelTest {
         assertNotNull(AssetImportParser.parseUpdate(listOf(listOf("Kode Aset*"), listOf("IT-2024-001")), lookups, existing, today).headerError)
     }
 
+    @Test fun `satu alur menambah kode baru dan memperbarui kode yang sudah ada dengan nomor baris asli`() {
+        val h = listOf("Kode Aset*", "Kode QR*", "Nama Aset*", "Kategori*", "Tgl Perolehan (dd/mm/yyyy)*", "Harga Perolehan*", "Lokasi*", "Kondisi* (Baik,Rusak)", "Status* (pilih dari master Status)")
+        val p = AssetImportParser.parseAuto(
+            listOf(
+                h,
+                listOf("IT-2024-001", "", "Laptop diganti", "", "", "", "", "", ""), // ada: perbarui nama saja
+                listOf("IT-2024-777", "IT-2024-777", "Printer", "IT", "01/02/2024", "2000000", "Kantor Pusat", "Baik", "Aktif"), // baru
+                listOf("", "", "", "", "", "", "", "", ""), // kosong dilewati
+                listOf("IT-2024-888", "", "Tanpa data", "", "", "", "", "", ""), // baru tapi tidak lengkap
+                listOf("IT-2024-002", "", "", "", "", "", "", "", ""), // ada, tanpa perubahan
+            ),
+            lookups, existing, today,
+        )
+        assertNull(p.headerError)
+        assertEquals(listOf(2, 3, 5, 6), p.rows.map { it.rowNumber })
+        assertEquals(1, p.updated.size)
+        assertEquals(2, p.updated.single().rowNumber)
+        assertEquals("Laptop diganti", p.updated.single().input!!.name)
+        assertEquals(1, p.created.size)
+        assertEquals(3, p.created.single().rowNumber)
+        assertNull(p.created.single().input!!.id)
+        assertEquals(1, p.unchanged.size)
+        assertEquals(6, p.unchanged.single().rowNumber)
+        assertEquals(5, p.invalid.single().rowNumber)
+        assertNotNull(AssetImportParser.parseAuto(listOf(listOf("Nama Aset*"), listOf("x")), lookups, existing, today).headerError)
+    }
+
+    @Test fun `satu alur: file tanpa kolom wajib tetap bisa memperbarui tetapi aset baru ditolak jelas`() {
+        val p = AssetImportParser.parseAuto(
+            listOf(listOf("Kode Aset*", "Nama Aset*"), listOf("IT-2024-001", "Baru"), listOf("IT-2024-555", "Item")),
+            lookups, existing, today,
+        )
+        assertEquals(1, p.updated.size)
+        assertTrue(p.invalid.single().errors.single().contains("Aset baru memerlukan kolom"))
+    }
+
     @Test fun `header tidak sesuai ditolak dan kode ganda dalam file`() {
         assertNotNull(AssetImportParser.parse(listOf(listOf("A", "B")), lookups, today).headerError)
         val base = arrayOf(ImportColumn.CODE to "X-1", ImportColumn.NAME to "A", ImportColumn.CATEGORY to "IT", ImportColumn.ACQ_DATE to "01/01/2024",

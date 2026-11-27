@@ -20,7 +20,7 @@ import id.perusahaan.asetga.domain.excel.Cell
 import id.perusahaan.asetga.domain.excel.CsvWriter
 import id.perusahaan.asetga.domain.excel.ImportColumn
 import id.perusahaan.asetga.domain.excel.ImportLookups
-import id.perusahaan.asetga.domain.excel.ImportMode
+import id.perusahaan.asetga.domain.excel.ImportAction
 import id.perusahaan.asetga.domain.excel.ImportPreview
 import id.perusahaan.asetga.domain.excel.ImportRow
 import id.perusahaan.asetga.domain.excel.ListValidation
@@ -62,7 +62,9 @@ enum class ExportFormat(val label: String, val extension: String, val mime: Stri
     CSV("CSV (.csv)", "csv", "text/csv"),
 }
 
-data class ImportResult(val imported: Int, val failed: List<ImportRow>, val mode: ImportMode = ImportMode.ADD, val unchanged: Int = 0)
+data class ImportResult(val created: Int, val updated: Int, val unchanged: Int, val failed: List<ImportRow>) {
+    val saved: Int get() = created + updated
+}
 
 @Singleton
 class ExportImportService @Inject constructor(
@@ -278,7 +280,7 @@ class ExportImportService @Inject constructor(
         file
     }
 
-    suspend fun preview(uri: Uri, mode: ImportMode = ImportMode.ADD): ImportPreview = withContext(Dispatchers.IO) {
+    suspend fun preview(uri: Uri): ImportPreview = withContext(Dispatchers.IO) {
         val sheet = runCatching {
             context.contentResolver.openInputStream(uri)?.use { XlsxReader.readFirstSheet(it) }
         }.getOrElse { return@withContext ImportPreview(emptyList(), "File tidak dapat dibaca: ${it.message ?: "format bukan .xlsx"}") }
@@ -296,7 +298,6 @@ class ExportImportService @Inject constructor(
             vendors = vendorDao.observeAll(false).first().associate { it.name.lowercase() to it.id },
             existingCodes = (assetDao.allCodes() + assetDao.allQrCodes()).map { it.uppercase() }.toSet(),
         )
-        if (mode == ImportMode.ADD) return@withContext AssetImportParser.parse(sheet, lookups, LocalDate.now(clock))
         val existing = assetDao.exportRows().associate { r ->
             val a = r.asset
             a.code.uppercase() to AssetInput(
@@ -314,19 +315,19 @@ class ExportImportService @Inject constructor(
                 accessories = a.accessories.orEmpty(), vendorId = a.vendorId,
             )
         }
-        AssetImportParser.parseUpdate(sheet, lookups, existing, LocalDate.now(clock))
+        AssetImportParser.parseAuto(sheet, lookups, existing, LocalDate.now(clock))
     }
 
     /** Simpan baris yang valid; baris yang gagal saat disimpan ikut dilaporkan. */
     suspend fun commit(preview: ImportPreview, onProgress: (Int, Int) -> Unit = { _, _ -> }): AppResult<ImportResult> {
         if (session.currentUser?.role?.canEditData != true) return AppResult.Failure("Anda tidak memiliki akses untuk import")
-        val update = preview.mode == ImportMode.UPDATE
         val valid = preview.toSave
         val failed = mutableListOf<ImportRow>()
-        var imported = 0
+        var created = 0
+        var updated = 0
         valid.forEachIndexed { i, row ->
             when (val r = assets.save(row.input!!)) {
-                is AppResult.Success -> imported++
+                is AppResult.Success -> if (row.action == ImportAction.UPDATE) updated++ else created++
                 is AppResult.Failure -> failed += row.copy(errors = listOf(r.message) + r.fieldErrors.values)
             }
             onProgress(i + 1, valid.size)
@@ -334,10 +335,9 @@ class ExportImportService @Inject constructor(
         val failedCount = failed.size + preview.invalid.size
         audit.log(
             AuditEntityType.ASSET, "import", AuditAction.IMPORT,
-            if (update) "Perbarui aset dari Excel: $imported diubah, ${preview.unchanged.size} tanpa perubahan, $failedCount gagal"
-            else "Import aset dari Excel: $imported berhasil, $failedCount gagal",
+            "Import aset dari Excel: $created baru, $updated diperbarui, ${preview.unchanged.size} tanpa perubahan, $failedCount gagal",
         )
-        return AppResult.Success(ImportResult(imported, preview.invalid + failed, preview.mode, preview.unchanged.size))
+        return AppResult.Success(ImportResult(created, updated, preview.unchanged.size, preview.invalid + failed))
     }
 
     companion object {
