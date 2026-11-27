@@ -105,6 +105,8 @@ abstract class AppDatabase : RoomDatabase() {
 /**
  * Migrasi skema. Data lama tidak pernah dihapus: hanya menambah kolom/indeks.
  * Wajib menambah migrasi baru setiap kali entity berubah (jangan pakai fallbackToDestructiveMigration).
+ * Setiap migrasi harus aman dijalankan ulang: kolom ditambah lewat [addColumnIfMissing], tabel/indeks
+ * lewat IF NOT EXISTS, dan pengisian data tidak menggandakan baris yang sudah ada.
  */
 object Migrations {
     /** v2: kode QR, pengguna/detail lokasi, divisi, PR/PO/GR, pemohon, memo, tindak lanjut, BAST. */
@@ -113,7 +115,7 @@ object Migrations {
             listOf(
                 "qrCode TEXT", "userLocationDetail TEXT", "division TEXT", "prNumber TEXT", "poNumber TEXT",
                 "grNumber TEXT", "requester TEXT", "memoNumber TEXT", "memoDate INTEGER", "followUp TEXT", "handoverDoc TEXT",
-            ).forEach { db.execSQL("ALTER TABLE `assets` ADD COLUMN $it") }
+            ).forEach { addColumnIfMissing(db, "assets", it) }
             db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS `index_assets_qrCode` ON `assets` (`qrCode`)")
         }
     }
@@ -129,20 +131,22 @@ object Migrations {
                     "`createdAt` INTEGER NOT NULL, `updatedAt` INTEGER NOT NULL, `deletedAt` INTEGER, `syncState` TEXT NOT NULL, PRIMARY KEY(`id`))",
             )
             db.execSQL("CREATE INDEX IF NOT EXISTS `index_divisions_name` ON `divisions` (`name`)")
-            db.execSQL("ALTER TABLE `departments` ADD COLUMN `divisionId` TEXT")
+            addColumnIfMissing(db, "departments", "`divisionId` TEXT")
             db.execSQL("CREATE INDEX IF NOT EXISTS `index_departments_divisionId` ON `departments` (`divisionId`)")
-            db.execSQL("ALTER TABLE `assets` ADD COLUMN `divisionId` TEXT")
+            addColumnIfMissing(db, "assets", "`divisionId` TEXT")
             db.execSQL("CREATE INDEX IF NOT EXISTS `index_assets_divisionId` ON `assets` (`divisionId`)")
 
             val now = System.currentTimeMillis()
             db.execSQL(
                 "INSERT INTO `divisions` (id, name, isActive, createdAt, updatedAt, deletedAt, syncState) " +
                     "SELECT lower(hex(randomblob(16))), name, 1, $now, $now, NULL, 'PENDING' FROM " +
-                    "(SELECT TRIM(division) AS name FROM assets WHERE TRIM(COALESCE(division, '')) != '' GROUP BY TRIM(division) COLLATE NOCASE)",
+                    "(SELECT TRIM(division) AS name FROM assets WHERE TRIM(COALESCE(division, '')) != '' " +
+                    "AND NOT EXISTS (SELECT 1 FROM divisions d WHERE d.name = TRIM(assets.division) COLLATE NOCASE) " +
+                    "GROUP BY TRIM(division) COLLATE NOCASE)",
             )
             db.execSQL(
                 "UPDATE assets SET divisionId = (SELECT d.id FROM divisions d WHERE d.name = TRIM(assets.division) COLLATE NOCASE) " +
-                    "WHERE TRIM(COALESCE(division, '')) != ''",
+                    "WHERE divisionId IS NULL AND TRIM(COALESCE(division, '')) != ''",
             )
         }
     }
@@ -168,8 +172,8 @@ object Migrations {
     /** v5: mutasi mencatat pengguna / detail lokasi lama & baru. */
     val MIGRATION_4_5 = object : Migration(4, 5) {
         override fun migrate(db: SupportSQLiteDatabase) {
-            db.execSQL("ALTER TABLE `asset_mutations` ADD COLUMN `fromUserLocation` TEXT")
-            db.execSQL("ALTER TABLE `asset_mutations` ADD COLUMN `toUserLocation` TEXT")
+            addColumnIfMissing(db, "asset_mutations", "`fromUserLocation` TEXT")
+            addColumnIfMissing(db, "asset_mutations", "`toUserLocation` TEXT")
         }
     }
 
@@ -313,32 +317,30 @@ object Migrations {
      */
     val MIGRATION_10_11 = object : Migration(10, 11) {
         override fun migrate(db: SupportSQLiteDatabase) {
-            listOf(
-                "CREATE TABLE IF NOT EXISTS `_new_audit_sessions` (`id` TEXT NOT NULL, `name` TEXT NOT NULL, `opnameDate` INTEGER NOT NULL, " +
-                    "`startedAt` INTEGER NOT NULL, `finishedAt` INTEGER, `startedByUserId` TEXT, `note` TEXT, `createdAt` INTEGER NOT NULL, " +
-                    "`updatedAt` INTEGER NOT NULL, `deletedAt` INTEGER, `syncState` TEXT NOT NULL, PRIMARY KEY(`id`))",
-                "INSERT INTO `_new_audit_sessions` (id, name, opnameDate, startedAt, finishedAt, startedByUserId, note, createdAt, updatedAt, deletedAt, syncState) " +
-                    "SELECT s.id, 'Stock opname ' || COALESCE((SELECT l.name FROM locations l WHERE l.id = s.locationId), ''), s.startedAt / 86400000, " +
-                    "s.startedAt, s.finishedAt, s.startedByUserId, s.note, s.createdAt, s.updatedAt, s.deletedAt, s.syncState FROM audit_sessions s",
-                "DROP TABLE `audit_sessions`",
-                "ALTER TABLE `_new_audit_sessions` RENAME TO `audit_sessions`",
-                "CREATE INDEX IF NOT EXISTS `index_audit_sessions_startedAt` ON `audit_sessions` (`startedAt`)",
-                "ALTER TABLE `audit_items` ADD COLUMN `condition` TEXT",
-                "ALTER TABLE `audit_items` ADD COLUMN `note` TEXT",
-            ).forEach(db::execSQL)
+            // Tabel sesi sudah bentuk baru (punya kolom `name`) bila migrasi ini pernah berjalan: lewati pembuatan ulang.
+            if (!hasColumn(db, "audit_sessions", "name")) {
+                listOf(
+                    "DROP TABLE IF EXISTS `_new_audit_sessions`",
+                    "CREATE TABLE IF NOT EXISTS `_new_audit_sessions` (`id` TEXT NOT NULL, `name` TEXT NOT NULL, `opnameDate` INTEGER NOT NULL, " +
+                        "`startedAt` INTEGER NOT NULL, `finishedAt` INTEGER, `startedByUserId` TEXT, `note` TEXT, `createdAt` INTEGER NOT NULL, " +
+                        "`updatedAt` INTEGER NOT NULL, `deletedAt` INTEGER, `syncState` TEXT NOT NULL, PRIMARY KEY(`id`))",
+                    "INSERT INTO `_new_audit_sessions` (id, name, opnameDate, startedAt, finishedAt, startedByUserId, note, createdAt, updatedAt, deletedAt, syncState) " +
+                        "SELECT s.id, 'Stock opname ' || COALESCE((SELECT l.name FROM locations l WHERE l.id = s.locationId), ''), s.startedAt / 86400000, " +
+                        "s.startedAt, s.finishedAt, s.startedByUserId, s.note, s.createdAt, s.updatedAt, s.deletedAt, s.syncState FROM audit_sessions s",
+                    "DROP TABLE `audit_sessions`",
+                    "ALTER TABLE `_new_audit_sessions` RENAME TO `audit_sessions`",
+                ).forEach(db::execSQL)
+            }
+            db.execSQL("CREATE INDEX IF NOT EXISTS `index_audit_sessions_startedAt` ON `audit_sessions` (`startedAt`)")
+            addColumnIfMissing(db, "audit_items", "`condition` TEXT")
+            addColumnIfMissing(db, "audit_items", "`note` TEXT")
         }
     }
 
     /** v12: kolom kelengkapan aset. Aman dijalankan ulang bila kolom sudah ada. */
     val MIGRATION_11_12 = object : Migration(11, 12) {
         override fun migrate(db: SupportSQLiteDatabase) {
-            val exists = db.query("PRAGMA table_info(`assets`)").use { c ->
-                val nameIdx = c.getColumnIndex("name")
-                var found = false
-                while (c.moveToNext()) if (c.getString(nameIdx) == "accessories") found = true
-                found
-            }
-            if (!exists) db.execSQL("ALTER TABLE `assets` ADD COLUMN `accessories` TEXT")
+            addColumnIfMissing(db, "assets", "`accessories` TEXT")
         }
     }
 
@@ -357,9 +359,15 @@ object Migrations {
                 "INSERT OR IGNORE INTO asset_statuses (id, name, sortOrder, isActive, createdAt, updatedAt, deletedAt, syncState) " +
                     "SELECT DISTINCT status, status, 99, 1, 0, 0, NULL, 'PENDING' FROM assets",
             )
-            if (!hasColumn(db, "assets", "vendorId")) db.execSQL("ALTER TABLE `assets` ADD COLUMN `vendorId` TEXT")
+            addColumnIfMissing(db, "assets", "`vendorId` TEXT")
             db.execSQL("CREATE INDEX IF NOT EXISTS `index_assets_vendorId` ON `assets` (`vendorId`)")
         }
+    }
+
+    /** Tambah kolom hanya bila belum ada. [definition] = "nama TIPE" (nama boleh diapit backtick). */
+    private fun addColumnIfMissing(db: SupportSQLiteDatabase, table: String, definition: String) {
+        val column = definition.trim().substringBefore(' ').trim('`')
+        if (!hasColumn(db, table, column)) db.execSQL("ALTER TABLE `$table` ADD COLUMN $definition")
     }
 
     private fun hasColumn(db: SupportSQLiteDatabase, table: String, column: String): Boolean =
