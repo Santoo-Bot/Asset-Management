@@ -49,7 +49,10 @@ jobs:
         run: |
           N=${{ github.run_number }}
           cp app/build/outputs/apk/debug/app-debug.apk "aset-ga-debug-$N.apk"
-          gh release create "build-$N" "aset-ga-debug-$N.apk" \
+          # Skema Room (JSON) ikut dilampirkan: dipakai aplikasi desktop agar database-nya identik dengan Android.
+          SCHEMA=$(ls app/schemas/*/*.json | sort -V | tail -1)
+          cp "$SCHEMA" "room-schema-$(basename "$SCHEMA")"
+          gh release create "build-$N" "aset-ga-debug-$N.apk" room-schema-*.json \
             --target "${{ github.sha }}" --prerelease \
             --title "Aset GA build $N (debug)" \
             --notes "APK debug otomatis dari commit ${{ github.sha }}. Unduh file .apk di bawah lalu pasang di HP."
