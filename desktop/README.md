@@ -38,6 +38,12 @@ Penting:
 - Menu **Scan**: pakai scanner barcode/QR USB (bekerja seperti keyboard) atau ketik kode. Cocok dengan kode aset, kode QR, atau kode/barcode barang.
 - Export riwayat servis dan stok & transaksi (Excel/CSV) di menu Import / Export & Backup.
 
+**Tampilan (desktop-8)**
+- Gaya modern lembut: kartu putih bersudut di atas latar abu-abu muda, aksen biru BCA Life, tema terang/gelap.
+- Menu samping berikon, otomatis hanya ikon di layar sempit (< 1280 px).
+- Halaman Aset: kartu ringkasan, status berwarna, dan panel detail di kanan. Pintasan Ctrl+F (cari) dan Ctrl+N (tambah aset).
+- Pesan sukses muncul sebagai notifikasi kecil di pojok kanan bawah.
+
 Menyusul di tahap 3: stock opname, asuransi, dashboard, pengingat, dan pengaturan.
 
 ## Untuk pengembang

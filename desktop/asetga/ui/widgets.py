@@ -67,7 +67,8 @@ def button(text: str, danger: bool = False, icon_name: str | None = None) -> QPu
     if icon_name:
         from . import icons, theme
 
-        b.setIcon(icons.icon(icon_name, theme.ERROR if danger else theme.c()["text"], 16))
+        # Abu-abu sedang: tetap terlihat di tema terang maupun gelap (ikon tidak digambar ulang saat tema diganti).
+        b.setIcon(icons.icon(icon_name, theme.ERROR if danger else "#7A8696", 16))
     return b
 
 
