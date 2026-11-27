@@ -3,12 +3,12 @@
 from __future__ import annotations
 
 from PySide6.QtCore import QTimer
-from PySide6.QtWidgets import QHBoxLayout, QLineEdit, QTabWidget, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QHBoxLayout, QTabWidget, QVBoxLayout, QWidget
 
 from ..core import fmt
 from .asset_detail import AssetDetailDialog
 from .operation_dialogs import service_cells
-from .widgets import Combo, Table, label
+from .widgets import Combo, Table, card, label, page_header, page_layout, search_field
 
 STATUSES = ["Terlambat", "Jatuh tempo", "Terjadwal"]
 
@@ -17,13 +17,15 @@ class ServicesPage(QWidget):
     def __init__(self, ctx):
         super().__init__()
         self.ctx = ctx
-        v = QVBoxLayout(self)
-        v.addWidget(label("Servis", "title"))
-        v.addWidget(label("Catat servis baru dari detail aset (tombol Catat servis).", "muted"))
+        v = page_layout(self)
+        v.addLayout(page_header("Servis", label("Catat servis baru dari panel detail aset (tombol Catat servis)", "subtitle", wrap=False)))
+        box = card("v", (16, 8, 16, 0))
         self.tabs = QTabWidget()
+        self.tabs.setDocumentMode(True)
         # Jadwal
         sched = QWidget()
         sv = QVBoxLayout(sched)
+        sv.setContentsMargins(0, 10, 0, 0)
         row = QHBoxLayout()
         self.status = Combo("Semua status")
         self.status.set_items([(s, s) for s in STATUSES])
@@ -31,23 +33,25 @@ class ServicesPage(QWidget):
         row.addWidget(self.status)
         row.addStretch(1)
         sv.addLayout(row)
-        self.sched = Table(["Kode aset", "Nama aset", "Servis terakhir", "Jatuh tempo", "Status"])
+        self.sched = Table(["Kode aset", "Nama aset", "Servis terakhir", "Jatuh tempo", "Status"], chips={4},
+                           empty_text="Belum ada jadwal servis. Isi jadwal berikutnya saat mencatat servis.")
         self.sched.activated_row.connect(self._open_asset)
         sv.addWidget(self.sched, 1)
         self.tabs.addTab(sched, "Jadwal")
         # Riwayat
         hist = QWidget()
         hv = QVBoxLayout(hist)
-        self.search = QLineEdit()
-        self.search.setPlaceholderText("Cari aset, vendor, deskripsi")
-        self.search.setClearButtonEnabled(True)
+        hv.setContentsMargins(0, 10, 0, 0)
+        self.search = search_field("Cari aset, vendor, deskripsi")
         hv.addWidget(self.search)
-        self.hist = Table(["Kode aset", "Nama aset", "Tanggal", "Jenis", "Vendor", "Biaya", "Deskripsi", "Berikutnya"])
+        self.hist = Table(["Kode aset", "Nama aset", "Tanggal", "Jenis", "Vendor", "Biaya", "Deskripsi", "Berikutnya"],
+                          empty_text="Belum ada catatan servis")
         self.hist.activated_row.connect(self._open_asset)
         hv.addWidget(self.hist, 1)
         self.tabs.addTab(hist, "Riwayat")
         self.tabs.currentChanged.connect(lambda _: self.refresh())
-        v.addWidget(self.tabs, 1)
+        box.layout().addWidget(self.tabs, 1)
+        v.addWidget(box, 1)
         self._t = QTimer(self, singleShot=True, interval=250)
         self._t.timeout.connect(self.refresh)
         self.search.textChanged.connect(lambda _: self._t.start())

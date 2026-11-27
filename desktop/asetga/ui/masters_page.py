@@ -2,12 +2,15 @@
 
 from __future__ import annotations
 
-from PySide6.QtWidgets import QDialog, QDoubleSpinBox, QHBoxLayout, QLineEdit, QSpinBox, QTabWidget, QVBoxLayout, QWidget
+from PySide6.QtCore import Qt
+from PySide6.QtWidgets import (
+    QDialog, QDoubleSpinBox, QFrame, QHBoxLayout, QLineEdit, QListWidget, QSpinBox, QStackedWidget, QVBoxLayout, QWidget,
+)
 
 from ..core import fmt
 from ..core import masters as M
 from ..core.models import WRITE_OFF_ID, MasterType
-from .widgets import Combo, FormDialog, Table, button, confirm, info, label, primary, run_safely
+from .widgets import Combo, FormDialog, Table, button, card, confirm, info, label, notify, page_header, page_layout, primary, run_safely
 
 COLUMNS = {
     MasterType.CATEGORY: ["Nama", "Kode", "Umur ekonomis", "Residu"],
@@ -71,7 +74,7 @@ class MasterDialog(FormDialog):
             self.email = f.add("Email", QLineEdit(row["email"] or "" if row else ""), M.FIELD_EMAIL)
             self.address = f.add("Alamat", QLineEdit(row["address"] or "" if row else ""))
         elif t is MasterType.STATUS and row and row["id"] == WRITE_OFF_ID:
-            self.body.insertWidget(0, label("Write Off adalah status sistem. Namanya boleh diubah, tetapi tidak bisa dihapus.", "info"))
+            self.body.insertWidget(1, label("Write Off adalah status sistem. Namanya boleh diubah, tetapi tidak bisa dihapus.", "info"))
 
     def save(self) -> None:
         m, t = self.ctx.masters, self.t
@@ -92,26 +95,34 @@ class MasterDialog(FormDialog):
             m.save_simple(t, rid, name)
 
 
-class MasterTab(QWidget):
+class MasterTab(QFrame):
     def __init__(self, ctx, t: MasterType):
         super().__init__()
         self.ctx, self.t = ctx, t
+        self.setObjectName("card")
         v = QVBoxLayout(self)
+        v.setContentsMargins(0, 0, 0, 0)
         bar = QHBoxLayout()
-        self.add_btn = primary(f"+ Tambah {t.singular}")
-        self.add_btn.clicked.connect(self._add)
-        self.edit_btn = button("Ubah")
-        self.edit_btn.clicked.connect(self._edit)
-        self.del_btn = button("Hapus", danger=True)
-        self.del_btn.clicked.connect(self._delete)
-        bar.addWidget(self.add_btn)
-        bar.addWidget(self.edit_btn)
-        bar.addWidget(self.del_btn)
+        bar.setContentsMargins(16, 14, 16, 10)
+        bar.setSpacing(8)
+        head = QVBoxLayout()
+        head.setSpacing(0)
+        head.addWidget(label(t.label, "h2", wrap=False))
+        self.count = label("", "small", wrap=False)
+        head.addWidget(self.count)
+        bar.addLayout(head)
         bar.addStretch(1)
-        self.count = label("", "muted")
-        bar.addWidget(self.count)
+        self.add_btn = primary(f"Tambah {t.singular}", "tambah")
+        self.add_btn.clicked.connect(self._add)
+        self.edit_btn = button("Ubah", icon_name="ubah")
+        self.edit_btn.clicked.connect(self._edit)
+        self.del_btn = button("Hapus", danger=True, icon_name="hapus")
+        self.del_btn.clicked.connect(self._delete)
+        bar.addWidget(self.del_btn)
+        bar.addWidget(self.edit_btn)
+        bar.addWidget(self.add_btn)
         v.addLayout(bar)
-        self.table = Table(COLUMNS[t])
+        self.table = Table(COLUMNS[t], empty_text=f"Belum ada data {t.singular}")
         self.table.activated_row.connect(lambda _: self._edit())
         v.addWidget(self.table, 1)
 
@@ -127,6 +138,7 @@ class MasterTab(QWidget):
     def _add(self) -> None:
         if MasterDialog(self, self.ctx, self.t).exec() == QDialog.DialogCode.Accepted:
             self.refresh()
+            notify(self, f"{self.t.label} ditambahkan")
 
     def _edit(self) -> None:
         if not (self.ctx.session.role and self.ctx.session.role.can_manage_master):
@@ -136,6 +148,7 @@ class MasterTab(QWidget):
             return
         if MasterDialog(self, self.ctx, self.t, row).exec() == QDialog.DialogCode.Accepted:
             self.refresh()
+            notify(self, f"{self.t.label} diperbarui")
 
     def _delete(self) -> None:
         row = self.table.current_data()
@@ -146,19 +159,37 @@ class MasterTab(QWidget):
             return
         if run_safely(self, lambda: self.ctx.masters.delete(self.t, row["id"]) or True):
             self.refresh()
+            notify(self, f"{self.t.label} {row['name']} dihapus")
 
 
 class MastersPage(QWidget):
     def __init__(self, ctx):
         super().__init__()
-        v = QVBoxLayout(self)
-        v.addWidget(label("Master data", "title"))
-        self.tabs = QTabWidget()
+        v = page_layout(self)
+        v.addLayout(page_header("Master data", label("Daftar pilihan yang dipakai di aset, stok, dan asuransi", "subtitle", wrap=False)))
+        row = QHBoxLayout()
+        row.setSpacing(16)
+        side = card("v", (8, 8, 8, 8))
+        side.setFixedWidth(220)
+        self.types = QListWidget()
+        self.types.setObjectName("nav")
+        self.types.setCursor(Qt.CursorShape.PointingHandCursor)
+        side.layout().addWidget(self.types)
+        row.addWidget(side)
+        self.stack = QStackedWidget()
         self.tab_list = [MasterTab(ctx, t) for t in MasterType]
         for tab in self.tab_list:
-            self.tabs.addTab(tab, tab.t.label)
-        self.tabs.currentChanged.connect(lambda i: self.tab_list[i].refresh())
-        v.addWidget(self.tabs, 1)
+            self.types.addItem(tab.t.label)
+            self.stack.addWidget(tab)
+        self.types.currentRowChanged.connect(self._go)
+        row.addWidget(self.stack, 1)
+        v.addLayout(row, 1)
+        self.types.setCurrentRow(0)
+
+    def _go(self, i: int) -> None:
+        if 0 <= i < len(self.tab_list):
+            self.stack.setCurrentIndex(i)
+            self.tab_list[i].refresh()
 
     def on_show(self) -> None:
-        self.tab_list[self.tabs.currentIndex()].refresh()
+        self.tab_list[self.stack.currentIndex()].refresh()

@@ -110,6 +110,11 @@ def test_alur_lengkap_tahap_1(win, app):
 
     win.shell.nav.setCurrentRow(0)
     assert win.shell.assets.table.model_.rowCount() == 1
+    # Panel detail di kanan mengikuti baris yang dipilih.
+    win.shell.assets.table.selectRow(0)
+    assert win.shell.assets.detail.asset_id == aid
+    assert win.shell.assets.k_total.value.text() == "0"  # aset Write Off tidak dihitung
+    win.grab()  # gambar seluruh jendela (delegate chip, panel, ikon)
     win.shell.assets.search.setText("tidak-ada")
     win.shell.assets.refresh()
     assert win.shell.assets.table.model_.rowCount() == 0

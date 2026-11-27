@@ -40,6 +40,12 @@ jobs:
           QT_QPA_PLATFORM: offscreen
         run: python -m pytest -q tests
 
+      - name: Tangkapan layar tampilan (data contoh)
+        shell: pwsh
+        run: |
+          python tools/screenshots.py screenshots
+          Compress-Archive -Path screenshots/* -DestinationPath "tampilan-${{ github.run_number }}.zip"
+
       - name: Tulis nomor build
         shell: pwsh
         run: (Get-Content asetga/__init__.py) -replace 'VERSION = "dev"', 'VERSION = "${{ github.run_number }}"' | Set-Content asetga/__init__.py
@@ -76,7 +82,9 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: aset-ga-desktop
-          path: desktop/AsetGA-desktop-*.zip
+          path: |
+            desktop/AsetGA-desktop-*.zip
+            desktop/tampilan-*.zip
 
       - name: Terbitkan ke Releases
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
@@ -85,6 +93,6 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           $n = "${{ github.run_number }}"
-          gh release create "desktop-$n" "AsetGA-desktop-$n.zip" --target "${{ github.sha }}" --prerelease `
+          gh release create "desktop-$n" "AsetGA-desktop-$n.zip" "tampilan-$n.zip" --target "${{ github.sha }}" --prerelease `
             --title "Aset GA Desktop build $n (Windows)" `
             --notes "Aplikasi Windows portable dari commit ${{ github.sha }}. Unduh zip, ekstrak, lalu jalankan AsetGA.exe. Data tersimpan di folder data di samping AsetGA.exe."

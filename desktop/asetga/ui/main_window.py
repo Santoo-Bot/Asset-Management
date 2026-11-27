@@ -4,11 +4,13 @@ from __future__ import annotations
 
 import time
 
-from PySide6.QtCore import QEvent, QObject, QTimer
-from PySide6.QtWidgets import QApplication, QHBoxLayout, QListWidget, QListWidgetItem, QMainWindow, QStackedWidget, QVBoxLayout, QWidget
+from PySide6.QtCore import QEvent, QObject, QSize, Qt, QTimer
+from PySide6.QtWidgets import (
+    QApplication, QFrame, QHBoxLayout, QListWidget, QListWidgetItem, QMainWindow, QStackedWidget, QVBoxLayout, QWidget,
+)
 
 from .. import APP_NAME, VERSION
-from . import theme
+from . import icons, theme
 from .account_page import AccountPage
 from .assets_page import AssetsPage
 from .audit_page import AuditPage
@@ -19,7 +21,7 @@ from .scan_page import ScanPage
 from .services_page import ServicesPage
 from .stock_page import StockPage
 from .users_page import UsersPage
-from .widgets import label
+from .widgets import hline, install_toast, label
 
 IDLE_LOCK_SECONDS = 5 * 60
 
@@ -38,7 +40,7 @@ class IdleWatcher(QObject):
 
 
 class Shell(QWidget):
-    """Menu samping + halaman. Menu mengikuti peran pengguna."""
+    """Menu samping berikon + halaman. Menu mengikuti peran pengguna."""
 
     def __init__(self, ctx):
         super().__init__()
@@ -46,24 +48,53 @@ class Shell(QWidget):
         h = QHBoxLayout(self)
         h.setContentsMargins(0, 0, 0, 0)
         h.setSpacing(0)
-        side = QWidget()
-        side.setFixedWidth(220)
+        side = QFrame()
+        side.setObjectName("sidebar")
+        side.setFixedWidth(236)
         sv = QVBoxLayout(side)
-        sv.setContentsMargins(0, 0, 0, 0)
-        sv.setSpacing(0)
-        sv.addWidget(label(APP_NAME, "navHeader"))
-        self.user_label = label("", "navUser")
-        sv.addWidget(self.user_label)
+        sv.setContentsMargins(14, 18, 14, 14)
+        sv.setSpacing(4)
+        brand = QHBoxLayout()
+        brand.setSpacing(10)
+        logo = label("GA", "logo", wrap=False)
+        logo.setFixedSize(36, 36)
+        logo.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        brand.addWidget(logo)
+        names = QVBoxLayout()
+        names.setSpacing(0)
+        title = label(APP_NAME, None, wrap=False)
+        title.setStyleSheet("font-weight: 700; font-size: 11.5pt;")
+        names.addWidget(title)
+        names.addWidget(label("Manajemen aset", "small", wrap=False))
+        brand.addLayout(names, 1)
+        sv.addLayout(brand)
+        sv.addSpacing(14)
         self.nav = QListWidget()
         self.nav.setObjectName("nav")
+        self.nav.setIconSize(QSize(18, 18))
+        self.nav.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.nav.setCursor(Qt.CursorShape.PointingHandCursor)
         sv.addWidget(self.nav, 1)
+        sv.addWidget(hline())
+        user_row = QHBoxLayout()
+        user_row.setContentsMargins(4, 10, 4, 0)
+        user_row.setSpacing(10)
+        self.avatar = label("", "avatar", wrap=False)
+        self.avatar.setFixedSize(34, 34)
+        self.avatar.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        user_row.addWidget(self.avatar)
+        who = QVBoxLayout()
+        who.setSpacing(0)
+        self.user_name = label("", None, wrap=False)
+        self.user_name.setStyleSheet("font-weight: 600;")
+        self.user_role = label("", "small", wrap=False)
+        who.addWidget(self.user_name)
+        who.addWidget(self.user_role)
+        user_row.addLayout(who, 1)
+        sv.addLayout(user_row)
         h.addWidget(side)
         self.stack = QStackedWidget()
-        page_wrap = QWidget()
-        pv = QVBoxLayout(page_wrap)
-        pv.setContentsMargins(18, 14, 18, 14)
-        pv.addWidget(self.stack)
-        h.addWidget(page_wrap, 1)
+        h.addWidget(self.stack, 1)
 
         self.assets = AssetsPage(ctx)
         self.scan = ScanPage(ctx)
@@ -74,37 +105,41 @@ class Shell(QWidget):
         self.users = UsersPage(ctx)
         self.audit = AuditPage(ctx)
         self.account = AccountPage(ctx)
-        # (judul menu, halaman, boleh tampil?)
+        # (judul menu, ikon, halaman, boleh tampil?)
         self.pages = [
-            ("Aset", self.assets, lambda r: True),
-            ("Scan", self.scan, lambda r: True),
-            ("Stok", self.stock, lambda r: True),
-            ("Servis", self.services, lambda r: True),
-            ("Master data", self.masters, lambda r: True),
-            ("Import / Export & Backup", self.data, lambda r: True),
-            ("Pengguna", self.users, lambda r: r.can_manage_users),
-            ("Audit log", self.audit, lambda r: True),
-            ("Akun & tampilan", self.account, lambda r: True),
+            ("Aset", "aset", self.assets, lambda r: True),
+            ("Scan", "scan", self.scan, lambda r: True),
+            ("Stok", "stok", self.stock, lambda r: True),
+            ("Servis", "servis", self.services, lambda r: True),
+            ("Master data", "master", self.masters, lambda r: True),
+            ("Import / Export & Backup", "data", self.data, lambda r: True),
+            ("Pengguna", "pengguna", self.users, lambda r: r.can_manage_users),
+            ("Audit log", "audit", self.audit, lambda r: True),
+            ("Akun & tampilan", "akun", self.account, lambda r: True),
         ]
-        for _, page, _ in self.pages:
+        for _, _, page, _ in self.pages:
             self.stack.addWidget(page)
         self.nav.currentRowChanged.connect(self._go)
 
     def rebuild(self) -> None:
         u = self.ctx.session.user
-        self.user_label.setText(f"{u.full_name}\n{u.role.label}" if u else "")
-        self.visible = [(t, p) for t, p, ok in self.pages if u and ok(u.role)]
+        self.user_name.setText(u.full_name if u else "")
+        self.user_role.setText(u.role.label if u else "")
+        initials = "".join(w[0] for w in (u.full_name.split()[:2] if u else []) if w).upper()
+        self.avatar.setText(initials or "?")
+        self.visible = [(t, ic, p) for t, ic, p, ok in self.pages if u and ok(u.role)]
+        muted = theme.c()["text"]
         self.nav.blockSignals(True)
         self.nav.clear()
-        for t, _ in self.visible:
-            self.nav.addItem(QListWidgetItem(t))
+        for t, ic, _ in self.visible:
+            self.nav.addItem(QListWidgetItem(icons.nav_icon(ic, "#FFFFFF", muted), t))
         self.nav.blockSignals(False)
         self.nav.setCurrentRow(0)
         self._go(0)
 
     def _go(self, row: int) -> None:
         if 0 <= row < len(self.visible):
-            page = self.visible[row][1]
+            page = self.visible[row][2]
             self.stack.setCurrentWidget(page)
             page.on_show()
 
@@ -115,7 +150,8 @@ class MainWindow(QMainWindow):
         self.ctx = ctx
         self.app = app
         self.setWindowTitle(f"{APP_NAME} — Sistem Manajemen Aset & Inventaris" + ("" if VERSION == "dev" else f" (build {VERSION})"))
-        self.resize(1280, 800)
+        self.resize(1366, 820)
+        self.setMinimumSize(1100, 680)
         self.stack = QStackedWidget()
         self.setCentralWidget(self.stack)
         self.setup = SetupPage(ctx)
@@ -129,16 +165,29 @@ class MainWindow(QMainWindow):
         self.lock.unlocked.connect(lambda: self.stack.setCurrentWidget(self.shell))
         self.lock.switch_user.connect(self.logout)
         self.shell.data.restored.connect(self.show_login)
-        self.shell.account.theme_changed.connect(lambda m: theme.apply(self.app, m))
+        self.shell.account.theme_changed.connect(self._theme_changed)
         self.shell.account.lock_requested.connect(self.lock_now)
         self.shell.account.logout_requested.connect(self.logout)
 
+        self.toast = install_toast(self)
         self.idle = IdleWatcher()
         app.installEventFilter(self.idle)
         self.timer = QTimer(self, interval=15_000)
         self.timer.timeout.connect(self._check_idle)
         self.timer.start()
         self.show_login()
+
+    def _theme_changed(self, mode: str) -> None:
+        theme.apply(self.app, mode)
+        # Ikon & warna yang digambar sendiri ikut diperbarui.
+        current = self.shell.nav.currentRow()
+        self.shell.rebuild()
+        self.shell.nav.setCurrentRow(current)
+
+    def resizeEvent(self, event):  # noqa: N802 - nama dari Qt
+        super().resizeEvent(event)
+        if self.toast.isVisible():
+            self.toast.move(self.width() - self.toast.width() - 24, self.height() - self.toast.height() - 24)
 
     def show_login(self) -> None:
         if self.ctx.users.count() == 0:

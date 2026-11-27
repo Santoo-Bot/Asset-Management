@@ -3,12 +3,12 @@
 from __future__ import annotations
 
 from PySide6.QtCore import QTimer
-from PySide6.QtWidgets import QHBoxLayout, QLineEdit, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QHBoxLayout, QWidget
 
 from ..core import fmt
 from ..core.audit import changes_text
 from ..core.models import AuditAction, AuditEntityType
-from .widgets import Combo, Table, button, label
+from .widgets import Combo, Table, button, card, label, page_header, page_layout, search_field
 
 PAGE = 500
 
@@ -18,20 +18,17 @@ class AuditPage(QWidget):
         super().__init__()
         self.ctx = ctx
         self.limit = PAGE
-        v = QVBoxLayout(self)
-        v.addWidget(label("Audit log", "title"))
-        bar = QHBoxLayout()
-        self.search = QLineEdit()
-        self.search.setPlaceholderText("Cari ringkasan atau nama pengguna…")
-        self.search.setClearButtonEnabled(True)
+        v = page_layout(self)
+        self.search = search_field("Cari ringkasan atau nama pengguna…")
+        self.search.setMinimumWidth(320)
         self.type = Combo("Semua jenis")
         self.type.set_items([(t.label, t.name) for t in AuditEntityType])
-        bar.addWidget(self.search, 1)
-        bar.addWidget(self.type)
-        v.addLayout(bar)
-        self.table = Table(["Waktu", "Oleh", "Jenis", "Aksi", "Ringkasan", "Perubahan (lama → baru)"])
+        v.addLayout(page_header("Audit log", label("Siapa mengubah apa dan kapan", "subtitle", wrap=False), self.search, self.type))
+        box = card("v")
+        self.table = Table(["Waktu", "Oleh", "Jenis", "Aksi", "Ringkasan", "Perubahan (lama → baru)"], bold_first=False)
         self.table.setWordWrap(True)
-        v.addWidget(self.table, 1)
+        box.layout().addWidget(self.table, 1)
+        v.addWidget(box, 1)
         more_row = QHBoxLayout()
         self.info = label("", "muted")
         self.more = button("Muat lebih banyak")

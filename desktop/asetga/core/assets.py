@@ -419,3 +419,43 @@ class AssetService:
 
     def history(self, asset_id: str):
         return self.audit.for_entity(AuditEntityType.ASSET, asset_id)
+
+
+@dataclass(frozen=True)
+class AssetSummary:
+    total: int
+    locations: int
+    book_value: int
+    cost: int
+    warranty_expiring: int
+    damaged: int
+    in_repair: int
+    added_this_month: int
+
+
+def summary(db: Database) -> AssetSummary:
+    """Ringkasan untuk kartu di atas daftar aset. Aset Write Off tidak ikut (sama dengan dashboard Android)."""
+    today = fmt.today()
+    default_res = db.default_residual_percent()
+    rows = db.q(
+        "SELECT a.acquisitionCost, a.acquisitionDate, a.warrantyUntil, a.condition, a.status, a.createdAt, "
+        "c.usefulLifeYears, c.residualPercent FROM assets a JOIN categories c ON c.id = a.categoryId "
+        f"WHERE a.deletedAt IS NULL AND a.status != '{WRITE_OFF_ID}'"
+    )
+    book = cost = expiring = damaged = repair = added = 0
+    month_start = _dt.datetime(today.year, today.month, 1).timestamp() * 1000
+    for r in rows:
+        acq = fmt.from_epoch_day(r["acquisitionDate"])
+        res = r["residualPercent"] if r["residualPercent"] is not None else default_res
+        book += calc.depreciation(r["acquisitionCost"], acq, r["usefulLifeYears"], res, today).book_value
+        cost += r["acquisitionCost"]
+        if calc.warranty_status(fmt.from_epoch_day(r["warrantyUntil"]), today) == "Segera habis":
+            expiring += 1
+        if r["condition"] == "RUSAK":
+            damaged += 1
+        if r["status"] == "DALAM_PERBAIKAN":
+            repair += 1
+        if r["createdAt"] >= month_start:
+            added += 1
+    locations = db.scalar(f"SELECT COUNT(DISTINCT locationId) FROM assets WHERE deletedAt IS NULL AND status != '{WRITE_OFF_ID}'") or 0
+    return AssetSummary(len(rows), locations, book, cost, expiring, damaged, repair, added)

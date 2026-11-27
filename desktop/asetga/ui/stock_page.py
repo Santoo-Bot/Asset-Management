@@ -15,7 +15,8 @@ from ..core import excel, fmt
 from ..core import stock as S
 from ..core.models import AppError, MasterType, StockTxnType
 from ..core.stock import ItemInput, needs_reorder
-from .widgets import Combo, DateField, FormDialog, Table, button, confirm, error, info, label, primary, run_safely
+from .widgets import Combo, DateField, FormDialog, Table, button, card, confirm, error, info, label, notify, page_header, page_layout, \
+    primary, run_safely, search_field
 
 
 class ItemDialog(FormDialog):
@@ -54,7 +55,7 @@ class TxnDialog(FormDialog):
         super().__init__(parent, f"Barang {type_.label.lower()}")
         self.ctx, self.item_id, self.type = ctx, item_id, type_
         it = ctx.stock.item(item_id)
-        self.body.insertWidget(0, label(f"{it['code']} — {it['name']}\nStok saat ini: {fmt.qty(it['currentStock'])} {it['unitName']}", "info"))
+        self.body.insertWidget(1, label(f"{it['code']} — {it['name']}\nStok saat ini: {fmt.qty(it['currentStock'])} {it['unitName']}", "info"))
         f = self.form
         self.date = f.add("Tanggal", DateField(), S.FIELD_DATE)
         self.qty = f.add(f"Jumlah ({it['unitName']})", QLineEdit(), S.FIELD_QTY)
@@ -81,11 +82,11 @@ class ItemDetailDialog(QDialog):
         role = ctx.session.role
         row = QHBoxLayout()
         if role and role.can_edit_data:
-            bin_ = primary("Barang masuk")
+            bin_ = primary("Barang masuk", "unduh")
             bin_.clicked.connect(lambda: self._txn(StockTxnType.IN))
-            bout = primary("Barang keluar")
+            bout = primary("Barang keluar", "unggah")
             bout.clicked.connect(lambda: self._txn(StockTxnType.OUT))
-            edit = button("Ubah barang")
+            edit = button("Ubah barang", icon_name="ubah")
             edit.clicked.connect(self._edit)
             for b in (bin_, bout, edit):
                 row.addWidget(b)
@@ -96,7 +97,8 @@ class ItemDetailDialog(QDialog):
             row.addWidget(delete)
         v.addLayout(row)
         v.addWidget(label("Riwayat transaksi", None))
-        self.table = Table(["Tanggal", "Jenis", "Jumlah", "Referensi", "Catatan", "Dicatat oleh"])
+        self.table = Table(["Tanggal", "Jenis", "Jumlah", "Referensi", "Catatan", "Dicatat oleh"], chips={1}, bold_first=False,
+                           empty_text="Belum ada transaksi")
         v.addWidget(self.table, 1)
         bb = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)
         bb.rejected.connect(self.reject)
@@ -139,6 +141,7 @@ class ItemDetailDialog(QDialog):
         if TxnDialog(self, self.ctx, self.item_id, t).exec() == QDialog.DialogCode.Accepted:
             self.changed = True
             self._render()
+            notify(self, f"Barang {t.label.lower()} tercatat")
 
     def _edit(self) -> None:
         if ItemDialog(self, self.ctx, self.item_id).exec() == QDialog.DialogCode.Accepted:
@@ -186,35 +189,34 @@ class StockPage(QWidget):
     def __init__(self, ctx):
         super().__init__()
         self.ctx = ctx
-        v = QVBoxLayout(self)
-        top = QHBoxLayout()
-        top.addWidget(label("Stok", "title"))
-        self.count = label("", "subtitle")
-        top.addWidget(self.count)
-        top.addStretch(1)
-        self.add_btn = primary("+ Tambah barang")
-        self.add_btn.clicked.connect(lambda: self._add())
-        top.addWidget(self.add_btn)
-        v.addLayout(top)
-        bar = QHBoxLayout()
-        self.search = QLineEdit()
-        self.search.setPlaceholderText("Cari kode, nama, atau scan barcode lalu Enter")
-        self.search.setClearButtonEnabled(True)
+        v = page_layout(self)
+        self.count = label("", "subtitle", wrap=False)
+        self.search = search_field("Cari kode, nama, atau scan barcode lalu Enter")
+        self.search.setMinimumWidth(340)
         self.search.returnPressed.connect(self._enter)
-        self.reorder = QCheckBox("Perlu reorder")
+        self.add_btn = primary("Tambah barang", "tambah")
+        self.add_btn.clicked.connect(lambda: self._add())
+        v.addLayout(page_header("Stok", self.count, self.search, self.add_btn))
+        box = card("v")
+        bar = QHBoxLayout()
+        bar.setContentsMargins(16, 12, 16, 10)
+        bar.setSpacing(8)
+        self.reorder = QCheckBox("Hanya yang perlu reorder")
         self.reorder.toggled.connect(lambda _: self.refresh())
-        self.template_btn = button("Template import barang")
+        self.template_btn = button("Template import barang", icon_name="unduh")
         self.template_btn.clicked.connect(self._template)
-        self.import_btn = button("Import barang…")
+        self.import_btn = button("Import barang…", icon_name="unggah")
         self.import_btn.clicked.connect(self._import)
-        bar.addWidget(self.search, 1)
         bar.addWidget(self.reorder)
+        bar.addStretch(1)
         bar.addWidget(self.template_btn)
         bar.addWidget(self.import_btn)
-        v.addLayout(bar)
-        self.table = Table(["Kode", "Nama barang", "Stok akhir", "Minimum", "Satuan", "Lokasi simpan", "Barcode", "Status"])
+        box.layout().addLayout(bar)
+        self.table = Table(["Kode", "Nama barang", "Stok akhir", "Minimum", "Satuan", "Lokasi simpan", "Barcode", "Status"], chips={7},
+                           empty_text="Belum ada barang. Tambah barang atau import dari Excel.")
         self.table.activated_row.connect(self._open)
-        v.addWidget(self.table, 1)
+        box.layout().addWidget(self.table, 1)
+        v.addWidget(box, 1)
         self._t = QTimer(self, singleShot=True, interval=250)
         self._t.timeout.connect(self.refresh)
         self.search.textChanged.connect(lambda _: self._t.start())
@@ -259,6 +261,7 @@ class StockPage(QWidget):
         dlg = ItemDialog(self, self.ctx, barcode=barcode)
         if dlg.exec() == QDialog.DialogCode.Accepted:
             self.refresh()
+            notify(self, "Barang ditambahkan")
             self._open(dlg.saved_id)
 
     def _open(self, item_id) -> None:
@@ -280,7 +283,7 @@ class StockPage(QWidget):
         except OSError as e:
             error(self, f"Gagal menyimpan file: {e}")
             return
-        info(self, f"Template tersimpan:\n{path}")
+        notify(self, "Template import barang tersimpan")
 
     def _import(self) -> None:
         path, _ = QFileDialog.getOpenFileName(self, "Pilih file Excel", self.ctx.last_dir(), "Excel (*.xlsx)")

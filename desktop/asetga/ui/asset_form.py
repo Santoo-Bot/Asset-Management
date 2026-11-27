@@ -92,7 +92,7 @@ class AssetFormDialog(FormDialog):
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
         scroll.setWidget(self.form)
-        self.body.insertWidget(1, scroll, 1)
+        self.body.insertWidget(2, scroll, 1)
 
         f = self.form
         m = ctx.masters

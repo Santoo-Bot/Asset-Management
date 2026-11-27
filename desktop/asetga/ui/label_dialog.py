@@ -11,7 +11,7 @@ from PySide6.QtGui import QImage, QPageLayout, QPageSize, QPainter, QPixmap
 from PySide6.QtWidgets import QApplication, QDialog, QFileDialog, QHBoxLayout, QLabel, QVBoxLayout
 
 from ..core import labels as L
-from .widgets import button, error, info, label, primary
+from .widgets import button, error, label, primary, notify
 
 
 def labels_for_assets(ctx, asset_ids: list[str]) -> list[L.LabelData]:
@@ -133,7 +133,7 @@ class LabelDialog(QDialog):
         except OSError as e:
             error(self, f"Gagal menyimpan PDF: {e}. Tutup file bila sedang terbuka.")
             return
-        info(self, f"PDF tersimpan ({len(self.labels)} halaman):\n{path}")
+        notify(self, f"PDF label tersimpan ({len(self.labels)} halaman)")
 
     def _png(self) -> None:
         folder = QFileDialog.getExistingDirectory(self, "Pilih folder untuk file PNG", self.ctx.last_dir())
@@ -145,8 +145,8 @@ class LabelDialog(QDialog):
         except OSError as e:
             error(self, f"Gagal menyimpan PNG: {e}")
             return
-        info(self, f"{len(files)} file PNG tersimpan di:\n{folder}")
+        notify(self, f"{len(files)} file PNG tersimpan")
 
     def _print(self) -> None:
         if print_labels(self, self.labels):
-            info(self, f"{len(self.labels)} label dikirim ke printer.")
+            notify(self, f"{len(self.labels)} label dikirim ke printer")

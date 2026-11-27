@@ -7,7 +7,7 @@ from PySide6.QtWidgets import QDialog, QGroupBox, QHBoxLayout, QVBoxLayout, QWid
 
 from .. import VERSION
 from .users_page import ResetPasswordDialog
-from .widgets import Combo, button, info, label
+from .widgets import Combo, button, label, notify, page_header, page_layout
 
 THEMES = [("Ikuti sistem", "SYSTEM"), ("Terang", "LIGHT"), ("Gelap", "DARK")]
 
@@ -20,18 +20,18 @@ class AccountPage(QWidget):
     def __init__(self, ctx):
         super().__init__()
         self.ctx = ctx
-        v = QVBoxLayout(self)
-        v.addWidget(label("Akun & tampilan", "title"))
+        v = page_layout(self)
+        v.addLayout(page_header("Akun & tampilan", label("Kata sandi, kunci aplikasi, dan tema", "subtitle", wrap=False)))
         g = QGroupBox("Akun")
         gl = QVBoxLayout(g)
         self.who = label("")
         gl.addWidget(self.who)
         row = QHBoxLayout()
-        pw = button("Ganti kata sandi")
+        pw = button("Ganti kata sandi", icon_name="kunci")
         pw.clicked.connect(self._change_password)
-        lock = button("Kunci sekarang")
+        lock = button("Kunci sekarang", icon_name="kunci")
         lock.clicked.connect(self.lock_requested.emit)
-        out = button("Keluar", danger=True)
+        out = button("Keluar", danger=True, icon_name="keluar")
         out.clicked.connect(self.logout_requested.emit)
         for b in (pw, lock, out):
             row.addWidget(b)
@@ -71,4 +71,4 @@ class AccountPage(QWidget):
         if u is None or not confirm_password(self, self.ctx, "Masukkan kata sandi Anda saat ini."):
             return
         if ResetPasswordDialog(self, self.ctx, u, "Ganti kata sandi").exec() == QDialog.DialogCode.Accepted:
-            info(self, "Kata sandi sudah diubah.")
+            notify(self, "Kata sandi sudah diubah")

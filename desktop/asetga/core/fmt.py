@@ -48,6 +48,17 @@ def rupiah(value: int | None) -> str:
     return ("-Rp " if value < 0 else "Rp ") + number(abs(value))
 
 
+def rupiah_short(value: int) -> str:
+    """Ringkas untuk kartu: Rp 1,84 M / Rp 250 jt / Rp 12.500."""
+    v = abs(value)
+    sign = "-" if value < 0 else ""
+    for unit, div in (("T", 10**12), ("M", 10**9), ("jt", 10**6)):
+        if v >= div:
+            num = f"{v / div:.2f}".rstrip("0").rstrip(".").replace(".", ",")
+            return f"{sign}Rp {num} {unit}"
+    return sign + rupiah(v)
+
+
 def percent(value: float | None) -> str:
     if value is None:
         return "-"

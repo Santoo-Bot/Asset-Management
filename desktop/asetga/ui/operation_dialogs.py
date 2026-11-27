@@ -22,7 +22,7 @@ class MutationDialog(FormDialog):
         self.ctx, self.asset_id = ctx, asset_id
         a = ctx.assets.get_row(asset_id)
         loc_name = ctx.db.scalar("SELECT name FROM locations WHERE id = ?", (a["locationId"],))
-        self.body.insertWidget(0, label(f"{a['code']} — {a['name']}\nSaat ini: {loc_name} · {a['userLocationDetail'] or '-'}", "info"))
+        self.body.insertWidget(1, label(f"{a['code']} — {a['name']}\nSaat ini: {loc_name} · {a['userLocationDetail'] or '-'}", "info"))
         f = self.form
         self.date = f.add("Tanggal mutasi", DateField(), O.FIELD_DATE)
         self.location = Combo()
@@ -43,7 +43,7 @@ class ServiceDialog(FormDialog):
         row = ctx.ops.get_service(service_id) if service_id else None
         self.base = O.OperationService.service_input(row) if row else ServiceInput(asset_id)
         a = ctx.assets.get_row(asset_id)
-        self.body.insertWidget(0, label(f"{a['code']} — {a['name']}", "info"))
+        self.body.insertWidget(1, label(f"{a['code']} — {a['name']}", "info"))
         f = self.form
         self.photo = f.add("Foto", PhotoBox(ctx))
         self.photo.set_path(self.base.photo_path)

@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
-from PySide6.QtWidgets import QCheckBox, QDialog, QHBoxLayout, QLineEdit, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QCheckBox, QDialog, QHBoxLayout, QLineEdit, QWidget
 
 from ..core.models import Role
 from ..core.users import FIELD_FULL_NAME, FIELD_PASSWORD, FIELD_USERNAME
-from .widgets import Combo, FormDialog, Table, button, confirm, confirm_password, info, label, primary, run_safely
+from .widgets import Combo, FormDialog, Table, button, card, confirm, confirm_password, label, notify, page_header, page_layout, primary, run_safely
 
 
 def _pw() -> QLineEdit:
@@ -62,24 +62,29 @@ class UsersPage(QWidget):
     def __init__(self, ctx):
         super().__init__()
         self.ctx = ctx
-        v = QVBoxLayout(self)
-        v.addWidget(label("Pengguna", "title"))
-        bar = QHBoxLayout()
-        add = primary("+ Tambah pengguna")
+        v = page_layout(self)
+        add = primary("Tambah pengguna", "tambah")
         add.clicked.connect(self._add)
-        edit = button("Ubah")
+        edit = button("Ubah", icon_name="ubah")
         edit.clicked.connect(self._edit)
-        reset = button("Atur ulang kata sandi")
+        reset = button("Atur ulang kata sandi", icon_name="kunci")
         reset.clicked.connect(self._reset)
-        delete = button("Hapus", danger=True)
+        delete = button("Hapus", danger=True, icon_name="hapus")
         delete.clicked.connect(self._delete)
-        for b in (add, edit, reset, delete):
-            bar.addWidget(b)
+        self.count = label("", "subtitle", wrap=False)
+        v.addLayout(page_header("Pengguna", self.count, add))
+        box = card("v")
+        bar = QHBoxLayout()
+        bar.setContentsMargins(16, 12, 16, 10)
+        bar.addWidget(label("Admin GA: semua · Staf GA: tambah/ubah data · Viewer: hanya melihat", "small", wrap=False))
         bar.addStretch(1)
-        v.addLayout(bar)
-        self.table = Table(["Nama", "Username", "Peran", "Status"])
+        for b in (delete, reset, edit):
+            bar.addWidget(b)
+        box.layout().addLayout(bar)
+        self.table = Table(["Nama", "Username", "Peran", "Status"], chips={2, 3})
         self.table.activated_row.connect(lambda _: self._edit())
-        v.addWidget(self.table, 1)
+        box.layout().addWidget(self.table, 1)
+        v.addWidget(box, 1)
 
     def on_show(self) -> None:
         self.refresh()
@@ -87,6 +92,7 @@ class UsersPage(QWidget):
     def refresh(self) -> None:
         self.table.set_rows([(u, [u.full_name, "@" + u.username, u.role.label, "Aktif" if u.is_active else "Nonaktif"])
                              for u in self.ctx.users.all()], muted=lambda u: not u.is_active)
+        self.count.setText(f"{self.table.model_.rowCount()} pengguna")
         self.table.setColumnWidth(0, 240)
         self.table.setColumnWidth(1, 160)
         self.table.setColumnWidth(2, 120)
@@ -94,6 +100,7 @@ class UsersPage(QWidget):
     def _add(self) -> None:
         if UserDialog(self, self.ctx).exec() == QDialog.DialogCode.Accepted:
             self.refresh()
+            notify(self, "Pengguna ditambahkan")
 
     def _edit(self) -> None:
         u = self.table.current_data()
@@ -103,7 +110,7 @@ class UsersPage(QWidget):
     def _reset(self) -> None:
         u = self.table.current_data()
         if u and ResetPasswordDialog(self, self.ctx, u).exec() == QDialog.DialogCode.Accepted:
-            info(self, f"Kata sandi {u.full_name} sudah diubah.")
+            notify(self, f"Kata sandi {u.full_name} sudah diubah")
 
     def _delete(self) -> None:
         u = self.table.current_data()

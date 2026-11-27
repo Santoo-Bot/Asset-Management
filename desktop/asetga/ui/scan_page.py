@@ -5,34 +5,43 @@ from __future__ import annotations
 
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QFont
-from PySide6.QtWidgets import QHBoxLayout, QLineEdit, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QHBoxLayout, QLabel, QLineEdit, QVBoxLayout, QWidget
 
 from ..core import fmt
 from .asset_detail import AssetDetailDialog
 from .stock_page import ItemDetailDialog
-from .widgets import Banner, Table, card, label, primary
+from . import icons, theme
+from .widgets import Banner, Table, card, label, page_header, page_layout, primary
 
 
 class ScanPage(QWidget):
     def __init__(self, ctx):
         super().__init__()
         self.ctx = ctx
-        v = QVBoxLayout(self)
-        v.addWidget(label("Scan", "title"))
-        box = card()
-        b = QVBoxLayout(box)
-        b.setContentsMargins(20, 16, 20, 16)
-        b.addWidget(label("Arahkan scanner barcode/QR USB ke label, atau ketik kode aset / kode QR / kode barang lalu tekan Enter.", "muted"))
+        v = page_layout(self)
+        v.addLayout(page_header("Scan", label("Scanner barcode/QR USB atau ketik kode, lalu Enter", "subtitle", wrap=False)))
+        box = card("v", (28, 26, 28, 26), 12)
+        b = box.layout()
+        head = QHBoxLayout()
+        ic = QLabel()
+        ic.setPixmap(icons.icon("scan", theme.PRIMARY, 30, 1.8).pixmap(30, 30))
+        head.addWidget(ic)
+        txt = QVBoxLayout()
+        txt.setSpacing(2)
+        txt.addWidget(label("Siap memindai", "h2", wrap=False))
+        txt.addWidget(label("Arahkan scanner ke label. Kode aset, kode QR, dan kode/barcode barang stok dikenali.", "muted"))
+        head.addLayout(txt, 1)
+        b.addLayout(head)
         row = QHBoxLayout()
         self.input = QLineEdit()
         self.input.setPlaceholderText("Kode aset, kode QR, atau barcode barang")
         f = QFont()
-        f.setPointSize(14)
+        f.setPointSize(15)
         self.input.setFont(f)
-        self.input.setMinimumHeight(44)
+        self.input.setMinimumHeight(50)
         self.input.returnPressed.connect(self._lookup)
-        go = primary("Cari")
-        go.setMinimumHeight(44)
+        go = primary("Cari", "cari")
+        go.setMinimumHeight(50)
         go.clicked.connect(self._lookup)
         row.addWidget(self.input, 1)
         row.addWidget(go)
@@ -40,10 +49,15 @@ class ScanPage(QWidget):
         self.banner = Banner()
         b.addWidget(self.banner)
         v.addWidget(box)
-        v.addWidget(label("Hasil scan terakhir", None))
-        self.history = Table(["Waktu", "Kode", "Hasil"])
+        hist = card("v", (0, 0, 0, 0))
+        hh = QHBoxLayout()
+        hh.setContentsMargins(16, 14, 16, 6)
+        hh.addWidget(label("Hasil scan terakhir", "h2", wrap=False))
+        hist.layout().addLayout(hh)
+        self.history = Table(["Waktu", "Kode", "Hasil"], empty_text="Belum ada scan pada sesi ini")
         self.history.activated_row.connect(self._reopen)
-        v.addWidget(self.history, 1)
+        hist.layout().addWidget(self.history, 1)
+        v.addWidget(hist, 1)
         self._log: list[tuple[tuple[str, str] | None, list[str]]] = []
 
     def on_show(self) -> None:

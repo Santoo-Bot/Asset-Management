@@ -13,7 +13,7 @@ from ..core import fmt
 from ..core.excel import ImportPreview
 from ..core.models import AppError
 from . import backup_flow
-from .widgets import Table, button, confirm_password, error, info, label, primary
+from .widgets import Table, button, confirm_password, error, info, label, notify, page_header, page_layout, primary
 
 
 class ImportPreviewDialog(QDialog):
@@ -61,8 +61,8 @@ class DataPage(QWidget):
     def __init__(self, ctx):
         super().__init__()
         self.ctx = ctx
-        v = QVBoxLayout(self)
-        v.addWidget(label("Data", "title"))
+        v = page_layout(self)
+        v.addLayout(page_header("Import / Export & Backup", label("Pindah data lewat Excel atau file backup terenkripsi", "subtitle", wrap=False)))
 
         g1 = QGroupBox("Import & export aset (Excel)")
         l1 = QVBoxLayout(g1)
@@ -70,13 +70,13 @@ class DataPage(QWidget):
                            "bergantian di HP dan laptop. Import otomatis menambah aset baru dan memperbarui aset yang Kode Aset-nya "
                            "sudah ada.", "muted"))
         r1 = QHBoxLayout()
-        self.template_btn = button("Unduh template import")
+        self.template_btn = button("Unduh template import", icon_name="unduh")
         self.template_btn.clicked.connect(self._template)
-        self.import_btn = primary("Import dari Excel…")
+        self.import_btn = primary("Import dari Excel…", "unggah")
         self.import_btn.clicked.connect(self._import)
-        self.export_xlsx = button("Export aset (.xlsx)")
+        self.export_xlsx = button("Export aset (.xlsx)", icon_name="unduh")
         self.export_xlsx.clicked.connect(lambda: self._export("xlsx"))
-        self.export_csv = button("Export aset (.csv)")
+        self.export_csv = button("Export aset (.csv)", icon_name="unduh")
         self.export_csv.clicked.connect(lambda: self._export("csv"))
         for b in (self.template_btn, self.import_btn, self.export_xlsx, self.export_csv):
             r1.addWidget(b)
@@ -88,7 +88,7 @@ class DataPage(QWidget):
         l3 = QHBoxLayout(g3)
         for text, kind, fmt_ in (("Riwayat servis (.xlsx)", "services", "xlsx"), ("Riwayat servis (.csv)", "services", "csv"),
                                  ("Stok & transaksi (.xlsx)", "stock", "xlsx"), ("Stok (.csv)", "stock", "csv")):
-            b = button(text)
+            b = button(text, icon_name="unduh")
             b.clicked.connect(lambda _=False, k=kind, f=fmt_: self._export_other(k, f))
             l3.addWidget(b)
         l3.addStretch(1)
@@ -101,9 +101,9 @@ class DataPage(QWidget):
             "Pindah data HP ↔ laptop: buat backup di satu perangkat, lalu restore di perangkat lain. Restore MENGGANTI seluruh data, "
             "jadi pakai satu perangkat saja untuk mengubah data pada satu waktu.", "muted"))
         r2 = QHBoxLayout()
-        self.backup_btn = primary("Buat backup…")
+        self.backup_btn = primary("Buat backup…", "backup")
         self.backup_btn.clicked.connect(self._backup)
-        self.restore_btn = button("Restore dari backup…", danger=True)
+        self.restore_btn = button("Restore dari backup…", danger=True, icon_name="unggah")
         self.restore_btn.clicked.connect(self._restore)
         r2.addWidget(self.backup_btn)
         r2.addWidget(self.restore_btn)
@@ -136,7 +136,7 @@ class DataPage(QWidget):
             except OSError as e:
                 error(self, f"Gagal menyimpan file: {e}. Tutup file di Excel bila sedang terbuka.")
                 return
-            info(self, f"Template tersimpan:\n{path}")
+            notify(self, "Template import aset tersimpan")
 
     def _export(self, kind: str) -> None:
         stamp = fmt.today().strftime("%Y%m%d")
@@ -149,7 +149,7 @@ class DataPage(QWidget):
         except OSError as e:
             error(self, f"Gagal menyimpan file: {e}. Tutup file di Excel bila sedang terbuka.")
             return
-        info(self, f"{n} aset diexport ke:\n{path}")
+        notify(self, f"{n} aset diexport")
 
     def _export_other(self, kind: str, ext: str) -> None:
         from ..core import excel
@@ -169,7 +169,7 @@ class DataPage(QWidget):
         except OSError as e:
             error(self, f"Gagal menyimpan file: {e}. Tutup file di Excel bila sedang terbuka.")
             return
-        info(self, f"{n} {what} diexport ke:\n{path}")
+        notify(self, f"{n} {what} diexport")
 
     def _import(self) -> None:
         path, _ = QFileDialog.getOpenFileName(self, "Pilih file Excel", self.ctx.last_dir(), "Excel (*.xlsx)")
