@@ -94,22 +94,24 @@ class StockRepositoryImpl @Inject constructor(
             updatedAt = now,
             syncState = SyncState.PENDING,
         )
-        if (old == null) {
-            dao.insertItem(entity)
-            audit.log(AuditEntityType.ITEM, entity.id, AuditAction.CREATE, "Barang ${entity.code} ${entity.name} ditambahkan (stok awal ${Fmt.qty(entity.initialStock)})")
-        } else {
-            dao.updateItem(entity)
-            val changes = ChangeSet().apply {
-                field("Kode", old.code, entity.code)
-                field("Barcode", old.barcode, entity.barcode)
-                field("Nama", old.name, entity.name)
-                field("Satuan", unitDao.getById(old.unitId)?.name, unitDao.getById(entity.unitId)?.name)
-                field("Stok awal", Fmt.qty(old.initialStock), Fmt.qty(entity.initialStock))
-                field("Min. stok", Fmt.qty(old.minStock), Fmt.qty(entity.minStock))
-                field("Lokasi simpan", old.storageLocationId?.let { locationDao.getById(it)?.name }, entity.storageLocationId?.let { locationDao.getById(it)?.name })
-                field("Catatan", old.notes, entity.notes)
+        db.withTransaction {
+            if (old == null) {
+                dao.insertItem(entity)
+                audit.log(AuditEntityType.ITEM, entity.id, AuditAction.CREATE, "Barang ${entity.code} ${entity.name} ditambahkan (stok awal ${Fmt.qty(entity.initialStock)})")
+            } else {
+                dao.updateItem(entity)
+                val changes = ChangeSet().apply {
+                    field("Kode", old.code, entity.code)
+                    field("Barcode", old.barcode, entity.barcode)
+                    field("Nama", old.name, entity.name)
+                    field("Satuan", unitDao.getById(old.unitId)?.name, unitDao.getById(entity.unitId)?.name)
+                    field("Stok awal", Fmt.qty(old.initialStock), Fmt.qty(entity.initialStock))
+                    field("Min. stok", Fmt.qty(old.minStock), Fmt.qty(entity.minStock))
+                    field("Lokasi simpan", old.storageLocationId?.let { locationDao.getById(it)?.name }, entity.storageLocationId?.let { locationDao.getById(it)?.name })
+                    field("Catatan", old.notes, entity.notes)
+                }
+                if (!changes.isEmpty()) audit.log(AuditEntityType.ITEM, entity.id, AuditAction.UPDATE, "Barang ${entity.code} diubah", changes.build())
             }
-            if (!changes.isEmpty()) audit.log(AuditEntityType.ITEM, entity.id, AuditAction.UPDATE, "Barang ${entity.code} diubah", changes.build())
         }
         return AppResult.Success(entity.id)
     }

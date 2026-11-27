@@ -147,25 +147,27 @@ class OperationRepositoryImpl @Inject constructor(
             createdAt = old?.createdAt ?: now,
             updatedAt = now,
         )
-        if (old == null) {
-            serviceDao.insert(entity)
-            audit.log(
-                AuditEntityType.SERVICE, entity.id, AuditAction.CREATE,
-                "Servis ${input.type.label} ${asset.code} ${Fmt.date(entity.serviceDate)} · ${Fmt.rupiah(entity.cost)}",
-            )
-        } else {
-            serviceDao.update(entity)
-            val changes = ChangeSet().apply {
-                field("Tanggal", Fmt.date(old.serviceDate), Fmt.date(entity.serviceDate))
-                field("Jenis", old.type.label, entity.type.label)
-                field("Biaya", Fmt.rupiah(old.cost), Fmt.rupiah(entity.cost))
-                field("Deskripsi", old.description, entity.description)
-                field("Jadwal berikutnya", old.nextServiceDate?.let(Fmt::date), entity.nextServiceDate?.let(Fmt::date))
+        db.withTransaction {
+            if (old == null) {
+                serviceDao.insert(entity)
+                audit.log(
+                    AuditEntityType.SERVICE, entity.id, AuditAction.CREATE,
+                    "Servis ${input.type.label} ${asset.code} ${Fmt.date(entity.serviceDate)} · ${Fmt.rupiah(entity.cost)}",
+                )
+            } else {
+                serviceDao.update(entity)
+                val changes = ChangeSet().apply {
+                    field("Tanggal", Fmt.date(old.serviceDate), Fmt.date(entity.serviceDate))
+                    field("Jenis", old.type.label, entity.type.label)
+                    field("Biaya", Fmt.rupiah(old.cost), Fmt.rupiah(entity.cost))
+                    field("Deskripsi", old.description, entity.description)
+                    field("Jadwal berikutnya", old.nextServiceDate?.let(Fmt::date), entity.nextServiceDate?.let(Fmt::date))
+                }
+                audit.log(AuditEntityType.SERVICE, entity.id, AuditAction.UPDATE, "Catatan servis ${asset.code} diubah", changes.build())
             }
-            audit.log(AuditEntityType.SERVICE, entity.id, AuditAction.UPDATE, "Catatan servis ${asset.code} diubah", changes.build())
+            // Tampilkan juga di riwayat aset.
+            audit.log(AuditEntityType.ASSET, asset.id, if (old == null) AuditAction.CREATE else AuditAction.UPDATE, "Servis ${input.type.label}: ${entity.description.take(60)}")
         }
-        // Tampilkan juga di riwayat aset.
-        audit.log(AuditEntityType.ASSET, asset.id, if (old == null) AuditAction.CREATE else AuditAction.UPDATE, "Servis ${input.type.label}: ${entity.description.take(60)}")
         return AppResult.Success(Unit)
     }
 }

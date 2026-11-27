@@ -38,7 +38,7 @@ class LoginThrottleTest {
     @Before fun setUp() {
         db = inMemoryDb()
         val audit = AuditLogRepositoryImpl(db.auditLogDao(), session, clock)
-        users = UserRepositoryImpl(db.userDao(), PasswordHasher(iterations = 1_000), session, audit, clock, LoginThrottle(db.settingsDao(), clock))
+        users = UserRepositoryImpl(db, db.userDao(), PasswordHasher(iterations = 1_000), session, audit, clock, LoginThrottle(db.settingsDao(), clock))
     }
 
     @After fun tearDown() = db.close()

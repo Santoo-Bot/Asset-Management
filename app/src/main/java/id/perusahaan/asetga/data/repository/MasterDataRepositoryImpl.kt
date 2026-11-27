@@ -100,16 +100,18 @@ class MasterDataRepositoryImpl @Inject constructor(
         nameErrors(name, insuranceTypeDao.countByName(name, type.id), "tipe asuransi")?.let { return it }
         val now = clock.millis()
         val old = type.id.takeIf { it.isNotEmpty() }?.let { insuranceTypeDao.getById(it) }
-        return if (old == null) {
-            val e = InsuranceTypeEntity(newId(), name, true, now, now)
-            insuranceTypeDao.insert(e)
-            audit.log(AuditEntityType.MASTER, e.id, AuditAction.CREATE, "Tipe asuransi ${e.name} ditambahkan")
-            AppResult.Success(InsuranceType(e.id, e.name))
-        } else {
-            val e = old.copy(name = name, updatedAt = now, syncState = SyncState.PENDING)
-            insuranceTypeDao.update(e)
-            logUpdate("Tipe asuransi", e.id, e.name) { field("Nama", old.name, e.name) }
-            AppResult.Success(InsuranceType(e.id, e.name, e.isActive))
+        return db.withTransaction {
+            if (old == null) {
+                val e = InsuranceTypeEntity(newId(), name, true, now, now)
+                insuranceTypeDao.insert(e)
+                audit.log(AuditEntityType.MASTER, e.id, AuditAction.CREATE, "Tipe asuransi ${e.name} ditambahkan")
+                AppResult.Success(InsuranceType(e.id, e.name))
+            } else {
+                val e = old.copy(name = name, updatedAt = now, syncState = SyncState.PENDING)
+                insuranceTypeDao.update(e)
+                logUpdate("Tipe asuransi", e.id, e.name) { field("Nama", old.name, e.name) }
+                AppResult.Success(InsuranceType(e.id, e.name, e.isActive))
+            }
         }
     }
 
@@ -122,21 +124,23 @@ class MasterDataRepositoryImpl @Inject constructor(
         if (errors.isNotEmpty()) return invalid(errors)
         val now = clock.millis()
         val old = v.id.takeIf { it.isNotEmpty() }?.let { insurerDao.getById(it) }
-        return if (old == null) {
-            val e = InsurerEntity(newId(), v.name, v.phone, v.email, v.address, true, now, now)
-            insurerDao.insert(e)
-            audit.log(AuditEntityType.MASTER, e.id, AuditAction.CREATE, "Perusahaan asuransi ${e.name} ditambahkan")
-            AppResult.Success(v.copy(id = e.id))
-        } else {
-            val e = old.copy(name = v.name, phone = v.phone, email = v.email, address = v.address, updatedAt = now, syncState = SyncState.PENDING)
-            insurerDao.update(e)
-            logUpdate("Perusahaan asuransi", e.id, e.name) {
-                field("Nama", old.name, e.name)
-                field("Telepon", old.phone, e.phone)
-                field("Email", old.email, e.email)
-                field("Alamat", old.address, e.address)
+        return db.withTransaction {
+            if (old == null) {
+                val e = InsurerEntity(newId(), v.name, v.phone, v.email, v.address, true, now, now)
+                insurerDao.insert(e)
+                audit.log(AuditEntityType.MASTER, e.id, AuditAction.CREATE, "Perusahaan asuransi ${e.name} ditambahkan")
+                AppResult.Success(v.copy(id = e.id))
+            } else {
+                val e = old.copy(name = v.name, phone = v.phone, email = v.email, address = v.address, updatedAt = now, syncState = SyncState.PENDING)
+                insurerDao.update(e)
+                logUpdate("Perusahaan asuransi", e.id, e.name) {
+                    field("Nama", old.name, e.name)
+                    field("Telepon", old.phone, e.phone)
+                    field("Email", old.email, e.email)
+                    field("Alamat", old.address, e.address)
+                }
+                AppResult.Success(v)
             }
-            AppResult.Success(v)
         }
     }
 
@@ -146,16 +150,18 @@ class MasterDataRepositoryImpl @Inject constructor(
         nameErrors(name, divisionDao.countByName(name, division.id), "divisi")?.let { return it }
         val now = clock.millis()
         val old = division.id.takeIf { it.isNotEmpty() }?.let { divisionDao.getById(it) }
-        return if (old == null) {
-            val e = DivisionEntity(newId(), name, true, now, now)
-            divisionDao.insert(e)
-            audit.log(AuditEntityType.MASTER, e.id, AuditAction.CREATE, "Divisi ${e.name} ditambahkan")
-            AppResult.Success(e.toDomain())
-        } else {
-            val e = old.copy(name = name, updatedAt = now, syncState = SyncState.PENDING)
-            divisionDao.update(e)
-            logUpdate("Divisi", e.id, e.name) { field("Nama", old.name, e.name) }
-            AppResult.Success(e.toDomain())
+        return db.withTransaction {
+            if (old == null) {
+                val e = DivisionEntity(newId(), name, true, now, now)
+                divisionDao.insert(e)
+                audit.log(AuditEntityType.MASTER, e.id, AuditAction.CREATE, "Divisi ${e.name} ditambahkan")
+                AppResult.Success(e.toDomain())
+            } else {
+                val e = old.copy(name = name, updatedAt = now, syncState = SyncState.PENDING)
+                divisionDao.update(e)
+                logUpdate("Divisi", e.id, e.name) { field("Nama", old.name, e.name) }
+                AppResult.Success(e.toDomain())
+            }
         }
     }
 
@@ -174,16 +180,18 @@ class MasterDataRepositoryImpl @Inject constructor(
         nameErrors(name, statusDao.countByName(name, status.id), "status")?.let { return it }
         val now = clock.millis()
         val old = status.id.takeIf { it.isNotEmpty() }?.let { statusDao.getById(it) }
-        return if (old == null) {
-            val e = AssetStatusEntity(newId(), name, statusDao.maxSortOrder() + 1, true, now, now)
-            statusDao.insert(e)
-            audit.log(AuditEntityType.MASTER, e.id, AuditAction.CREATE, "Status ${e.name} ditambahkan")
-            AppResult.Success(AssetStatusOption(e.id, e.name))
-        } else {
-            val e = old.copy(name = name, updatedAt = now, syncState = SyncState.PENDING)
-            statusDao.update(e)
-            logUpdate("Status", e.id, e.name) { field("Nama", old.name, e.name) }
-            AppResult.Success(AssetStatusOption(e.id, e.name, isSystem = e.id == AssetStatus.WRITE_OFF_ID))
+        return db.withTransaction {
+            if (old == null) {
+                val e = AssetStatusEntity(newId(), name, statusDao.maxSortOrder() + 1, true, now, now)
+                statusDao.insert(e)
+                audit.log(AuditEntityType.MASTER, e.id, AuditAction.CREATE, "Status ${e.name} ditambahkan")
+                AppResult.Success(AssetStatusOption(e.id, e.name))
+            } else {
+                val e = old.copy(name = name, updatedAt = now, syncState = SyncState.PENDING)
+                statusDao.update(e)
+                logUpdate("Status", e.id, e.name) { field("Nama", old.name, e.name) }
+                AppResult.Success(AssetStatusOption(e.id, e.name, isSystem = e.id == AssetStatus.WRITE_OFF_ID))
+            }
         }
     }
 
@@ -197,24 +205,26 @@ class MasterDataRepositoryImpl @Inject constructor(
 
         val now = clock.millis()
         val old = c.id.takeIf { it.isNotEmpty() }?.let { categoryDao.getById(it) }
-        return if (old == null) {
-            val entity = CategoryEntity(newId(), c.name, c.codePrefix, c.usefulLifeYears, c.residualPercent, true, now, now)
-            categoryDao.insert(entity)
-            audit.log(AuditEntityType.MASTER, entity.id, AuditAction.CREATE, "Kategori ${entity.name} ditambahkan")
-            AppResult.Success(entity.toDomain())
-        } else {
-            val entity = old.copy(
-                name = c.name, codePrefix = c.codePrefix, usefulLifeYears = c.usefulLifeYears,
-                residualPercent = c.residualPercent, updatedAt = now, syncState = SyncState.PENDING,
-            )
-            categoryDao.update(entity)
-            logUpdate("Kategori", entity.id, entity.name) {
-                field("Nama", old.name, entity.name)
-                field("Kode", old.codePrefix, entity.codePrefix)
-                field("Umur ekonomis (th)", old.usefulLifeYears, entity.usefulLifeYears)
-                field("Residu (%)", old.residualPercent, entity.residualPercent)
+        return db.withTransaction {
+            if (old == null) {
+                val entity = CategoryEntity(newId(), c.name, c.codePrefix, c.usefulLifeYears, c.residualPercent, true, now, now)
+                categoryDao.insert(entity)
+                audit.log(AuditEntityType.MASTER, entity.id, AuditAction.CREATE, "Kategori ${entity.name} ditambahkan")
+                AppResult.Success(entity.toDomain())
+            } else {
+                val entity = old.copy(
+                    name = c.name, codePrefix = c.codePrefix, usefulLifeYears = c.usefulLifeYears,
+                    residualPercent = c.residualPercent, updatedAt = now, syncState = SyncState.PENDING,
+                )
+                categoryDao.update(entity)
+                logUpdate("Kategori", entity.id, entity.name) {
+                    field("Nama", old.name, entity.name)
+                    field("Kode", old.codePrefix, entity.codePrefix)
+                    field("Umur ekonomis (th)", old.usefulLifeYears, entity.usefulLifeYears)
+                    field("Residu (%)", old.residualPercent, entity.residualPercent)
+                }
+                AppResult.Success(entity.toDomain())
             }
-            AppResult.Success(entity.toDomain())
         }
     }
 
@@ -224,19 +234,21 @@ class MasterDataRepositoryImpl @Inject constructor(
         nameErrors(name, locationDao.countByName(name, location.id), "lokasi")?.let { return it }
         val now = clock.millis()
         val old = location.id.takeIf { it.isNotEmpty() }?.let { locationDao.getById(it) }
-        return if (old == null) {
-            val e = LocationEntity(newId(), name, location.address.trimToNull(), true, now, now)
-            locationDao.insert(e)
-            audit.log(AuditEntityType.MASTER, e.id, AuditAction.CREATE, "Lokasi ${e.name} ditambahkan")
-            AppResult.Success(e.toDomain())
-        } else {
-            val e = old.copy(name = name, address = location.address.trimToNull(), updatedAt = now, syncState = SyncState.PENDING)
-            locationDao.update(e)
-            logUpdate("Lokasi", e.id, e.name) {
-                field("Nama", old.name, e.name)
-                field("Alamat", old.address, e.address)
+        return db.withTransaction {
+            if (old == null) {
+                val e = LocationEntity(newId(), name, location.address.trimToNull(), true, now, now)
+                locationDao.insert(e)
+                audit.log(AuditEntityType.MASTER, e.id, AuditAction.CREATE, "Lokasi ${e.name} ditambahkan")
+                AppResult.Success(e.toDomain())
+            } else {
+                val e = old.copy(name = name, address = location.address.trimToNull(), updatedAt = now, syncState = SyncState.PENDING)
+                locationDao.update(e)
+                logUpdate("Lokasi", e.id, e.name) {
+                    field("Nama", old.name, e.name)
+                    field("Alamat", old.address, e.address)
+                }
+                AppResult.Success(e.toDomain())
             }
-            AppResult.Success(e.toDomain())
         }
     }
 
@@ -252,24 +264,26 @@ class MasterDataRepositoryImpl @Inject constructor(
 
         val now = clock.millis()
         val old = department.id.takeIf { it.isNotEmpty() }?.let { departmentDao.getById(it) }
-        return if (old == null) {
-            val e = DepartmentEntity(newId(), name, true, now, now, divisionId = division!!.id)
-            departmentDao.insert(e)
-            audit.log(AuditEntityType.MASTER, e.id, AuditAction.CREATE, "Departemen ${e.name} (Divisi ${division.name}) ditambahkan")
-            AppResult.Success(e.toDomain(division.name))
-        } else {
-            val e = old.copy(name = name, divisionId = division!!.id, updatedAt = now, syncState = SyncState.PENDING)
-            val oldDivisionName = old.divisionId?.let { divisionDao.getById(it)?.name }
-            db.withTransaction {
-                departmentDao.update(e)
-                // Aset di departemen ini ikut pindah divisi agar data tetap konsisten.
-                if (old.divisionId != e.divisionId) assetDao.syncDivisionForDepartment(e.id, e.divisionId, now)
+        return db.withTransaction {
+            if (old == null) {
+                val e = DepartmentEntity(newId(), name, true, now, now, divisionId = division!!.id)
+                departmentDao.insert(e)
+                audit.log(AuditEntityType.MASTER, e.id, AuditAction.CREATE, "Departemen ${e.name} (Divisi ${division.name}) ditambahkan")
+                AppResult.Success(e.toDomain(division.name))
+            } else {
+                val e = old.copy(name = name, divisionId = division!!.id, updatedAt = now, syncState = SyncState.PENDING)
+                val oldDivisionName = old.divisionId?.let { divisionDao.getById(it)?.name }
+                db.withTransaction {
+                    departmentDao.update(e)
+                    // Aset di departemen ini ikut pindah divisi agar data tetap konsisten.
+                    if (old.divisionId != e.divisionId) assetDao.syncDivisionForDepartment(e.id, e.divisionId, now)
+                }
+                logUpdate("Departemen", e.id, e.name) {
+                    field("Nama", old.name, e.name)
+                    field("Divisi", oldDivisionName, division.name)
+                }
+                AppResult.Success(e.toDomain(division.name))
             }
-            logUpdate("Departemen", e.id, e.name) {
-                field("Nama", old.name, e.name)
-                field("Divisi", oldDivisionName, division.name)
-            }
-            AppResult.Success(e.toDomain(division.name))
         }
     }
 
@@ -281,21 +295,23 @@ class MasterDataRepositoryImpl @Inject constructor(
         if (errors.isNotEmpty()) return invalid(errors)
         val now = clock.millis()
         val old = v.id.takeIf { it.isNotEmpty() }?.let { vendorDao.getById(it) }
-        return if (old == null) {
-            val e = VendorEntity(newId(), v.name, v.phone, v.email, v.address, true, now, now)
-            vendorDao.insert(e)
-            audit.log(AuditEntityType.MASTER, e.id, AuditAction.CREATE, "Vendor ${e.name} ditambahkan")
-            AppResult.Success(e.toDomain())
-        } else {
-            val e = old.copy(name = v.name, phone = v.phone, email = v.email, address = v.address, updatedAt = now, syncState = SyncState.PENDING)
-            vendorDao.update(e)
-            logUpdate("Vendor", e.id, e.name) {
-                field("Nama", old.name, e.name)
-                field("Telepon", old.phone, e.phone)
-                field("Email", old.email, e.email)
-                field("Alamat", old.address, e.address)
+        return db.withTransaction {
+            if (old == null) {
+                val e = VendorEntity(newId(), v.name, v.phone, v.email, v.address, true, now, now)
+                vendorDao.insert(e)
+                audit.log(AuditEntityType.MASTER, e.id, AuditAction.CREATE, "Vendor ${e.name} ditambahkan")
+                AppResult.Success(e.toDomain())
+            } else {
+                val e = old.copy(name = v.name, phone = v.phone, email = v.email, address = v.address, updatedAt = now, syncState = SyncState.PENDING)
+                vendorDao.update(e)
+                logUpdate("Vendor", e.id, e.name) {
+                    field("Nama", old.name, e.name)
+                    field("Telepon", old.phone, e.phone)
+                    field("Email", old.email, e.email)
+                    field("Alamat", old.address, e.address)
+                }
+                AppResult.Success(e.toDomain())
             }
-            AppResult.Success(e.toDomain())
         }
     }
 
@@ -305,16 +321,18 @@ class MasterDataRepositoryImpl @Inject constructor(
         nameErrors(name, unitDao.countByName(name, unit.id), "satuan")?.let { return it }
         val now = clock.millis()
         val old = unit.id.takeIf { it.isNotEmpty() }?.let { unitDao.getById(it) }
-        return if (old == null) {
-            val e = UnitEntity(newId(), name, true, now, now)
-            unitDao.insert(e)
-            audit.log(AuditEntityType.MASTER, e.id, AuditAction.CREATE, "Satuan ${e.name} ditambahkan")
-            AppResult.Success(e.toDomain())
-        } else {
-            val e = old.copy(name = name, updatedAt = now, syncState = SyncState.PENDING)
-            unitDao.update(e)
-            logUpdate("Satuan", e.id, e.name) { field("Nama", old.name, e.name) }
-            AppResult.Success(e.toDomain())
+        return db.withTransaction {
+            if (old == null) {
+                val e = UnitEntity(newId(), name, true, now, now)
+                unitDao.insert(e)
+                audit.log(AuditEntityType.MASTER, e.id, AuditAction.CREATE, "Satuan ${e.name} ditambahkan")
+                AppResult.Success(e.toDomain())
+            } else {
+                val e = old.copy(name = name, updatedAt = now, syncState = SyncState.PENDING)
+                unitDao.update(e)
+                logUpdate("Satuan", e.id, e.name) { field("Nama", old.name, e.name) }
+                AppResult.Success(e.toDomain())
+            }
         }
     }
 

@@ -61,8 +61,10 @@ class OpnameRepositoryImpl @Inject constructor(
         if (cleanName.isEmpty()) return AppResult.Failure("Nama sesi wajib diisi", mapOf(FIELD_NAME to "Wajib diisi"))
         val now = clock.millis()
         val id = UUID.randomUUID().toString()
-        dao.insertSession(AuditSessionEntity(id, cleanName, date, now, null, session.currentUser?.id, note.trimToNull(), now, now))
-        audit.log(AuditEntityType.ASSET, id, AuditAction.CREATE, "Sesi stock opname \"$cleanName\" (${Fmt.date(date)}) dibuat")
+        db.withTransaction {
+            dao.insertSession(AuditSessionEntity(id, cleanName, date, now, null, session.currentUser?.id, note.trimToNull(), now, now))
+            audit.log(AuditEntityType.ASSET, id, AuditAction.CREATE, "Sesi stock opname \"$cleanName\" (${Fmt.date(date)}) dibuat")
+        }
         return AppResult.Success(id)
     }
 
@@ -206,11 +208,13 @@ class OpnameRepositoryImpl @Inject constructor(
         if (error != null) return error
         s!!
         if (s.total == 0) return AppResult.Failure("Tambahkan aset ke sesi terlebih dahulu")
-        dao.finish(sessionId, clock.millis(), note.trimToNull() ?: s.note)
-        audit.log(
-            AuditEntityType.ASSET, sessionId, AuditAction.UPDATE,
-            "Stock opname \"${s.name}\" selesai: ${s.found}/${s.total} ditemukan, ${s.total - s.found} tidak ditemukan, ${s.outside} di luar daftar",
-        )
+        db.withTransaction {
+            dao.finish(sessionId, clock.millis(), note.trimToNull() ?: s.note)
+            audit.log(
+                AuditEntityType.ASSET, sessionId, AuditAction.UPDATE,
+                "Stock opname \"${s.name}\" selesai: ${s.found}/${s.total} ditemukan, ${s.total - s.found} tidak ditemukan, ${s.outside} di luar daftar",
+            )
+        }
         return AppResult.Success(Unit)
     }
 
@@ -220,8 +224,8 @@ class OpnameRepositoryImpl @Inject constructor(
         db.withTransaction {
             dao.deleteItems(sessionId)
             dao.deleteSession(sessionId)
+            audit.log(AuditEntityType.ASSET, sessionId, AuditAction.DELETE, "Sesi stock opname \"${s.name}\" dihapus (${s.total} aset)")
         }
-        audit.log(AuditEntityType.ASSET, sessionId, AuditAction.DELETE, "Sesi stock opname \"${s.name}\" dihapus (${s.total} aset)")
         return AppResult.Success(Unit)
     }
 

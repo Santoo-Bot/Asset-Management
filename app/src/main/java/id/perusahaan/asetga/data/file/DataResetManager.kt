@@ -46,15 +46,14 @@ class DataResetManager @Inject constructor(
                 // Penanda data contoh (debug) dipertahankan agar 5.000 aset contoh tidak terisi ulang.
                 sql.execSQL("DELETE FROM app_settings WHERE `key` NOT LIKE 'debug_seed%'")
                 DefaultData.seed(sql)
+            } else {
+                // Dicatat dalam transaksi yang sama: reset tanpa catatan tidak boleh terjadi.
+                audit.log(AuditEntityType.SYSTEM, "reset", AuditAction.DELETE, "Seluruh data operasional dihapus")
             }
         }
         File(context.filesDir, PhotoStorage.DIR).deleteRecursively()
         File(context.cacheDir, "shared").deleteRecursively()
-        if (scope == ResetScope.EVERYTHING) {
-            session.logout()
-        } else {
-            audit.log(AuditEntityType.SYSTEM, "reset", AuditAction.DELETE, "Seluruh data operasional dihapus")
-        }
+        if (scope == ResetScope.EVERYTHING) session.logout()
         AppResult.Success(Unit)
     }
 

@@ -97,22 +97,24 @@ class InsuranceRepositoryImpl @Inject constructor(
             updatedAt = now,
             syncState = SyncState.PENDING,
         )
-        if (old == null) {
-            dao.insertPolicy(entity)
-            audit.log(AuditEntityType.INSURANCE, entity.id, AuditAction.CREATE, "Polis $number (${type.name}, ${insurer.name}) dibuat")
-        } else {
-            dao.updatePolicy(entity)
-            val changes = ChangeSet().apply {
-                field("Nomor polis", old.policyNumber, entity.policyNumber)
-                field("Tipe", typeDao.getById(old.typeId)?.name, type.name)
-                field("Perusahaan", insurerDao.getById(old.insurerId)?.name, insurer.name)
-                field("Mulai", Fmt.date(old.startDate), Fmt.date(entity.startDate))
-                field("Berakhir", Fmt.date(old.endDate), Fmt.date(entity.endDate))
-                field("Premi", old.premium?.let(Fmt::rupiah), entity.premium?.let(Fmt::rupiah))
-                field("Nilai pertanggungan", old.sumInsured?.let(Fmt::rupiah), entity.sumInsured?.let(Fmt::rupiah))
-                field("Catatan", old.notes, entity.notes)
+        db.withTransaction {
+            if (old == null) {
+                dao.insertPolicy(entity)
+                audit.log(AuditEntityType.INSURANCE, entity.id, AuditAction.CREATE, "Polis $number (${type.name}, ${insurer.name}) dibuat")
+            } else {
+                dao.updatePolicy(entity)
+                val changes = ChangeSet().apply {
+                    field("Nomor polis", old.policyNumber, entity.policyNumber)
+                    field("Tipe", typeDao.getById(old.typeId)?.name, type.name)
+                    field("Perusahaan", insurerDao.getById(old.insurerId)?.name, insurer.name)
+                    field("Mulai", Fmt.date(old.startDate), Fmt.date(entity.startDate))
+                    field("Berakhir", Fmt.date(old.endDate), Fmt.date(entity.endDate))
+                    field("Premi", old.premium?.let(Fmt::rupiah), entity.premium?.let(Fmt::rupiah))
+                    field("Nilai pertanggungan", old.sumInsured?.let(Fmt::rupiah), entity.sumInsured?.let(Fmt::rupiah))
+                    field("Catatan", old.notes, entity.notes)
+                }
+                if (!changes.isEmpty()) audit.log(AuditEntityType.INSURANCE, entity.id, AuditAction.UPDATE, "Polis $number diubah", changes.build())
             }
-            if (!changes.isEmpty()) audit.log(AuditEntityType.INSURANCE, entity.id, AuditAction.UPDATE, "Polis $number diubah", changes.build())
         }
         return AppResult.Success(entity.id)
     }
@@ -174,8 +176,12 @@ class InsuranceRepositoryImpl @Inject constructor(
         session.denyUnless { it.canEditData }?.let { return it }
         val policy = dao.getPolicy(policyId) ?: return AppResult.Failure("Polis tidak ditemukan")
         val asset = assetDao.getById(assetId)
-        if (dao.deleteItem(policyId, assetId) == 0) return AppResult.Failure("Aset tidak ada di polis")
-        audit.log(AuditEntityType.INSURANCE, policyId, AuditAction.UPDATE, "${asset?.code ?: assetId} dikeluarkan dari polis ${policy.policyNumber}")
+        val removed = db.withTransaction {
+            val n = dao.deleteItem(policyId, assetId)
+            if (n > 0) audit.log(AuditEntityType.INSURANCE, policyId, AuditAction.UPDATE, "${asset?.code ?: assetId} dikeluarkan dari polis ${policy.policyNumber}")
+            n
+        }
+        if (removed == 0) return AppResult.Failure("Aset tidak ada di polis")
         return AppResult.Success(Unit)
     }
 
@@ -183,12 +189,14 @@ class InsuranceRepositoryImpl @Inject constructor(
         session.denyUnless { it.canEditData }?.let { return it }
         if (value != null && value < 0) return AppResult.Failure("Nilai tidak valid")
         val old = dao.items(policyId).firstOrNull { it.assetId == assetId } ?: return AppResult.Failure("Aset tidak ada di polis")
-        dao.updateItemSum(policyId, assetId, value, clock.millis())
-        val policy = dao.getPolicy(policyId)
-        audit.log(
-            AuditEntityType.INSURANCE, policyId, AuditAction.UPDATE, "Nilai pertanggungan ${old.code} di polis ${policy?.policyNumber}",
-            ChangeSet().apply { field("Nilai pertanggungan ${old.code}", old.sumInsured?.let(Fmt::rupiah), value?.let(Fmt::rupiah)) }.build(),
-        )
+        db.withTransaction {
+            dao.updateItemSum(policyId, assetId, value, clock.millis())
+            val policy = dao.getPolicy(policyId)
+            audit.log(
+                AuditEntityType.INSURANCE, policyId, AuditAction.UPDATE, "Nilai pertanggungan ${old.code} di polis ${policy?.policyNumber}",
+                ChangeSet().apply { field("Nilai pertanggungan ${old.code}", old.sumInsured?.let(Fmt::rupiah), value?.let(Fmt::rupiah)) }.build(),
+            )
+        }
         return AppResult.Success(Unit)
     }
 

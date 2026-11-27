@@ -248,20 +248,22 @@ class AssetRepositoryImpl @Inject constructor(
         if (date.isBefore(old.acquisitionDate)) return AppResult.Failure("Tanggal sebelum tanggal perolehan")
         if (value != null && value < 0) return AppResult.Failure("Nilai jual tidak valid")
         val now = clock.millis()
-        dao.update(
-            old.copy(
-                status = AssetStatus.WRITE_OFF, disposalDate = date, disposalValue = value,
-                updatedAt = now, syncState = SyncState.PENDING,
-            ),
-        )
-        audit.log(
-            AuditEntityType.ASSET, id, AuditAction.UPDATE,
-            "Aset ${old.code} ditandai Write Off (${Fmt.date(date)})" + (note.trimToNull()?.let { ": $it" } ?: ""),
-            ChangeSet().apply {
-                field("Status", old.status.label, AssetStatus.WRITE_OFF.label)
-                field("Nilai jual", null, value?.let(Fmt::rupiah))
-            }.build(),
-        )
+        db.withTransaction {
+            dao.update(
+                old.copy(
+                    status = AssetStatus.WRITE_OFF, disposalDate = date, disposalValue = value,
+                    updatedAt = now, syncState = SyncState.PENDING,
+                ),
+            )
+            audit.log(
+                AuditEntityType.ASSET, id, AuditAction.UPDATE,
+                "Aset ${old.code} ditandai Write Off (${Fmt.date(date)})" + (note.trimToNull()?.let { ": $it" } ?: ""),
+                ChangeSet().apply {
+                    field("Status", old.status.label, AssetStatus.WRITE_OFF.label)
+                    field("Nilai jual", null, value?.let(Fmt::rupiah))
+                }.build(),
+            )
+        }
         return AppResult.Success(Unit)
     }
 

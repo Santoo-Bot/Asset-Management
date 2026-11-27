@@ -1,5 +1,7 @@
 package id.perusahaan.asetga.data.repository
 
+import androidx.room.withTransaction
+import id.perusahaan.asetga.data.local.AppDatabase
 import id.perusahaan.asetga.data.local.dao.UserDao
 import id.perusahaan.asetga.data.local.entity.UserEntity
 import id.perusahaan.asetga.domain.model.AppResult
@@ -27,6 +29,7 @@ import javax.inject.Singleton
 
 @Singleton
 class UserRepositoryImpl @Inject constructor(
+    private val db: AppDatabase,
     private val dao: UserDao,
     private val hasher: PasswordHasher,
     private val session: SessionManager,
@@ -92,8 +95,10 @@ class UserRepositoryImpl @Inject constructor(
             createdAt = now,
             updatedAt = now,
         )
-        dao.insert(entity)
-        audit.log(AuditEntityType.USER, entity.id, AuditAction.CREATE, "Pengguna ${entity.fullName} (${role.label}) ditambahkan")
+        db.withTransaction {
+            dao.insert(entity)
+            audit.log(AuditEntityType.USER, entity.id, AuditAction.CREATE, "Pengguna ${entity.fullName} (${role.label}) ditambahkan")
+        }
         return AppResult.Success(entity.toDomain())
     }
 
@@ -115,14 +120,16 @@ class UserRepositoryImpl @Inject constructor(
             updatedAt = clock.millis(),
             syncState = SyncState.PENDING,
         )
-        dao.update(updated)
-        val changes = ChangeSet().apply {
-            field("Nama", old.fullName, updated.fullName)
-            field("Peran", old.role.label, updated.role.label)
-            field("Aktif", old.isActive, updated.isActive)
-        }
-        if (!changes.isEmpty()) {
-            audit.log(AuditEntityType.USER, id, AuditAction.UPDATE, "Data pengguna ${updated.fullName} diubah", changes.build())
+        db.withTransaction {
+            dao.update(updated)
+            val changes = ChangeSet().apply {
+                field("Nama", old.fullName, updated.fullName)
+                field("Peran", old.role.label, updated.role.label)
+                field("Aktif", old.isActive, updated.isActive)
+            }
+            if (!changes.isEmpty()) {
+                audit.log(AuditEntityType.USER, id, AuditAction.UPDATE, "Data pengguna ${updated.fullName} diubah", changes.build())
+            }
         }
         val domain = updated.toDomain()
         session.refreshUser(domain)
@@ -135,8 +142,10 @@ class UserRepositoryImpl @Inject constructor(
         CredentialRules.validatePassword(newPassword)?.let { return AppResult.Failure(it, mapOf(FIELD_PASSWORD to it)) }
         val old = dao.getById(id) ?: return AppResult.Failure("Pengguna tidak ditemukan")
         val hash = withContext(Dispatchers.Default) { hasher.hash(newPassword) }
-        dao.update(old.copy(passwordHash = hash, updatedAt = clock.millis(), syncState = SyncState.PENDING))
-        audit.log(AuditEntityType.USER, id, AuditAction.UPDATE, "Kata sandi ${old.fullName} diubah")
+        db.withTransaction {
+            dao.update(old.copy(passwordHash = hash, updatedAt = clock.millis(), syncState = SyncState.PENDING))
+            audit.log(AuditEntityType.USER, id, AuditAction.UPDATE, "Kata sandi ${old.fullName} diubah")
+        }
         return AppResult.Success(Unit)
     }
 
@@ -157,8 +166,10 @@ class UserRepositoryImpl @Inject constructor(
         if (user.role == Role.ADMIN && user.isActive && dao.countActiveByRole(Role.ADMIN) <= 1) {
             return AppResult.Failure("Harus ada minimal satu Admin GA")
         }
-        dao.delete(id)
-        audit.log(AuditEntityType.USER, id, AuditAction.DELETE, "Pengguna ${user.fullName} (@${user.username}) dihapus permanen")
+        db.withTransaction {
+            dao.delete(id)
+            audit.log(AuditEntityType.USER, id, AuditAction.DELETE, "Pengguna ${user.fullName} (@${user.username}) dihapus permanen")
+        }
         return AppResult.Success(Unit)
     }
 
