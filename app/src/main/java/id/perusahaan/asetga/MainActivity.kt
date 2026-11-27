@@ -1,6 +1,7 @@
 package id.perusahaan.asetga
 
 import android.os.Bundle
+import android.view.WindowManager
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
@@ -34,6 +35,18 @@ class MainActivity : FragmentActivity() {
 
     private val vm: MainViewModel by viewModels()
 
+    // Saat aplikasi tidak di layar depan, isi layar disembunyikan dari pratinjau "aplikasi terbaru".
+    // Tangkapan layar saat aplikasi dipakai tetap berfungsi.
+    override fun onPause() {
+        window.setFlags(WindowManager.LayoutParams.FLAG_SECURE, WindowManager.LayoutParams.FLAG_SECURE)
+        super.onPause()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        window.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
@@ -46,7 +59,7 @@ class MainActivity : FragmentActivity() {
                     AlertDialog(
                         onDismissRequest = {},
                         title = { Text("Aplikasi sempat tertutup karena error") },
-                        text = { Text("Bagikan laporan error (tanpa data aset) ke tim pengembang agar bisa diperbaiki.") },
+                        text = { Text("Laporan berisi rincian teknis error (versi aplikasi, perangkat, jejak error). Tidak dikirim otomatis; Anda memilih ke mana membagikannya.") },
                         confirmButton = {
                             TextButton(onClick = {
                                 CrashReporter.share(this@MainActivity, report)

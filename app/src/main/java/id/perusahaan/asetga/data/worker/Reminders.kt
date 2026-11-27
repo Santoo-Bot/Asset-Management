@@ -65,8 +65,16 @@ object ReminderNotifier {
         val intent = Intent(context, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
         val pending = PendingIntent.getActivity(context, 0, intent, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
         val style = NotificationCompat.InboxStyle().also { st -> lines.forEach(st::addLine) }
+        // Di layar kunci hanya tampil judul umum; rincian jumlah aset baru terlihat setelah perangkat dibuka.
+        val publicVersion = NotificationCompat.Builder(context, CHANNEL_ID)
+            .setSmallIcon(R.drawable.ic_notification)
+            .setContentTitle("Aset GA")
+            .setContentText("Ada hal yang perlu tindakan")
+            .build()
         val notification = NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_notification)
+            .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
+            .setPublicVersion(publicVersion)
             .setContentTitle("Aset GA: ${lines.size} hal perlu tindakan")
             .setContentText(lines.joinToString(" · "))
             .setStyle(style)

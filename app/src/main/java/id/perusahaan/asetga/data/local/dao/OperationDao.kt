@@ -105,8 +105,8 @@ interface ServiceDao {
 
     @Query(
         "SELECT $SERVICE_COLUMNS FROM service_records s JOIN assets a ON a.id = s.assetId LEFT JOIN vendors v ON v.id = s.vendorId " +
-            "WHERE s.deletedAt IS NULL AND (:query = '' OR a.code LIKE '%' || :query || '%' OR a.name LIKE '%' || :query || '%' " +
-            "OR v.name LIKE '%' || :query || '%' OR s.description LIKE '%' || :query || '%') " +
+            "WHERE s.deletedAt IS NULL AND (:query = '' OR instr(lower(a.code), lower(:query)) > 0 OR instr(lower(a.name), lower(:query)) > 0 " +
+            "OR instr(lower(v.name), lower(:query)) > 0 OR instr(lower(s.description), lower(:query)) > 0) " +
             "ORDER BY s.serviceDate DESC, s.createdAt DESC",
     )
     fun paging(query: String): PagingSource<Int, ServiceRow>

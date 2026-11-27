@@ -306,7 +306,27 @@ object XlsxReader {
 
     private fun local(qName: String) = qName.substringAfter(':')
 
+    /** Bagian XLSX tidak pernah memakai DTD. Penolakan di sini tidak bergantung pada dukungan fitur parser. */
+    private fun rejectDtd(bytes: ByteArray) {
+        // XML UTF-16 (BOM FE FF / FF FE) bisa menyembunyikan "<!DOCTYPE"; Excel tidak pernah menulisnya.
+        if (bytes.size >= 2 && ((bytes[0] == 0xFE.toByte() && bytes[1] == 0xFF.toByte()) || (bytes[0] == 0xFF.toByte() && bytes[1] == 0xFE.toByte()))) {
+            throw IllegalArgumentException("File tidak valid: pengodean XML tidak didukung")
+        }
+        val pattern = "<!doctype".toByteArray(Charsets.US_ASCII)
+        val last = bytes.size - pattern.size
+        var i = 0
+        while (i <= last) {
+            if (bytes[i] == '<'.code.toByte()) {
+                var k = 1
+                while (k < pattern.size && (bytes[i + k].toInt() or 0x20).toByte() == pattern[k]) k++
+                if (k == pattern.size) throw IllegalArgumentException("File tidak valid: DOCTYPE/ENTITY tidak diizinkan")
+            }
+            i++
+        }
+    }
+
     private fun parse(bytes: ByteArray, handler: DefaultHandler) {
+        rejectDtd(bytes)
         val factory = SAXParserFactory.newInstance()
         // Cegah XXE; tidak semua parser mendukung fitur ini, jadi diabaikan bila tidak tersedia.
         runCatching { factory.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true) }

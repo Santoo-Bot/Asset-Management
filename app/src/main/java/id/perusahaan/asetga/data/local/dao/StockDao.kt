@@ -60,7 +60,7 @@ interface StockDao {
 
     @Query(
         "$ITEM_SELECT WHERE i.deletedAt IS NULL AND (:includeInactive OR i.isActive = 1) " +
-            "AND (:query = '' OR i.code LIKE '%' || :query || '%' OR i.name LIKE '%' || :query || '%' OR i.barcode = :query) " +
+            "AND (:query = '' OR instr(lower(i.code), lower(:query)) > 0 OR instr(lower(i.name), lower(:query)) > 0 OR i.barcode = :query) " +
             "AND (:reorderOnly = 0 OR $CURRENT_STOCK <= i.minStock) " +
             "ORDER BY i.name COLLATE NOCASE",
     )

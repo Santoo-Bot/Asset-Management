@@ -20,7 +20,7 @@ interface AuditLogDao {
         """
         SELECT * FROM audit_logs
         WHERE (:entityType IS NULL OR entityType = :entityType)
-          AND (:query = '' OR summary LIKE '%' || :query || '%' OR userName LIKE '%' || :query || '%')
+          AND (:query = '' OR instr(lower(summary), lower(:query)) > 0 OR instr(lower(userName), lower(:query)) > 0)
         ORDER BY timestamp DESC
         """,
     )

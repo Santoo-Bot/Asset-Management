@@ -60,12 +60,12 @@ private const val LIST_COLUMNS = """
 
 private const val FILTER_WHERE = """
     a.deletedAt IS NULL
-    AND (:query = '' OR a.code LIKE '%' || :query || '%' OR a.name LIKE '%' || :query || '%'
-         OR a.serialNumber LIKE '%' || :query || '%' OR a.picName LIKE '%' || :query || '%'
-         OR a.brandModel LIKE '%' || :query || '%' OR a.qrCode LIKE '%' || :query || '%'
-         OR a.userLocationDetail LIKE '%' || :query || '%' OR a.prNumber LIKE '%' || :query || '%'
-         OR a.poNumber LIKE '%' || :query || '%' OR a.grNumber LIKE '%' || :query || '%'
-         OR a.accessories LIKE '%' || :query || '%')
+    AND (:query = '' OR instr(lower(a.code), lower(:query)) > 0 OR instr(lower(a.name), lower(:query)) > 0
+         OR instr(lower(a.serialNumber), lower(:query)) > 0 OR instr(lower(a.picName), lower(:query)) > 0
+         OR instr(lower(a.brandModel), lower(:query)) > 0 OR instr(lower(a.qrCode), lower(:query)) > 0
+         OR instr(lower(a.userLocationDetail), lower(:query)) > 0 OR instr(lower(a.prNumber), lower(:query)) > 0
+         OR instr(lower(a.poNumber), lower(:query)) > 0 OR instr(lower(a.grNumber), lower(:query)) > 0
+         OR instr(lower(a.accessories), lower(:query)) > 0)
     AND (:categoryId IS NULL OR a.categoryId = :categoryId)
     AND (:locationId IS NULL OR a.locationId = :locationId)
     AND (:divisionId IS NULL OR a.divisionId = :divisionId)

@@ -57,7 +57,8 @@ jobs:
 
   release:
     # Hanya berjalan bila secret keystore sudah diatur di Settings > Secrets and variables > Actions.
-    if: github.event_name != 'pull_request'
+    # Build rilis bertanda tangan hanya dari main, bukan dari setiap branch/PR.
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     needs: build
     runs-on: ubuntu-latest
     env:
@@ -75,12 +76,13 @@ jobs:
       - name: Build APK & AAB release
         if: env.HAS_KEYSTORE == 'true'
         env:
+          ASETGA_KEYSTORE_BASE64: ${{ secrets.ASETGA_KEYSTORE_BASE64 }}
           ASETGA_KEYSTORE_PASSWORD: ${{ secrets.ASETGA_KEYSTORE_PASSWORD }}
           ASETGA_KEY_ALIAS: ${{ secrets.ASETGA_KEY_ALIAS }}
           ASETGA_KEY_PASSWORD: ${{ secrets.ASETGA_KEY_PASSWORD }}
           ASETGA_VERSION_CODE: ${{ github.run_number }}
         run: |
-          echo "${{ secrets.ASETGA_KEYSTORE_BASE64 }}" | base64 -d > "$RUNNER_TEMP/release.jks"
+          echo "$ASETGA_KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/release.jks"
           export ASETGA_KEYSTORE_PATH="$RUNNER_TEMP/release.jks"
           ./gradlew assembleRelease bundleRelease
       - uses: actions/upload-artifact@v4

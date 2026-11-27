@@ -79,6 +79,16 @@ class ExcelTest {
         }
     }
 
+    @Test fun `xlsx dengan DOCTYPE atau entity ditolak`() {
+        val bomb = """<?xml version="1.0"?><!DOCTYPE x [<!ENTITY a "aaaa">]>""" + sheetXml("1", "A1")
+        val r = runCatching { XlsxReader.readFirstSheet(ByteArrayInputStream(xlsxWithSheet(bomb))) }
+        assertTrue(r.exceptionOrNull() is IllegalArgumentException)
+        val lower = runCatching { XlsxReader.readFirstSheet(ByteArrayInputStream(xlsxWithSheet(bomb.replace("DOCTYPE", "doctype")))) }
+        assertTrue(lower.exceptionOrNull() is IllegalArgumentException)
+        // Lembar biasa tidak terpengaruh.
+        assertEquals("x", XlsxReader.readFirstSheet(ByteArrayInputStream(xlsxWithSheet(sheetXml("1", "A1"))))[0][0])
+    }
+
     @Test fun `xlsx dengan baris dan kolom terakhir yang masih sah tetap terbaca`() {
         val rows = XlsxReader.readFirstSheet(ByteArrayInputStream(xlsxWithSheet(sheetXml("5", "XFD5"))))
         assertEquals(5, rows.size)
