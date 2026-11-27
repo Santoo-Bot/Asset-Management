@@ -48,9 +48,11 @@ class Shell(QWidget):
         h = QHBoxLayout(self)
         h.setContentsMargins(0, 0, 0, 0)
         h.setSpacing(0)
+        self.compact = False
         side = QFrame()
         side.setObjectName("sidebar")
         side.setFixedWidth(236)
+        self.side = side
         sv = QVBoxLayout(side)
         sv.setContentsMargins(14, 18, 14, 14)
         sv.setSpacing(4)
@@ -60,13 +62,15 @@ class Shell(QWidget):
         logo.setFixedSize(36, 36)
         logo.setAlignment(Qt.AlignmentFlag.AlignCenter)
         brand.addWidget(logo)
-        names = QVBoxLayout()
+        self.names = QWidget()
+        names = QVBoxLayout(self.names)
+        names.setContentsMargins(0, 0, 0, 0)
         names.setSpacing(0)
         title = label(APP_NAME, None, wrap=False)
         title.setStyleSheet("font-weight: 700; font-size: 11.5pt;")
         names.addWidget(title)
         names.addWidget(label("Manajemen aset", "small", wrap=False))
-        brand.addLayout(names, 1)
+        brand.addWidget(self.names, 1)
         sv.addLayout(brand)
         sv.addSpacing(14)
         self.nav = QListWidget()
@@ -83,14 +87,16 @@ class Shell(QWidget):
         self.avatar.setFixedSize(34, 34)
         self.avatar.setAlignment(Qt.AlignmentFlag.AlignCenter)
         user_row.addWidget(self.avatar)
-        who = QVBoxLayout()
+        self.who = QWidget()
+        who = QVBoxLayout(self.who)
+        who.setContentsMargins(0, 0, 0, 0)
         who.setSpacing(0)
         self.user_name = label("", None, wrap=False)
         self.user_name.setStyleSheet("font-weight: 600;")
         self.user_role = label("", "small", wrap=False)
         who.addWidget(self.user_name)
         who.addWidget(self.user_role)
-        user_row.addLayout(who, 1)
+        user_row.addWidget(self.who, 1)
         sv.addLayout(user_row)
         h.addWidget(side)
         self.stack = QStackedWidget()
@@ -132,10 +138,23 @@ class Shell(QWidget):
         self.nav.blockSignals(True)
         self.nav.clear()
         for t, ic, _ in self.visible:
-            self.nav.addItem(QListWidgetItem(icons.nav_icon(ic, "#FFFFFF", muted), t))
+            item = QListWidgetItem(icons.nav_icon(ic, "#FFFFFF", muted), "" if self.compact else t)
+            item.setToolTip(t)
+            self.nav.addItem(item)
         self.nav.blockSignals(False)
         self.nav.setCurrentRow(0)
         self._go(0)
+
+    def set_compact(self, on: bool) -> None:
+        """Layar sempit (mis. laptop 14" dengan skala 125%): menu hanya ikon."""
+        if on == self.compact:
+            return
+        self.compact = on
+        self.side.setFixedWidth(72 if on else 236)
+        self.names.setVisible(not on)
+        self.who.setVisible(not on)
+        for i, (t, _, _) in enumerate(getattr(self, "visible", [])):
+            self.nav.item(i).setText("" if on else t)
 
     def _go(self, row: int) -> None:
         if 0 <= row < len(self.visible):
@@ -151,7 +170,7 @@ class MainWindow(QMainWindow):
         self.app = app
         self.setWindowTitle(f"{APP_NAME} — Sistem Manajemen Aset & Inventaris" + ("" if VERSION == "dev" else f" (build {VERSION})"))
         self.resize(1366, 820)
-        self.setMinimumSize(1100, 680)
+        self.setMinimumSize(980, 640)
         self.stack = QStackedWidget()
         self.setCentralWidget(self.stack)
         self.setup = SetupPage(ctx)
@@ -186,6 +205,7 @@ class MainWindow(QMainWindow):
 
     def resizeEvent(self, event):  # noqa: N802 - nama dari Qt
         super().resizeEvent(event)
+        self.shell.set_compact(self.width() < 1280)
         if self.toast.isVisible():
             self.toast.move(self.width() - self.toast.width() - 24, self.height() - self.toast.height() - 24)
 

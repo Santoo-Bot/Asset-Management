@@ -50,6 +50,7 @@ def primary(text: str, icon_name: str | None = None) -> QPushButton:
     b = QPushButton(text)
     b.setObjectName("primary")
     b.setCursor(Qt.CursorShape.PointingHandCursor)
+    b.setSizePolicy(QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Fixed)
     if icon_name:
         from . import icons
 
@@ -62,6 +63,7 @@ def button(text: str, danger: bool = False, icon_name: str | None = None) -> QPu
     if danger:
         b.setObjectName("danger")
     b.setCursor(Qt.CursorShape.PointingHandCursor)
+    b.setSizePolicy(QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Fixed)
     if icon_name:
         from . import icons, theme
 
@@ -165,7 +167,8 @@ class Combo(QComboBox):
         super().__init__()
         self.none_text = none_text
         self.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon)
-        self.setMinimumContentsLength(14)
+        self.setMinimumContentsLength(12)
+        self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
 
     def set_items(self, items: list[tuple[str, object]], keep: bool = True) -> None:
         current = self.value() if keep else None

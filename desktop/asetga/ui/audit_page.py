@@ -30,7 +30,7 @@ class AuditPage(QWidget):
         box.layout().addWidget(self.table, 1)
         v.addWidget(box, 1)
         more_row = QHBoxLayout()
-        self.info = label("", "muted")
+        self.info = label("", "muted", wrap=False)
         self.more = button("Muat lebih banyak")
         self.more.clicked.connect(self._more)
         more_row.addWidget(self.info)
@@ -61,7 +61,7 @@ class AuditPage(QWidget):
                        AuditAction[r["action"]].label, r["summary"], changes_text(r["changesJson"])])
             for r in rows
         ])
-        for i, w in enumerate((130, 140, 90, 80, 340)):
+        for i, w in enumerate((140, 130, 80, 70, 360)):
             self.table.setColumnWidth(i, w)
         self.table.resizeRowsToContents()
         self.info.setText(f"Menampilkan {len(rows)} catatan terbaru")

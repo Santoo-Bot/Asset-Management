@@ -237,7 +237,7 @@ class StockPage(QWidget):
                        "Reorder" if needs_reorder(r["currentStock"], r["minStock"]) else "Aman"])
             for r in rows
         ], align_right={2, 3})
-        for i, w in enumerate((110, 240, 90, 90, 80, 150, 130)):
+        for i, w in enumerate((100, 210, 85, 85, 70, 130, 120)):
             self.table.setColumnWidth(i, w)
         self.count.setText(f"{len(rows)} barang · {self.ctx.stock.reorder_count()} perlu reorder")
 

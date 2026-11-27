@@ -17,7 +17,7 @@ from . import icons, theme
 from .asset_form import AssetFormDialog
 from .widgets import DateField, FormDialog, MoneyField, button, label, primary
 
-PHOTO = 200
+PHOTO = 180
 
 
 class WriteOffDialog(FormDialog):
@@ -132,7 +132,6 @@ class AssetDetailPanel(QFrame):
         self.ctx = ctx
         self.asset_id: str | None = None
         self.setObjectName("card")
-        self.setMinimumWidth(360)
         outer = QVBoxLayout(self)
         outer.setContentsMargins(1, 1, 1, 1)
         self.stack = QStackedWidget()
