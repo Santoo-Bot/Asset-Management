@@ -3,6 +3,7 @@ package id.perusahaan.asetga.domain.excel
 import id.perusahaan.asetga.domain.model.AssetCondition
 import id.perusahaan.asetga.domain.model.AssetInput
 import id.perusahaan.asetga.domain.model.AssetStatus
+import id.perusahaan.asetga.domain.model.Accessories
 import id.perusahaan.asetga.domain.validation.AssetValidator
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
@@ -58,18 +59,26 @@ data class ImportLookups(
     val existingCodes: Set<String>,
 )
 
+/** ADD: semua baris menjadi aset baru. UPDATE: baris mengubah aset yang kodenya sudah ada. */
+enum class ImportMode { ADD, UPDATE }
+
 data class ImportRow(
     /** Nomor baris di Excel (header = baris 1). */
     val rowNumber: Int,
     val input: AssetInput?,
     val errors: List<String>,
+    /** Mode UPDATE: baris valid tetapi seluruh isinya sama dengan data yang sudah ada. */
+    val unchanged: Boolean = false,
 ) {
     val isValid: Boolean get() = input != null && errors.isEmpty()
 }
 
-data class ImportPreview(val rows: List<ImportRow>, val headerError: String? = null) {
+data class ImportPreview(val rows: List<ImportRow>, val headerError: String? = null, val mode: ImportMode = ImportMode.ADD) {
     val valid: List<ImportRow> get() = rows.filter { it.isValid }
     val invalid: List<ImportRow> get() = rows.filterNot { it.isValid }
+    /** Baris valid yang benar-benar akan disimpan (mode UPDATE melewati baris tanpa perubahan). */
+    val toSave: List<ImportRow> get() = valid.filterNot { it.unchanged }
+    val unchanged: List<ImportRow> get() = valid.filter { it.unchanged }
 }
 
 /** Validasi per baris file import; tidak menyentuh database (lookup diberikan pemanggil). */
@@ -120,6 +129,131 @@ object AssetImportParser {
         return entries.firstOrNull { (name, label) ->
             key == name.lowercase().replace("_", "") || key == label.lowercase().replace(Regex("[^a-z]"), "")
         }?.first ?: aliases[key]
+    }
+
+    /**
+     * Mode perbarui: baris dicocokkan ke aset yang sudah ada lewat Kode Aset ([existing]: kode huruf besar → data saat ini).
+     * Sel kosong berarti "biarkan nilai lama"; sel terisi menimpa. Kode Aset adalah kunci dan tidak bisa diubah.
+     */
+    fun parseUpdate(sheet: List<List<String>>, lookups: ImportLookups, existing: Map<String, AssetInput>, today: LocalDate): ImportPreview {
+        val mode = ImportMode.UPDATE
+        if (sheet.isEmpty()) return ImportPreview(emptyList(), "File kosong", mode)
+        val header = sheet.first().map(::normalizeHeader)
+        val index = ImportColumn.entries.associateWith { col -> header.indexOf(normalizeHeader(col.header)) }
+        if (index.getValue(ImportColumn.CODE) < 0) {
+            return ImportPreview(emptyList(), "Kolom ${ImportColumn.CODE.header} tidak ditemukan. Gunakan template atau hasil export dari aplikasi.", mode)
+        }
+        if (index.filterKeys { it != ImportColumn.CODE }.values.none { it >= 0 }) {
+            return ImportPreview(emptyList(), "Tidak ada kolom yang akan diperbarui selain Kode Aset", mode)
+        }
+
+        val codesInFile = mutableSetOf<String>()
+        val qrInFile = mutableSetOf<String>()
+        val rows = sheet.drop(1).mapIndexedNotNull { i, cells ->
+            if (cells.all { it.isBlank() }) return@mapIndexedNotNull null
+            val rowNumber = i + 2
+            fun cell(c: ImportColumn): String = index[c]?.takeIf { it >= 0 }?.let { cells.getOrNull(it) }?.trim().orEmpty()
+            val errors = mutableListOf<String>()
+
+            val code = AssetValidator.normalizeCode(cell(ImportColumn.CODE))
+            if (code.isEmpty()) return@mapIndexedNotNull ImportRow(rowNumber, null, listOf("Kode Aset kosong"))
+            if (!codesInFile.add(code)) return@mapIndexedNotNull ImportRow(rowNumber, null, listOf("Kode $code ganda di file"))
+            val base = existing[code]
+                ?: return@mapIndexedNotNull ImportRow(rowNumber, null, listOf("Kode $code tidak ditemukan di aplikasi (mode perbarui hanya untuk aset yang sudah ada)"))
+
+            /** Sel kosong = nilai lama. */
+            fun keep(c: ImportColumn, current: String): String = cell(c).ifEmpty { current }
+
+            var categoryId = base.categoryId
+            cell(ImportColumn.CATEGORY).takeIf { it.isNotEmpty() }?.let { raw ->
+                lookups.categories[raw.lowercase()]?.let { categoryId = it } ?: run { errors += "Kategori \"$raw\" tidak dikenal" }
+            }
+            var locationId = base.locationId
+            cell(ImportColumn.LOCATION).takeIf { it.isNotEmpty() }?.let { raw ->
+                lookups.locations[raw.lowercase()]?.let { locationId = it } ?: run { errors += "Lokasi \"$raw\" tidak dikenal" }
+            }
+
+            // Departemen menentukan divisi. Hanya divisi: departemen lama dikosongkan bila bukan bagian divisi itu.
+            var departmentId = base.departmentId
+            var divisionId = base.divisionId
+            val deptRaw = cell(ImportColumn.DEPARTMENT)
+            val divRaw = cell(ImportColumn.DIVISION)
+            val chosenDivision = divRaw.takeIf { it.isNotEmpty() }?.let { lookups.divisions[it.lowercase()] }
+            if (divRaw.isNotEmpty() && chosenDivision == null) errors += "Divisi \"$divRaw\" tidak dikenal"
+            if (deptRaw.isNotEmpty()) {
+                val d = lookups.departments[deptRaw.lowercase()]
+                if (d == null) {
+                    errors += "Departemen \"$deptRaw\" tidak dikenal"
+                } else {
+                    val dDivision = lookups.departmentDivision[d]
+                    if (chosenDivision != null && dDivision != null && chosenDivision != dDivision) {
+                        errors += "Departemen \"$deptRaw\" bukan bagian dari divisi \"$divRaw\""
+                    }
+                    departmentId = d
+                    divisionId = dDivision ?: chosenDivision ?: divisionId
+                }
+            } else if (chosenDivision != null) {
+                divisionId = chosenDivision
+                if (departmentId != null && lookups.departmentDivision[departmentId] != chosenDivision) departmentId = null
+            }
+
+            var qr = base.qrCode
+            val qrRaw = cell(ImportColumn.QR)
+            if (qrRaw.isNotEmpty() && !qrRaw.equals(base.qrCode, ignoreCase = true)) {
+                val own = setOf(base.code.uppercase(), base.qrCode.uppercase())
+                val key = qrRaw.uppercase()
+                if (!qrRaw.equals(code, ignoreCase = true)) {
+                    if (key in lookups.existingCodes && key !in own) errors += "Kode QR $qrRaw sudah dipakai aset lain"
+                    if (!qrInFile.add(key)) errors += "Kode QR $qrRaw ganda di file"
+                }
+                qr = qrRaw
+            }
+
+            fun date(c: ImportColumn, label: String, current: java.time.LocalDate?): java.time.LocalDate? {
+                val raw = cell(c)
+                if (raw.isEmpty()) return current
+                return parseDate(raw) ?: current.also { errors += "$label \"$raw\" tidak valid (gunakan dd/mm/yyyy)" }
+            }
+            val acq = date(ImportColumn.ACQ_DATE, "Tgl perolehan", base.acquisitionDate)
+            val warranty = date(ImportColumn.WARRANTY, "Garansi", base.warrantyUntil)
+            val memoDate = date(ImportColumn.MEMO_DATE, "Tanggal memo", base.memoDate)
+            var cost = base.acquisitionCost
+            cell(ImportColumn.COST).takeIf { it.isNotEmpty() }?.let { raw ->
+                parseMoney(raw)?.let { cost = it } ?: run { errors += "Harga \"$raw\" tidak valid" }
+            }
+
+            var condition = base.condition
+            cell(ImportColumn.CONDITION).takeIf { it.isNotEmpty() }?.let { raw ->
+                matchEnum(raw, AssetCondition.entries.map { it.name to it.label }, conditionAliases)?.let { condition = AssetCondition.valueOf(it) }
+                    ?: run { errors += "Kondisi \"$raw\" tidak dikenal (Baik/Rusak)" }
+            }
+            var status = base.status
+            cell(ImportColumn.STATUS).takeIf { it.isNotEmpty() }?.let { raw ->
+                val builtIn = matchEnum(raw, AssetStatus.DEFAULT_LABELS.toList(), statusAliases)
+                val id = lookups.statuses[statusKey(raw)] ?: builtIn?.takeIf { lookups.statuses.isEmpty() || it in lookups.statuses.values }
+                if (id != null) status = AssetStatus(id) else errors += "Status \"$raw\" tidak ada di master Status"
+            }
+            var vendorId = base.vendorId
+            cell(ImportColumn.VENDOR).takeIf { it.isNotEmpty() }?.let { raw ->
+                lookups.vendors[raw.lowercase()]?.let { vendorId = it } ?: run { errors += "Vendor \"$raw\" tidak ada di master Vendor" }
+            }
+
+            val merged = base.copy(
+                name = keep(ImportColumn.NAME, base.name), categoryId = categoryId, serialNumber = keep(ImportColumn.SERIAL, base.serialNumber),
+                acquisitionDate = acq, acquisitionCost = cost, locationId = locationId, departmentId = departmentId, divisionId = divisionId,
+                condition = condition, status = status, warrantyUntil = warranty, notes = keep(ImportColumn.NOTES, base.notes), qrCode = qr,
+                userLocationDetail = keep(ImportColumn.USER_LOCATION, base.userLocationDetail),
+                prNumber = keep(ImportColumn.PR, base.prNumber), poNumber = keep(ImportColumn.PO, base.poNumber),
+                grNumber = keep(ImportColumn.GR, base.grNumber), requester = keep(ImportColumn.REQUESTER, base.requester),
+                memoNumber = keep(ImportColumn.MEMO_NO, base.memoNumber), memoDate = memoDate,
+                followUp = keep(ImportColumn.FOLLOW_UP, base.followUp), handoverDoc = keep(ImportColumn.HANDOVER, base.handoverDoc),
+                accessories = cell(ImportColumn.ACCESSORIES).takeIf { it.isNotEmpty() }?.let { Accessories.normalize(it).orEmpty() } ?: base.accessories,
+                vendorId = vendorId,
+            )
+            if (errors.isEmpty()) AssetValidator.validate(merged, today).values.forEach { errors += it }
+            ImportRow(rowNumber, if (errors.isEmpty()) merged else null, errors, unchanged = errors.isEmpty() && merged == base)
+        }
+        return ImportPreview(rows, null, mode)
     }
 
     fun parse(sheet: List<List<String>>, lookups: ImportLookups, today: LocalDate): ImportPreview {

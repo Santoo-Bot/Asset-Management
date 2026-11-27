@@ -46,6 +46,7 @@ import id.perusahaan.asetga.data.file.ExportImportService
 import id.perusahaan.asetga.data.file.ExportKind
 import id.perusahaan.asetga.data.file.ImportResult
 import id.perusahaan.asetga.data.file.ShareHelper
+import id.perusahaan.asetga.domain.excel.ImportMode
 import id.perusahaan.asetga.domain.excel.ImportPreview
 import id.perusahaan.asetga.domain.model.AppResult
 import id.perusahaan.asetga.domain.session.SessionManager
@@ -67,6 +68,7 @@ data class ImportExportState(
     val exportKind: ExportKind = ExportKind.ASSETS,
     val exportFormat: ExportFormat = ExportFormat.XLSX,
     val busy: Boolean = false,
+    val importMode: ImportMode = ImportMode.ADD,
     val preview: ImportPreview? = null,
     val progress: Pair<Int, Int>? = null,
     val result: ImportResult? = null,
@@ -116,9 +118,11 @@ class ImportExportViewModel @Inject constructor(
         _actions.send(FileAction.Share(service.importTemplate(), ExportFormat.XLSX.mime, "Template import aset"))
     }
 
+    fun setImportMode(m: ImportMode) = _state.update { if (it.busy) it else it.copy(importMode = m, preview = null, result = null) }
+
     fun onFilePicked(uri: Uri) = busy {
         _state.update { it.copy(preview = null, result = null) }
-        _state.update { it.copy(preview = service.preview(uri)) }
+        _state.update { it.copy(preview = service.preview(uri, it.importMode)) }
     }
 
     fun commit() {
@@ -172,8 +176,16 @@ fun ImportExportScreen(onBack: () -> Unit, vm: ImportExportViewModel = hiltViewM
             if (vm.canImport) {
                 SectionHeader("Import aset dari Excel")
                 Column(Modifier.padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        FilterChip(selected = state.importMode == ImportMode.ADD, onClick = { vm.setImportMode(ImportMode.ADD) }, label = { Text("Tambah aset baru") })
+                        FilterChip(selected = state.importMode == ImportMode.UPDATE, onClick = { vm.setImportMode(ImportMode.UPDATE) }, label = { Text("Perbarui aset yang ada") })
+                    }
                     Text(
-                        "1. Unduh template, isi di Excel/Google Sheets (lihat lembar Petunjuk untuk nilai yang valid).\n2. Pilih file .xlsx untuk diperiksa. Baris yang salah ditampilkan sebelum disimpan.",
+                        if (state.importMode == ImportMode.ADD) {
+                            "1. Unduh template, isi di Excel/Google Sheets (lihat lembar Petunjuk untuk nilai yang valid).\n2. Pilih file .xlsx untuk diperiksa. Baris yang salah ditampilkan sebelum disimpan."
+                        } else {
+                            "Aset dicocokkan lewat Kode Aset (kode tidak bisa diubah). Sel kosong = nilai lama dibiarkan; sel terisi menimpa nilai lama. Kolom yang tidak ingin diubah boleh dihapus dari file. Anda bisa memakai hasil export aset sebagai dasar. Perubahan tercatat di audit log per aset."
+                        },
                         style = MaterialTheme.typography.bodyMedium,
                     )
                     OutlinedButton(onClick = vm::shareTemplate, enabled = !state.busy, modifier = Modifier.fillMaxWidth()) {
@@ -205,10 +217,15 @@ private fun PreviewSection(p: ImportPreview, busy: Boolean, onCommit: () -> Unit
             Text(p.headerError, color = MaterialTheme.colorScheme.error)
             return@InfoCard
         }
-        Text("${p.valid.size} baris valid · ${p.invalid.size} baris bermasalah", style = MaterialTheme.typography.titleMedium)
+        val update = p.mode == ImportMode.UPDATE
+        Text(
+            if (update) "${p.toSave.size} aset akan diperbarui · ${p.unchanged.size} tanpa perubahan · ${p.invalid.size} baris bermasalah"
+            else "${p.valid.size} baris valid · ${p.invalid.size} baris bermasalah",
+            style = MaterialTheme.typography.titleMedium,
+        )
         Spacer(Modifier.height(8.dp))
-        Button(onClick = onCommit, enabled = !busy && p.valid.isNotEmpty(), modifier = Modifier.fillMaxWidth()) {
-            Text("Import ${p.valid.size} baris valid")
+        Button(onClick = onCommit, enabled = !busy && p.toSave.isNotEmpty(), modifier = Modifier.fillMaxWidth()) {
+            Text(if (update) "Perbarui ${p.toSave.size} aset" else "Import ${p.valid.size} baris valid")
         }
         OutlinedButton(onClick = onCancel, enabled = !busy, modifier = Modifier.fillMaxWidth()) { Text("Batal") }
     }
@@ -218,7 +235,11 @@ private fun PreviewSection(p: ImportPreview, busy: Boolean, onCommit: () -> Unit
 @Composable
 private fun ResultSection(r: ImportResult, onDone: () -> Unit) {
     InfoCard("Import selesai") {
-        Text("${r.imported} aset berhasil diimport", style = MaterialTheme.typography.titleMedium)
+        Text(
+            if (r.mode == ImportMode.UPDATE) "${r.imported} aset berhasil diperbarui" + if (r.unchanged > 0) " · ${r.unchanged} tanpa perubahan" else ""
+            else "${r.imported} aset berhasil diimport",
+            style = MaterialTheme.typography.titleMedium,
+        )
         if (r.failed.isNotEmpty()) Text("${r.failed.size} baris tidak diimport (lihat di bawah)", color = MaterialTheme.colorScheme.error)
         OutlinedButton(onClick = onDone, modifier = Modifier.fillMaxWidth().padding(top = 8.dp)) { Text("Selesai") }
     }

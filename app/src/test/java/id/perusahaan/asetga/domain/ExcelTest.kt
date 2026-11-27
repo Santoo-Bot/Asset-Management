@@ -146,6 +146,57 @@ class ExcelTest {
         assertEquals(LocalDate.of(2024, 1, 1), second.acquisitionDate)
     }
 
+    private val current = id.perusahaan.asetga.domain.model.AssetInput(
+        id = "a1", code = "IT-2024-001", name = "Laptop lama", categoryId = "cat-it", serialNumber = "SN1",
+        acquisitionDate = LocalDate.of(2024, 1, 10), acquisitionCost = 10_000_000, locationId = "loc-1", departmentId = "dep-1",
+        condition = AssetCondition.BAIK, status = AssetStatus.DIGUNAKAN, notes = "catatan lama", qrCode = "IT-2024-001",
+        photoPath = "photos/x.jpg", accessories = "Charger",
+    )
+    private val existing = mapOf("IT-2024-001" to current, "IT-2024-002" to current.copy(id = "a2", code = "IT-2024-002", qrCode = "STIKER-2"))
+
+    @Test fun `mode perbarui hanya mengubah sel terisi dan mempertahankan sisanya`() {
+        val h = listOf("Kode Aset*", "Nama Aset*", "Harga Perolehan*", "Catatan", "Kondisi* (Baik,Rusak)")
+        val p = AssetImportParser.parseUpdate(
+            listOf(h, listOf("it-2024-001", "Laptop baru", "12.500.000", "", "Rusak")), lookups, existing, today,
+        )
+        assertNull(p.headerError)
+        val i = p.valid.single().input!!
+        assertEquals("a1", i.id)
+        assertEquals("Laptop baru", i.name)
+        assertEquals(12_500_000L, i.acquisitionCost)
+        assertEquals(AssetCondition.RUSAK, i.condition)
+        assertEquals("catatan lama", i.notes) // sel kosong: nilai lama dipertahankan
+        assertEquals("SN1", i.serialNumber)
+        assertEquals("photos/x.jpg", i.photoPath)
+        assertEquals("Charger", i.accessories)
+        assertEquals(1, p.toSave.size)
+    }
+
+    @Test fun `mode perbarui menolak kode tak dikenal, ganda, dan nilai tak valid, serta mengenali baris tanpa perubahan`() {
+        val h = listOf("Kode Aset*", "Nama Aset*", "Lokasi*", "Kode QR*")
+        val p = AssetImportParser.parseUpdate(
+            listOf(
+                h,
+                listOf("IT-9999", "X", "", ""),
+                listOf("IT-2024-001", "Laptop lama", "", ""), // sama dengan data sekarang
+                listOf("IT-2024-001", "Lain", "", ""), // ganda
+                listOf("IT-2024-002", "", "Gudang", "IT-2024-001"),
+            ),
+            lookups, existing, today,
+        )
+        assertEquals(1, p.unchanged.size)
+        assertEquals(0, p.toSave.size)
+        val byRow = p.invalid.associate { it.rowNumber to it.errors.joinToString("|") }
+        assertTrue(byRow.getValue(2).contains("tidak ditemukan"))
+        assertTrue(byRow.getValue(4).contains("ganda"))
+        assertTrue(byRow.getValue(5).contains("Lokasi \"Gudang\""))
+    }
+
+    @Test fun `mode perbarui hanya wajib kolom kode`() {
+        assertNotNull(AssetImportParser.parseUpdate(listOf(listOf("Nama Aset*"), listOf("x")), lookups, existing, today).headerError)
+        assertNotNull(AssetImportParser.parseUpdate(listOf(listOf("Kode Aset*"), listOf("IT-2024-001")), lookups, existing, today).headerError)
+    }
+
     @Test fun `header tidak sesuai ditolak dan kode ganda dalam file`() {
         assertNotNull(AssetImportParser.parse(listOf(listOf("A", "B")), lookups, today).headerError)
         val base = arrayOf(ImportColumn.CODE to "X-1", ImportColumn.NAME to "A", ImportColumn.CATEGORY to "IT", ImportColumn.ACQ_DATE to "01/01/2024",

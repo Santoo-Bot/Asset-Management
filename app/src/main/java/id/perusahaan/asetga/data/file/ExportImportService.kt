@@ -20,6 +20,7 @@ import id.perusahaan.asetga.domain.excel.Cell
 import id.perusahaan.asetga.domain.excel.CsvWriter
 import id.perusahaan.asetga.domain.excel.ImportColumn
 import id.perusahaan.asetga.domain.excel.ImportLookups
+import id.perusahaan.asetga.domain.excel.ImportMode
 import id.perusahaan.asetga.domain.excel.ImportPreview
 import id.perusahaan.asetga.domain.excel.ImportRow
 import id.perusahaan.asetga.domain.excel.ListValidation
@@ -30,6 +31,7 @@ import id.perusahaan.asetga.domain.excel.num
 import id.perusahaan.asetga.domain.excel.text
 import id.perusahaan.asetga.domain.model.AppResult
 import id.perusahaan.asetga.domain.model.AssetCondition
+import id.perusahaan.asetga.domain.model.AssetInput
 import id.perusahaan.asetga.domain.model.AssetStatus
 import id.perusahaan.asetga.domain.model.AuditAction
 import id.perusahaan.asetga.domain.model.AuditEntityType
@@ -60,7 +62,7 @@ enum class ExportFormat(val label: String, val extension: String, val mime: Stri
     CSV("CSV (.csv)", "csv", "text/csv"),
 }
 
-data class ImportResult(val imported: Int, val failed: List<ImportRow>)
+data class ImportResult(val imported: Int, val failed: List<ImportRow>, val mode: ImportMode = ImportMode.ADD, val unchanged: Int = 0)
 
 @Singleton
 class ExportImportService @Inject constructor(
@@ -276,7 +278,7 @@ class ExportImportService @Inject constructor(
         file
     }
 
-    suspend fun preview(uri: Uri): ImportPreview = withContext(Dispatchers.IO) {
+    suspend fun preview(uri: Uri, mode: ImportMode = ImportMode.ADD): ImportPreview = withContext(Dispatchers.IO) {
         val sheet = runCatching {
             context.contentResolver.openInputStream(uri)?.use { XlsxReader.readFirstSheet(it) }
         }.getOrElse { return@withContext ImportPreview(emptyList(), "File tidak dapat dibaca: ${it.message ?: "format bukan .xlsx"}") }
@@ -294,13 +296,32 @@ class ExportImportService @Inject constructor(
             vendors = vendorDao.observeAll(false).first().associate { it.name.lowercase() to it.id },
             existingCodes = (assetDao.allCodes() + assetDao.allQrCodes()).map { it.uppercase() }.toSet(),
         )
-        AssetImportParser.parse(sheet, lookups, LocalDate.now(clock))
+        if (mode == ImportMode.ADD) return@withContext AssetImportParser.parse(sheet, lookups, LocalDate.now(clock))
+        val existing = assetDao.exportRows().associate { r ->
+            val a = r.asset
+            a.code.uppercase() to AssetInput(
+                id = a.id, code = a.code, name = a.name, categoryId = a.categoryId,
+                brandModel = a.brandModel.orEmpty(), serialNumber = a.serialNumber.orEmpty(),
+                acquisitionDate = a.acquisitionDate, acquisitionCost = a.acquisitionCost,
+                locationId = a.locationId, departmentId = a.departmentId, picName = a.picName.orEmpty(),
+                condition = a.condition, status = a.status, warrantyUntil = a.warrantyUntil,
+                notes = a.notes.orEmpty(), photoPath = a.photoPath,
+                disposalDate = a.disposalDate, disposalValue = a.disposalValue,
+                qrCode = a.qrCode ?: a.code, userLocationDetail = a.userLocationDetail.orEmpty(),
+                divisionId = a.divisionId, prNumber = a.prNumber.orEmpty(), poNumber = a.poNumber.orEmpty(),
+                grNumber = a.grNumber.orEmpty(), requester = a.requester.orEmpty(), memoNumber = a.memoNumber.orEmpty(),
+                memoDate = a.memoDate, followUp = a.followUp.orEmpty(), handoverDoc = a.handoverDoc.orEmpty(),
+                accessories = a.accessories.orEmpty(), vendorId = a.vendorId,
+            )
+        }
+        AssetImportParser.parseUpdate(sheet, lookups, existing, LocalDate.now(clock))
     }
 
     /** Simpan baris yang valid; baris yang gagal saat disimpan ikut dilaporkan. */
     suspend fun commit(preview: ImportPreview, onProgress: (Int, Int) -> Unit = { _, _ -> }): AppResult<ImportResult> {
         if (session.currentUser?.role?.canEditData != true) return AppResult.Failure("Anda tidak memiliki akses untuk import")
-        val valid = preview.valid
+        val update = preview.mode == ImportMode.UPDATE
+        val valid = preview.toSave
         val failed = mutableListOf<ImportRow>()
         var imported = 0
         valid.forEachIndexed { i, row ->
@@ -310,8 +331,13 @@ class ExportImportService @Inject constructor(
             }
             onProgress(i + 1, valid.size)
         }
-        audit.log(AuditEntityType.ASSET, "import", AuditAction.IMPORT, "Import aset dari Excel: $imported berhasil, ${failed.size + preview.invalid.size} gagal")
-        return AppResult.Success(ImportResult(imported, preview.invalid + failed))
+        val failedCount = failed.size + preview.invalid.size
+        audit.log(
+            AuditEntityType.ASSET, "import", AuditAction.IMPORT,
+            if (update) "Perbarui aset dari Excel: $imported diubah, ${preview.unchanged.size} tanpa perubahan, $failedCount gagal"
+            else "Import aset dari Excel: $imported berhasil, $failedCount gagal",
+        )
+        return AppResult.Success(ImportResult(imported, preview.invalid + failed, preview.mode, preview.unchanged.size))
     }
 
     companion object {
