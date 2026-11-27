@@ -30,6 +30,12 @@ jobs:
           ASETGA_VERSION_CODE: ${{ github.run_number }}
         run: ./gradlew assembleDebug
 
+      # Memastikan build rilis (R8/shrink + lint) tidak rusak sebelum keystore rilis tersedia. APK ini tanpa tanda tangan, tidak dibagikan.
+      - name: Uji build rilis (tanpa tanda tangan)
+        env:
+          ASETGA_VERSION_CODE: ${{ github.run_number }}
+        run: ./gradlew assembleRelease
+
       - name: Upload APK debug
         uses: actions/upload-artifact@v4
         with:
@@ -44,7 +50,7 @@ jobs:
           N=${{ github.run_number }}
           cp app/build/outputs/apk/debug/app-debug.apk "aset-ga-debug-$N.apk"
           gh release create "build-$N" "aset-ga-debug-$N.apk" \
-            --target "${{ github.sha }}" --latest \
+            --target "${{ github.sha }}" --prerelease \
             --title "Aset GA build $N (debug)" \
             --notes "APK debug otomatis dari commit ${{ github.sha }}. Unduh file .apk di bawah lalu pasang di HP."
 
@@ -61,6 +67,8 @@ jobs:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     needs: build
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     env:
       HAS_KEYSTORE: ${{ secrets.ASETGA_KEYSTORE_BASE64 != '' }}
     steps:
@@ -85,6 +93,17 @@ jobs:
           echo "$ASETGA_KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/release.jks"
           export ASETGA_KEYSTORE_PATH="$RUNNER_TEMP/release.jks"
           ./gradlew assembleRelease bundleRelease
+      - name: Terbitkan APK rilis ke Releases (bisa diunduh dari GitHub Mobile)
+        if: env.HAS_KEYSTORE == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          N=${{ github.run_number }}
+          cp app/build/outputs/apk/release/app-release.apk "aset-ga-$N.apk"
+          gh release create "rilis-$N" "aset-ga-$N.apk" \
+            --repo "${{ github.repository }}" --target "${{ github.sha }}" --latest \
+            --title "Aset GA 1.0.0 (build $N)" \
+            --notes "APK rilis bertanda tangan dari commit ${{ github.sha }}. Paket id.perusahaan.asetga (terpisah dari versi debug). Pindahkan data lewat Backup & restore."
       - uses: actions/upload-artifact@v4
         if: env.HAS_KEYSTORE == 'true'
         with:
