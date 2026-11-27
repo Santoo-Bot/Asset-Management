@@ -77,6 +77,7 @@ class Shell(QWidget):
         self.nav.setObjectName("nav")
         self.nav.setIconSize(QSize(18, 18))
         self.nav.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.nav.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         self.nav.setCursor(Qt.CursorShape.PointingHandCursor)
         sv.addWidget(self.nav, 1)
         sv.addWidget(hline())

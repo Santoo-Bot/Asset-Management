@@ -22,6 +22,7 @@ class ServicesPage(QWidget):
         box = card("v", (16, 8, 16, 0))
         self.tabs = QTabWidget()
         self.tabs.setDocumentMode(True)
+        self.tabs.tabBar().setDrawBase(False)
         # Jadwal
         sched = QWidget()
         sv = QVBoxLayout(sched)

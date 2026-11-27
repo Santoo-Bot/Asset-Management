@@ -245,6 +245,7 @@ class AssetDetailPanel(QFrame):
 
         tabs = QTabWidget()
         tabs.setDocumentMode(True)
+        tabs.tabBar().setDrawBase(False)
         tabs.addTab(self._data_tab(d), "Data")
         muts = self.ctx.ops.mutations(self.asset_id)
         mut_list = EntryList("Belum ada mutasi")

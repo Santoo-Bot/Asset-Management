@@ -64,7 +64,7 @@ class DataPage(QWidget):
         v = page_layout(self)
         v.addLayout(page_header("Import / Export & Backup", label("Pindah data lewat Excel atau file backup terenkripsi", "subtitle", wrap=False)))
 
-        g1 = QGroupBox("Import & export aset (Excel)")
+        g1 = QGroupBox("Import && export aset (Excel)")
         l1 = QVBoxLayout(g1)
         l1.addWidget(label("Template dan hasil export memakai kolom yang sama dengan aplikasi Android, jadi file Excel bisa dipakai "
                            "bergantian di HP dan laptop. Import otomatis menambah aset baru dan memperbarui aset yang Kode Aset-nya "
@@ -84,17 +84,17 @@ class DataPage(QWidget):
         l1.addLayout(r1)
         v.addWidget(g1)
 
-        g3 = QGroupBox("Export servis & stok")
+        g3 = QGroupBox("Export servis && stok")
         l3 = QHBoxLayout(g3)
         for text, kind, fmt_ in (("Riwayat servis (.xlsx)", "services", "xlsx"), ("Riwayat servis (.csv)", "services", "csv"),
-                                 ("Stok & transaksi (.xlsx)", "stock", "xlsx"), ("Stok (.csv)", "stock", "csv")):
+                                 ("Stok && transaksi (.xlsx)", "stock", "xlsx"), ("Stok (.csv)", "stock", "csv")):
             b = button(text, icon_name="unduh")
             b.clicked.connect(lambda _=False, k=kind, f=fmt_: self._export_other(k, f))
             l3.addWidget(b)
         l3.addStretch(1)
         v.addWidget(g3)
 
-        self.g2 = QGroupBox("Backup & restore (khusus Admin GA)")
+        self.g2 = QGroupBox("Backup && restore (khusus Admin GA)")
         l2 = QVBoxLayout(self.g2)
         l2.addWidget(label(
             "Data hanya tersimpan di laptop ini. Buat backup terenkripsi secara rutin dan simpan di tempat lain (flashdisk / drive kantor).\n"
