@@ -115,7 +115,7 @@ def test_alur_lengkap_tahap_1(win, app):
     assert t.proxy.rowCount() == 1
     # Cari per kolom: kotak cari di bawah judul kolom "Nama aset".
     name_col = [c.key for c in t.columns].index("name")
-    t.header_.editors[name_col].setText("tidak-ada")
+    t.editors[name_col].setText("tidak-ada")
     assert t.proxy.rowCount() == 0
     t.clear_filters()
     assert t.proxy.rowCount() == 1

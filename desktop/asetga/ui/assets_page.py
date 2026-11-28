@@ -79,7 +79,7 @@ class AssetListView(QWidget):
         self.export_btn = button("Export", icon_name="export")
         self.export_btn.setToolTip("Export aset yang tampil (hasil pencarian) ke Excel (.xlsx)")
         self.export_btn.clicked.connect(self._export)
-        self.add_btn = primary("Tambah aset  ▾", "tambah")
+        self.add_btn = primary("Tambah aset", "tambah")
         add_menu = QMenu(self.add_btn)
         add_menu.addAction("Tambah manual…", self._add)
         add_menu.addAction("Import dari Excel…", self._import)
@@ -118,8 +118,9 @@ class AssetListView(QWidget):
         self.table.activated_row.connect(self.page.open_detail)
         self.table.filtered.connect(self._update_info)
         self.table.selectionModel().selectionChanged.connect(lambda *_: self._update_info())
+        box.layout().addWidget(self.table.filter_row)
         box.layout().addWidget(self.table, 1)
-        hint = label("Tip: ketik di kotak Cari… di bawah judul kolom untuk menyaring · klik judul untuk mengurutkan · geser judul untuk "
+        hint = label("Tip: ketik di kotak Cari… di atas judul kolom untuk menyaring · klik judul untuk mengurutkan · geser judul untuk "
                      "mengatur urutan · klik dua kali baris untuk membuka detail", "small")
         hint.setContentsMargins(16, 6, 16, 10)
         box.layout().addWidget(hint)

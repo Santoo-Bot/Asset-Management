@@ -8,7 +8,7 @@ from typing import Callable
 
 from PySide6.QtCore import QSortFilterProxyModel, Qt, Signal
 from PySide6.QtGui import QStandardItem, QStandardItemModel
-from PySide6.QtWidgets import QAbstractItemView, QHeaderView, QLineEdit, QMenu, QSizePolicy, QTableView
+from PySide6.QtWidgets import QAbstractItemView, QHeaderView, QLineEdit, QMenu, QSizePolicy, QTableView, QWidget
 
 from . import theme
 from .widgets import _Delegate
@@ -27,64 +27,49 @@ class Column:
     chip: bool = False
 
 
-class FilterHeader(QHeaderView):
-    """Judul kolom + kotak cari di bawahnya, ikut bergeser saat kolom diubah ukuran/urutannya."""
+class FilterRow(QWidget):
+    """Baris kotak "Cari…" tepat di atas judul kolom; tiap kotak mengikuti posisi & lebar kolomnya
+    (ikut bergeser saat kolom diubah ukuran, digeser urutannya, atau tabel digulir ke samping)."""
 
     filter_changed = Signal(int, str)
 
-    def __init__(self, parent: QTableView):
-        super().__init__(Qt.Orientation.Horizontal, parent)
+    def __init__(self, table: QTableView, count: int):
+        super().__init__()
+        self.table = table
         self.editors: list[QLineEdit] = []
-        self.pad = 6
-        self.setSectionsMovable(True)
-        self.setSectionsClickable(True)
-        self.setSortIndicatorShown(True)
-        self.setHighlightSections(False)
-        self.setDefaultAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
-        self.sectionResized.connect(lambda *_: self.adjust())
-        self.sectionMoved.connect(lambda *_: self.adjust())
-        parent.horizontalScrollBar().valueChanged.connect(lambda *_: self.adjust())
-
-    def set_editors(self, count: int) -> None:
-        for e in self.editors:
-            e.deleteLater()
-        self.editors = []
         for i in range(count):
             e = QLineEdit(self)
             e.setPlaceholderText("Cari…")
             e.setClearButtonEnabled(True)
-            e.setStyleSheet("QLineEdit { padding: 3px 6px; border-radius: 7px; min-height: 16px; font-weight: 400; }")
+            e.setStyleSheet("QLineEdit { padding: 3px 6px; border-radius: 7px; min-height: 16px; }")
             e.textChanged.connect(lambda text, col=i: self.filter_changed.emit(col, text))
             self.editors.append(e)
-        self.updateGeometries()
+        h = self.editors[0].sizeHint().height() if self.editors else 24
+        self.setFixedHeight(h + 10)
+        hh = table.horizontalHeader()
+        hh.sectionResized.connect(lambda *_: self.adjust())
+        hh.sectionMoved.connect(lambda *_: self.adjust())
+        table.horizontalScrollBar().valueChanged.connect(lambda *_: self.adjust())
 
-    def _editor_height(self) -> int:
-        return self.editors[0].sizeHint().height() if self.editors else 0
+    def resizeEvent(self, event):  # noqa: N802 - nama dari Qt
+        super().resizeEvent(event)
+        self.adjust()
 
-    def sizeHint(self):  # noqa: N802 - nama dari Qt
-        s = super().sizeHint()
-        if self.editors:
-            s.setHeight(s.height() + self._editor_height() + self.pad * 2)
-        return s
-
-    def updateGeometries(self):  # noqa: N802 - nama dari Qt
-        if self.editors:
-            self.setViewportMargins(0, 0, 0, self._editor_height() + self.pad * 2)
-        else:
-            self.setViewportMargins(0, 0, 0, 0)
-        super().updateGeometries()
+    def showEvent(self, event):  # noqa: N802 - nama dari Qt
+        super().showEvent(event)
         self.adjust()
 
     def adjust(self) -> None:
-        if not self.editors:
-            return
-        top = super().sizeHint().height() + self.pad
-        h = self._editor_height()
+        hh = self.table.horizontalHeader()
+        offset = self.table.frameWidth()
+        h = self.height() - 10
         for logical, e in enumerate(self.editors):
-            if self.isSectionHidden(logical):
+            x = hh.sectionViewportPosition(logical) + offset
+            w = hh.sectionSize(logical)
+            if hh.isSectionHidden(logical) or x + w <= offset or x >= self.width():
                 e.hide()
                 continue
-            e.setGeometry(self.sectionViewportPosition(logical) + 4, top, max(30, self.sectionSize(logical) - 8), h)
+            e.setGeometry(x + 4, 5, max(30, w - 8), h)
             e.show()
 
 
@@ -132,10 +117,14 @@ class DataTable(QTableView):
         self.proxy = _Proxy()
         self.proxy.setSourceModel(self.source)
         self.setModel(self.proxy)
-        self.header_ = FilterHeader(self)
-        self.setHorizontalHeader(self.header_)
-        self.header_.set_editors(len(columns))
-        self.header_.filter_changed.connect(self._filter)
+        self.header_ = self.horizontalHeader()
+        self.header_.setSectionsMovable(True)
+        self.header_.setSectionsClickable(True)
+        self.header_.setSortIndicatorShown(True)
+        self.header_.setHighlightSections(False)
+        self.header_.setDefaultAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
+        self.filter_row = FilterRow(self, len(columns))
+        self.filter_row.filter_changed.connect(self._filter)
         self.header_.sectionMoved.connect(lambda *_: self.save_state())
         self.setItemDelegate(_Delegate(self))
         self.setMouseTracking(True)
@@ -154,6 +143,11 @@ class DataTable(QTableView):
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         self.doubleClicked.connect(lambda idx: self.activated_row.emit(self.row_data(idx.row())))
         self._restore_state()
+        self.header_.setSortIndicator(0, Qt.SortOrder.AscendingOrder)
+
+    @property
+    def editors(self) -> list[QLineEdit]:
+        return self.filter_row.editors
 
     # ------------------------------------------------------------ data
     def set_rows(self, rows: list[tuple[object, object]], muted: Callable[[object], bool] | None = None) -> None:
@@ -206,7 +200,7 @@ class DataTable(QTableView):
         self.filtered.emit()
 
     def clear_filters(self) -> None:
-        for e in self.header_.editors:
+        for e in self.editors:
             e.blockSignals(True)
             e.clear()
             e.blockSignals(False)
@@ -264,7 +258,7 @@ class DataTable(QTableView):
         if on:
             self.resizeColumnToContents(col)
             self.setColumnWidth(col, max(self.columnWidth(col) + 14, 110))
-        self.header_.adjust()
+        self.filter_row.adjust()
         self.save_state()
 
     def reset_columns(self) -> None:
@@ -274,7 +268,7 @@ class DataTable(QTableView):
                 self.header_.moveSection(vis, i)
             self.setColumnHidden(i, not c.visible)
         self.fit_columns()
-        self.header_.adjust()
+        self.filter_row.adjust()
         self.save_state()
 
     def save_state(self) -> None:

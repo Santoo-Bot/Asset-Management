@@ -45,88 +45,111 @@ class DashboardPage(QWidget):
 
         kpi = QGridLayout()
         kpi.setSpacing(14)
+        self.kpi_grid = kpi
         self.k_total = Kpi("Aset aktif")
         self.k_cost = Kpi("Harga perolehan")
         self.k_book = Kpi("Nilai buku")
         self.k_dep = Kpi("Akumulasi penyusutan")
         self.k_damaged = Kpi("Aset rusak")
         self.k_wo = Kpi("Write Off")
-        for i, k in enumerate((self.k_total, self.k_cost, self.k_book, self.k_dep, self.k_damaged, self.k_wo)):
-            kpi.addWidget(k, 0, i)
-            kpi.setColumnStretch(i, 1)
+        self.kpis = [self.k_total, self.k_cost, self.k_book, self.k_dep, self.k_damaged, self.k_wo]
         v.addLayout(kpi)
 
         grid = QGridLayout()
         grid.setSpacing(14)
+        self.grid = grid
+        self.panels: list[QWidget] = []
         p, lay = _panel("Status aset", "Jumlah aset aktif per status")
         self.donut = Donut("aset aktif")
         lay.addWidget(self.donut)
         lay.addStretch(1)
-        grid.addWidget(p, 0, 0)
+        self.panels.append(p)
         p, lay = _panel("Aset per kategori", "Jumlah aset")
         self.cat_count = HBarChart()
         lay.addWidget(self.cat_count)
         lay.addStretch(1)
-        grid.addWidget(p, 0, 1)
+        self.panels.append(p)
         p, lay = _panel("Nilai buku per kategori", "Setelah penyusutan garis lurus")
         self.cat_book = HBarChart()
         lay.addWidget(self.cat_book)
         lay.addStretch(1)
-        grid.addWidget(p, 0, 2)
+        self.panels.append(p)
         p, lay = _panel("Aset per lokasi", "Jumlah aset")
         self.loc = HBarChart()
         lay.addWidget(self.loc)
         lay.addStretch(1)
-        grid.addWidget(p, 1, 0)
+        self.panels.append(p)
         p, lay = _panel("Aset per divisi", "Jumlah aset")
         self.div = HBarChart()
         lay.addWidget(self.div)
         lay.addStretch(1)
-        grid.addWidget(p, 1, 1)
+        self.panels.append(p)
         p, lay = _panel("Harga perolehan per tahun", "Tahun perolehan aset aktif")
         self.year = HBarChart(max_rows=10)
         lay.addWidget(self.year)
         lay.addStretch(1)
-        grid.addWidget(p, 1, 2)
+        self.panels.append(p)
         p, lay = _panel("Kondisi aset", "Jumlah aset aktif")
         self.cond = HBarChart()
         lay.addWidget(self.cond)
         lay.addStretch(1)
-        grid.addWidget(p, 2, 0)
+        self.panels.append(p)
         p, lay = _panel("Umur aset", "Sejak tanggal perolehan")
         self.age = HBarChart()
         lay.addWidget(self.age)
         lay.addStretch(1)
-        grid.addWidget(p, 2, 1)
+        self.panels.append(p)
         p, lay = _panel("Garansi segera habis", "Dalam 90 hari · klik dua kali untuk membuka aset")
         self.warranty = EntryList("Tidak ada garansi yang segera habis")
         self.warranty.setMinimumHeight(170)
         self.warranty.activated_entry.connect(self._open_asset)
         lay.addWidget(self.warranty)
-        grid.addWidget(p, 2, 2)
+        self.panels.append(p)
         p, lay = _panel("Servis jatuh tempo & terlambat", "Klik dua kali untuk membuka aset")
         self.services = EntryList("Tidak ada servis yang jatuh tempo")
         self.services.setMinimumHeight(170)
         self.services.activated_entry.connect(self._open_asset)
         lay.addWidget(self.services)
-        grid.addWidget(p, 3, 0)
+        self.panels.append(p)
         p, lay = _panel("Aset rusak", "Kondisi Rusak · klik dua kali untuk membuka aset")
         self.damaged = EntryList("Tidak ada aset rusak")
         self.damaged.setMinimumHeight(170)
         self.damaged.activated_entry.connect(self._open_asset)
         lay.addWidget(self.damaged)
-        grid.addWidget(p, 3, 1)
+        self.panels.append(p)
         p, lay = _panel("Stok perlu reorder", "Stok ≤ minimum")
         self.reorder = EntryList("Semua stok aman")
         self.reorder.setMinimumHeight(170)
         lay.addWidget(self.reorder)
-        grid.addWidget(p, 3, 2)
-        for i in range(3):
-            grid.setColumnStretch(i, 1)
+        self.panels.append(p)
         v.addLayout(grid)
+        self._cols = 0
+        self._relayout(3)
         v.addStretch(1)
         scroll.setWidget(inner)
         outer.addWidget(scroll)
+
+    def _relayout(self, cols: int) -> None:
+        """Susun ulang kartu sesuai lebar layar: 3 kolom grafik (lebar) atau 2 kolom (laptop kecil)."""
+        if cols == self._cols:
+            return
+        self._cols = cols
+        per_row = 6 if cols == 3 else 3
+        for w in self.kpis + self.panels:
+            self.kpi_grid.removeWidget(w)
+            self.grid.removeWidget(w)
+        for i, k in enumerate(self.kpis):
+            self.kpi_grid.addWidget(k, i // per_row, i % per_row)
+        for i in range(6):
+            self.kpi_grid.setColumnStretch(i, 1 if i < per_row else 0)
+        for i, p in enumerate(self.panels):
+            self.grid.addWidget(p, i // cols, i % cols)
+        for i in range(3):
+            self.grid.setColumnStretch(i, 1 if i < cols else 0)
+
+    def resizeEvent(self, event):  # noqa: N802 - nama dari Qt
+        super().resizeEvent(event)
+        self._relayout(3 if self.width() >= 1180 else 2)
 
     def on_show(self) -> None:
         m = self.ctx.masters

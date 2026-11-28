@@ -112,7 +112,7 @@ def main(out: str) -> None:
     shot("20-aset-detail")
     win.shell.assets.show_list()
     t = win.shell.assets.table
-    t.header_.editors[[c.key for c in t.columns].index("category")].setText("elektronik")
+    t.editors[[c.key for c in t.columns].index("category")].setText("elektronik")
     shot("21-aset-cari-kolom")
     t.clear_filters()
     from asetga.ui.asset_form import AssetFormDialog

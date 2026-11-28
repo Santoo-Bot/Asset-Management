@@ -194,7 +194,7 @@ class StockPage(QWidget):
         self.search = search_field("Cari kode, nama, atau scan barcode lalu Enter")
         self.search.setMinimumWidth(340)
         self.search.returnPressed.connect(self._enter)
-        self.add_btn = primary("Tambah barang  ▾", "tambah")
+        self.add_btn = primary("Tambah barang", "tambah")
         add_menu = QMenu(self.add_btn)
         add_menu.addAction("Tambah manual…", lambda: self._add())
         add_menu.addAction("Import dari Excel…", self._import)

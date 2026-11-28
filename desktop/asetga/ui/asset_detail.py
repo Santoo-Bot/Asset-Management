@@ -39,6 +39,9 @@ def chip(text: str, write_off_name: str | None = None) -> QLabel:
     bg, fg = theme.chip_colors(text, write_off_name)
     lb = QLabel(text)
     lb.setStyleSheet(f"background: {bg}; color: {fg}; border-radius: 11px; padding: 3px 10px; font-weight: 600; font-size: 9pt;")
+    from PySide6.QtWidgets import QSizePolicy
+
+    lb.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
     return lb
 
 
@@ -239,6 +242,7 @@ class AssetDetailPanel(QFrame):
         if self.wide:
             body.addWidget(self._value_boxes(d))
         hv.addLayout(body)
+        hv.addStretch(1)
 
         # ---- tab
         tabs = QTabWidget()

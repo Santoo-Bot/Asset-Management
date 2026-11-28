@@ -137,7 +137,7 @@ class Donut(QWidget):
             p.drawRoundedRect(QRectF(x, y + 7, 10, 10), 3, 3)
             p.setPen(QColor(k["text"]))
             pct = f"{val * 100 / total:.0f}%"
-            text = f"{lab}  ·  {fmt.number(int(val))} ({pct})"
+            text = f"{lab}  {fmt.number(int(val))} ({pct})"
             p.drawText(QRectF(x + 18, y, self.width() - x - 18, 24), int(Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft),
                        fm.elidedText(text, Qt.TextElideMode.ElideRight, int(self.width() - x - 18)))
             y += 24
