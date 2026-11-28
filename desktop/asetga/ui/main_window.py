@@ -6,7 +6,8 @@ import time
 
 from PySide6.QtCore import QEvent, QObject, QSize, Qt, QTimer
 from PySide6.QtWidgets import (
-    QApplication, QFrame, QHBoxLayout, QListWidget, QListWidgetItem, QMainWindow, QStackedWidget, QVBoxLayout, QWidget,
+    QApplication, QFrame, QHBoxLayout, QListWidget, QListWidgetItem, QMainWindow, QSizePolicy, QStackedWidget, QToolButton,
+    QVBoxLayout, QWidget,
 )
 
 from .. import APP_NAME, VERSION
@@ -78,6 +79,15 @@ class Shell(QWidget):
         self.nav.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         self.nav.setCursor(Qt.CursorShape.PointingHandCursor)
         sv.addWidget(self.nav, 1)
+        # Tombol ciutkan/lebarkan menu (pilihan diingat di desktop.ini).
+        self.toggle = QToolButton()
+        self.toggle.setObjectName("navToggle")
+        self.toggle.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.toggle.setIconSize(QSize(18, 18))
+        self.toggle.setAutoRaise(True)
+        self.toggle.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        self.toggle.clicked.connect(lambda: self.set_compact(not self.compact, save=True))
+        sv.addWidget(self.toggle)
         sv.addWidget(hline())
         user_row = QHBoxLayout()
         user_row.setContentsMargins(4, 10, 4, 0)
@@ -128,6 +138,8 @@ class Shell(QWidget):
             self.stack.addWidget(page)
         self.nav.currentRowChanged.connect(self._go)
         ctx.open_asset = self.open_asset
+        self.set_compact(ctx.pref("sidebar/compact", "false") == "true")
+        self._update_toggle()
 
     def open_asset(self, asset_id: str) -> None:
         """Buka halaman detail aset (dipanggil dari Dashboard, Scan, Servis)."""
@@ -159,16 +171,33 @@ class Shell(QWidget):
         self.nav.setCurrentRow(0)
         self._go(0)
 
-    def set_compact(self, on: bool) -> None:
-        """Layar sempit (mis. laptop 14" dengan skala 125%): menu hanya ikon."""
+    def set_compact(self, on: bool, save: bool = False) -> None:
+        """Menu diciutkan (hanya ikon) atau dilebarkan. Hanya berubah lewat tombol, tidak mengikuti ukuran jendela."""
+        if save:
+            self.ctx.set_pref("sidebar/compact", "true" if on else "false")
         if on == self.compact:
             return
         self.compact = on
         self.side.setFixedWidth(72 if on else 236)
         self.names.setVisible(not on)
         self.who.setVisible(not on)
+        self.nav.setProperty("compact", "true" if on else "false")
+        self.nav.style().unpolish(self.nav)
+        self.nav.style().polish(self.nav)
         for i, (t, _, _) in enumerate(getattr(self, "visible", [])):
             self.nav.item(i).setText("" if on else t)
+        self._update_toggle()
+
+    def _update_toggle(self) -> None:
+        on = self.compact
+        self.toggle.setIcon(icons.icon("lebarkan" if on else "ciutkan", "#7A8696"))
+        self.toggle.setText("" if on else "Ciutkan menu")
+        self.toggle.setToolTip("Lebarkan menu" if on else "Ciutkan menu")
+        self.toggle.setToolButtonStyle(
+            Qt.ToolButtonStyle.ToolButtonIconOnly if on else Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
+        self.toggle.setProperty("compact", "true" if on else "false")
+        self.toggle.style().unpolish(self.toggle)
+        self.toggle.style().polish(self.toggle)
 
     def _go(self, row: int) -> None:
         if 0 <= row < len(self.visible):
@@ -219,7 +248,6 @@ class MainWindow(QMainWindow):
 
     def resizeEvent(self, event):  # noqa: N802 - nama dari Qt
         super().resizeEvent(event)
-        self.shell.set_compact(self.width() < 1280)
         if self.toast.isVisible():
             self.toast.move(self.width() - self.toast.width() - 24, self.height() - self.toast.height() - 24)
 

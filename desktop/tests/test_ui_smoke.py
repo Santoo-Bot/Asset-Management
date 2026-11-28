@@ -279,3 +279,21 @@ def test_tahap_2_mutasi_servis_stok_label_scan(win, app, monkeypatch):
     assert win.shell.services.sched.model_.rowCount() == 1
     win.shell.services.tabs.setCurrentIndex(1)
     assert win.shell.services.hist.model_.rowCount() == 1
+
+
+def test_menu_samping_ciutkan_tidak_ikut_ukuran_jendela(win, app):
+    shell = win.shell
+    assert shell.compact is False
+    # Ukuran jendela tidak lagi mengubah menu (tampilan sama saat penuh / kecil).
+    win.resize(1000, 700)
+    app.processEvents()
+    assert shell.compact is False and shell.side.width() == 236
+    # Tombol ciutkan: hanya ikon, pilihan diingat.
+    shell.toggle.click()
+    assert shell.compact is True and shell.side.width() == 72
+    assert shell.ctx.pref("sidebar/compact") == "true"
+    win.resize(1600, 900)
+    app.processEvents()
+    assert shell.compact is True
+    shell.toggle.click()
+    assert shell.compact is False and shell.ctx.pref("sidebar/compact") == "false"

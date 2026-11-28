@@ -69,7 +69,7 @@ def main() -> int:
     theme.apply(app, ctx.pref("theme_mode", "SYSTEM"))
     ctx.cleanup_photos()
     win = MainWindow(ctx, app)
-    win.show()
+    win.showMaximized()  # otomatis memenuhi layar
     if smoke:
         from PySide6.QtCore import QTimer
 

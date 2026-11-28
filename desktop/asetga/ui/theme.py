@@ -116,6 +116,10 @@ def apply(app: QApplication, mode: str) -> None:
         QListWidget#nav::item {{ padding: 9px 10px; border-radius: 10px; margin: 1px 0; color: {k['text']}; }}
         QListWidget#nav::item:hover:!selected {{ background: {k['hover']}; }}
         QListWidget#nav::item:selected {{ background: {PRIMARY}; color: #FFFFFF; font-weight: 600; }}
+        QListWidget#nav[compact="true"]::item {{ padding: 9px 0px 9px 13px; }}
+        QToolButton#navToggle {{ border: none; border-radius: 10px; padding: 8px 10px; color: {k['muted']}; text-align: left; }}
+        QToolButton#navToggle[compact="true"] {{ padding: 8px 0px 8px 13px; }}
+        QToolButton#navToggle:hover {{ background: {k['hover']}; color: {k['text']}; }}
         QPushButton {{ background: {k['surface']}; color: {k['text']}; border: 1px solid {k['border']}; border-radius: 9px;
             padding: 7px 14px; min-height: 20px; }}
         QPushButton:hover {{ border-color: {PRIMARY}; }}
