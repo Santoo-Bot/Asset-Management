@@ -54,11 +54,14 @@ class HBarChart(QWidget):
             p.drawText(self.rect(), int(Qt.AlignmentFlag.AlignCenter), "Belum ada data")
             return
         fm = QFontMetrics(self.font())
+        bold = QFont(self.font())
+        bold.setWeight(QFont.Weight.DemiBold)
+        fmb = QFontMetrics(bold)
         w = self.width()
         label_w = min(int(w * 0.38), max(fm.horizontalAdvance(r[0]) for r in self.rows) + 8)
-        value_w = max(fm.horizontalAdvance(r[2]) for r in self.rows) + 10
+        value_w = max(fmb.horizontalAdvance(r[2]) for r in self.rows) + 16
         bar_x = label_w + 6
-        bar_w = max(20, w - bar_x - value_w)
+        bar_w = max(20, w - bar_x - value_w - 4)
         top = max(r[1] for r in self.rows) or 1
         for i, (lab, val, txt) in enumerate(self.rows):
             y = i * self.ROW + 2
