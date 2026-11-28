@@ -125,7 +125,7 @@ class AssetListView(QWidget):
         box.layout().addWidget(hint)
         v.addWidget(box, 1)
         QShortcut(QKeySequence.StandardKey.New, self, activated=self._shortcut_add)
-        QShortcut(QKeySequence(Qt.Key.Key_Return), self.table, activated=self._open_current)
+        QShortcut(QKeySequence("Return"), self.table, activated=self._open_current)
 
     def on_show(self) -> None:
         role = self.ctx.session.role

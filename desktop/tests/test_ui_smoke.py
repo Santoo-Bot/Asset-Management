@@ -55,12 +55,12 @@ def test_alur_lengkap_tahap_1(win, app):
     win.setup._create()
     assert win.stack.currentWidget() is win.shell
     assert ctx.session.user.role is Role.ADMIN
+    assert win.shell.stack.currentWidget() is win.shell.dashboard  # halaman pertama setelah masuk
 
     # Semua menu bisa dibuka.
     for row in range(win.shell.nav.count()):
         win.shell.nav.setCurrentRow(row)
     assert win.shell.nav.count() == 10
-    assert win.shell.stack.currentWidget() is win.shell.dashboard
 
     # Master data: setiap dialog bisa dibuat; simpan lokasi & divisi/departemen.
     for t in MasterType:

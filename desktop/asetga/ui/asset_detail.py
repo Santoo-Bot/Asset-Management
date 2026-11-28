@@ -495,7 +495,7 @@ class AssetDetailPage(QWidget):
         self.panel = AssetDetailPanel(ctx, wide=True)
         self.panel.changed.connect(self._changed)
         v.addWidget(self.panel, 1)
-        QShortcut(QKeySequence(Qt.Key.Key_Escape), self, activated=self.back.emit)
+        QShortcut(QKeySequence("Esc"), self, activated=self.back.emit)
 
     @property
     def asset_id(self):

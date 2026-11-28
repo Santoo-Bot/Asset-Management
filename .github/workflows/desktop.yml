@@ -38,7 +38,14 @@ jobs:
       - name: Unit test (inti + uji asap antarmuka tanpa layar)
         env:
           QT_QPA_PLATFORM: offscreen
-        run: python -m pytest -q tests
+        shell: bash
+        run: |
+          set -o pipefail
+          python -m pytest -q tests -p no:cacheprovider 2>&1 | tee pytest.log || {
+            # Ringkasan galat sebagai anotasi (terbaca publik lewat API check-runs).
+            python -c "import sys;t=open('pytest.log',encoding='utf-8',errors='replace').read()[-6000:];print('::error title=pytest::'+t.replace('%','%25').replace('\r','').replace('\n','%0A'))"
+            exit 1
+          }
 
       - name: Tangkapan layar tampilan (data contoh)
         id: shots
