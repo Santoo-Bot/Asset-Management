@@ -612,11 +612,16 @@ class ExcelService:
     EXTRA_HEADERS = ["Status Garansi", "Umur Berjalan", "Umur Ekonomis (th)", "Residu (%)", "Penyusutan/Tahun",
                      "Akumulasi Penyusutan", "Nilai Buku", "Merk/Tipe (lama)", "PIC (lama)"]
 
-    def export_rows(self) -> tuple[list[str], list[list]]:
+    def export_rows(self, ids: list[str] | None = None) -> tuple[list[str], list[list]]:
+        """[ids] = hanya aset ini (mis. hasil pencarian di tabel), sesuai urutannya; None = semua aset."""
         today = fmt.today()
         default_res = self.db.default_residual_percent()
         rows = []
-        for r in self.db.q(DETAIL_SELECT + " WHERE a.deletedAt IS NULL ORDER BY a.code"):
+        all_rows = self.db.q(DETAIL_SELECT + " WHERE a.deletedAt IS NULL ORDER BY a.code")
+        if ids is not None:
+            by_id = {r["id"]: r for r in all_rows}
+            all_rows = [by_id[i] for i in ids if i in by_id]
+        for r in all_rows:
             acq = fmt.from_epoch_day(r["acquisitionDate"])
             as_of = (fmt.from_epoch_day(r["disposalDate"]) or today) if r["status"] == WRITE_OFF_ID else today
             res = r["categoryResidualPercent"] if r["categoryResidualPercent"] is not None else default_res
@@ -640,10 +645,10 @@ class ExcelService:
             ])
         return [c.template_header for c in COLS] + self.EXTRA_HEADERS, rows
 
-    def export_xlsx(self, path: str | Path, audit=None) -> int:
+    def export_xlsx(self, path: str | Path, audit=None, ids: list[str] | None = None) -> int:
         from openpyxl import Workbook
 
-        headers, rows = self.export_rows()
+        headers, rows = self.export_rows(ids)
         wb = Workbook()
         ws = wb.active
         ws.title = "Aset"

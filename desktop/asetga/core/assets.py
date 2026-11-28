@@ -218,6 +218,10 @@ class AssetService:
             self._params(f),
         )
 
+    def list_all(self):
+        """Semua aset beserta nama master (untuk tabel lengkap dengan pencarian per kolom)."""
+        return self.db.q(DETAIL_SELECT + " WHERE a.deletedAt IS NULL ORDER BY a.code")
+
     def get_row(self, asset_id: str):
         return self.db.one("SELECT * FROM assets WHERE id = ?", (asset_id,))
 

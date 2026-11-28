@@ -15,13 +15,14 @@ from .account_page import AccountPage
 from .assets_page import AssetsPage
 from .audit_page import AuditPage
 from .auth import LockPage, LoginPage, SetupPage
-from .data_page import DataPage
+from .backup_page import BackupPage
+from .dashboard_page import DashboardPage
 from .masters_page import MastersPage
 from .scan_page import ScanPage
 from .services_page import ServicesPage
 from .stock_page import StockPage
 from .users_page import UsersPage
-from .widgets import hline, install_toast, label
+from .widgets import app_logo, hline, install_toast, label
 
 IDLE_LOCK_SECONDS = 5 * 60
 
@@ -58,10 +59,7 @@ class Shell(QWidget):
         sv.setSpacing(4)
         brand = QHBoxLayout()
         brand.setSpacing(10)
-        logo = label("GA", "logo", wrap=False)
-        logo.setFixedSize(36, 36)
-        logo.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        brand.addWidget(logo)
+        brand.addWidget(app_logo(36))
         self.names = QWidget()
         names = QVBoxLayout(self.names)
         names.setContentsMargins(0, 0, 0, 0)
@@ -103,23 +101,25 @@ class Shell(QWidget):
         self.stack = QStackedWidget()
         h.addWidget(self.stack, 1)
 
+        self.dashboard = DashboardPage(ctx)
         self.assets = AssetsPage(ctx)
         self.scan = ScanPage(ctx)
         self.stock = StockPage(ctx)
         self.services = ServicesPage(ctx)
         self.masters = MastersPage(ctx)
-        self.data = DataPage(ctx)
+        self.backup = BackupPage(ctx)
         self.users = UsersPage(ctx)
         self.audit = AuditPage(ctx)
         self.account = AccountPage(ctx)
         # (judul menu, ikon, halaman, boleh tampil?)
         self.pages = [
+            ("Dashboard", "dashboard", self.dashboard, lambda r: True),
             ("Aset", "aset", self.assets, lambda r: True),
             ("Scan", "scan", self.scan, lambda r: True),
             ("Stok", "stok", self.stock, lambda r: True),
             ("Servis", "servis", self.services, lambda r: True),
             ("Master data", "master", self.masters, lambda r: True),
-            ("Import / Export & Backup", "data", self.data, lambda r: True),
+            ("Backup & restore", "backup", self.backup, lambda r: r.can_manage_master),
             ("Pengguna", "pengguna", self.users, lambda r: r.can_manage_users),
             ("Audit log", "audit", self.audit, lambda r: True),
             ("Akun & tampilan", "akun", self.account, lambda r: True),
@@ -127,6 +127,19 @@ class Shell(QWidget):
         for _, _, page, _ in self.pages:
             self.stack.addWidget(page)
         self.nav.currentRowChanged.connect(self._go)
+        ctx.open_asset = self.open_asset
+
+    def open_asset(self, asset_id: str) -> None:
+        """Buka halaman detail aset (dipanggil dari Dashboard, Scan, Servis)."""
+        for row, (_, _, page) in enumerate(self.visible):
+            if page is self.assets:
+                self.nav.blockSignals(True)
+                self.nav.setCurrentRow(row)
+                self.nav.blockSignals(False)
+                self.stack.setCurrentWidget(self.assets)
+                self.assets.list.on_show()
+                self.assets.open_detail(asset_id)
+                return
 
     def rebuild(self) -> None:
         u = self.ctx.session.user
@@ -184,7 +197,7 @@ class MainWindow(QMainWindow):
         self.login.done.connect(self._after_auth)
         self.lock.unlocked.connect(lambda: self.stack.setCurrentWidget(self.shell))
         self.lock.switch_user.connect(self.logout)
-        self.shell.data.restored.connect(self.show_login)
+        self.shell.backup.restored.connect(self.show_login)
         self.shell.account.theme_changed.connect(self._theme_changed)
         self.shell.account.lock_requested.connect(self.lock_now)
         self.shell.account.logout_requested.connect(self.logout)

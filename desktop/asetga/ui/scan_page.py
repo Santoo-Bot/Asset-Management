@@ -95,7 +95,10 @@ class ScanPage(QWidget):
     def _open(self, target) -> None:
         kind, ident = target
         if kind == "asset":
-            if self.ctx.assets.get_row(ident):
+            opener = getattr(self.ctx, "open_asset", None)
+            if opener:
+                opener(ident)
+            elif self.ctx.assets.get_row(ident):
                 AssetDetailDialog(self, self.ctx, ident).exec()
         elif self.ctx.stock.item(ident):
             ItemDetailDialog(self, self.ctx, ident).exec()

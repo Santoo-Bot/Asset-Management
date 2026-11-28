@@ -26,11 +26,9 @@ def _centered(inner: QWidget) -> QWidget:
 
 def _brand(v: QVBoxLayout) -> None:
     """Logo GA di atas kartu masuk."""
-    logo = label("GA", "logo", wrap=False)
-    logo.setFixedSize(48, 48)
-    logo.setAlignment(Qt.AlignmentFlag.AlignCenter)
-    logo.setStyleSheet("font-size: 15pt;")
-    v.addWidget(logo, alignment=Qt.AlignmentFlag.AlignHCenter)
+    from .widgets import app_logo
+
+    v.addWidget(app_logo(52), alignment=Qt.AlignmentFlag.AlignHCenter)
     v.addSpacing(6)
 
 

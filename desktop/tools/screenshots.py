@@ -104,30 +104,34 @@ def main(out: str) -> None:
     names = [nav.item(i).toolTip() for i in range(nav.count())]
     for i, n in enumerate(names):
         nav.setCurrentRow(i)
-        if n == "Aset":
-            win.shell.assets.table.selectRow(0)
-        if n == "Stok":
-            pass
         shot(f"{i + 2:02d}-{n.split()[0].lower()}")
-    nav.setCurrentRow(0)
-    win.shell.assets.table.selectRow(2)
-    win.toast.show_text("Aset IT-2024-003 tersimpan")
-    shot("20-aset-detail-toast")
+    nav.setCurrentRow(names.index("Aset"))
+    ids = win.shell.assets.table.visible_data()
+    win.shell.assets.open_detail(ids[0])
+    win.toast.show_text("Perubahan aset tersimpan")
+    shot("20-aset-detail")
+    win.shell.assets.show_list()
+    t = win.shell.assets.table
+    t.header_.editors[[c.key for c in t.columns].index("category")].setText("elektronik")
+    shot("21-aset-cari-kolom")
+    t.clear_filters()
     from asetga.ui.asset_form import AssetFormDialog
 
-    f = AssetFormDialog(win, ctx, win.shell.assets.table.current_data())
+    f = AssetFormDialog(win, ctx, ids[0])
     f.resize(680, 820)
     f.show()
-    shot("21-form-aset", f)
+    shot("22-form-aset", f)
     f.close()
     win.shell.set_compact(False)
-    shot("23-aset-menu-penuh")
+    nav.setCurrentRow(names.index("Dashboard"))
+    shot("23-dashboard-menu-penuh")
     win.shell.set_compact(True)
     theme.apply(app, "DARK")
     win._theme_changed("DARK")
-    nav.setCurrentRow(0)
-    win.shell.assets.table.selectRow(0)
-    shot("22-aset-gelap")
+    nav.setCurrentRow(names.index("Dashboard"))
+    shot("24-dashboard-gelap")
+    nav.setCurrentRow(names.index("Aset"))
+    shot("25-aset-gelap")
     win.close()
 
 

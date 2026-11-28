@@ -154,3 +154,24 @@ def test_label_pdf_satu_halaman_per_label_ukuran_50x20(tmp_path):
     assert img.size == (600, 240)
     m = qr_matrix("IT-2024-001")
     assert len(m) == 21 and m[0][0] and m[0][6] and not m[0][7]  # pola finder kiri atas
+
+
+def test_dashboard_ringkasan_dan_sebaran(env, ops, stock, asset):
+    from asetga.core.dashboard import build
+
+    loc = env.assets.get_row(asset)["locationId"]
+    wo = env.assets.save(AssetInput(name="Printer lama", category_id=env.category("PK"), acquisition_date=dt.date(2020, 1, 1),
+                                    acquisition_cost=1_000_000, location_id=loc), qr_same_as_code=True)
+    env.assets.write_off(wo, dt.date(2025, 1, 1), None)
+    iid = stock.save_item(ItemInput(code="ATK-1", name="Kertas", unit_id=_unit(env), initial_stock="1", min_stock="5"))
+    ops.save_service(ServiceInput(asset, service_date=dt.date(2026, 10, 1), description="Cek", cost=0,
+                                  next_service_date=dt.date(2026, 11, 20)))
+    d = build(env.db, ops, stock)
+    assert d.total == 1 and d.write_off == 1 and d.cost == 15_000_000
+    assert d.book + d.accumulated == d.cost
+    assert d.by_category.sorted()[0][:2] == ("Elektronik & IT", 1)
+    assert [x[0] for x in d.by_status.sorted()] == ["Digunakan"]
+    assert d.service_list[0][4] == "Terlambat"
+    assert d.reorder_list[0][0] == iid
+    other = env.masters.save_location("", "Gudang", None)
+    assert build(env.db, ops, stock, location_id=other).total == 0

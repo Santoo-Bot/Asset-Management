@@ -349,6 +349,14 @@ class _Delegate(QStyledItemDelegate):
         super().__init__(table)
         self.table = table
 
+    def _is_first_visible(self, col: int) -> bool:
+        hh = self.table.horizontalHeader()
+        for v in range(hh.count()):
+            logical = hh.logicalIndex(v)
+            if not hh.isSectionHidden(logical):
+                return logical == col
+        return col == 0
+
     def paint(self, painter, option, index):
         from PySide6.QtCore import QRectF
         from PySide6.QtGui import QColor, QFont, QFontMetrics, QPainter
@@ -364,7 +372,7 @@ class _Delegate(QStyledItemDelegate):
         bg = k["select"] if selected else (k["hover"] if hover else k["surface"])
         painter.fillRect(option.rect, QColor(bg))
         painter.fillRect(option.rect.adjusted(0, option.rect.height() - 1, 0, 0), QColor(k["border"]))
-        if selected and col == 0:
+        if selected and self._is_first_visible(col):
             painter.fillRect(option.rect.adjusted(0, 0, -(option.rect.width() - 3), 0), QColor(theme.PRIMARY))
         text = index.data(Qt.ItemDataRole.DisplayRole) or ""
         if col in self.table.chip_columns and text:
@@ -520,6 +528,23 @@ def hline() -> QFrame:
     f = QFrame()
     f.setObjectName("divider")
     return f
+
+
+def app_logo(size: int) -> QLabel:
+    """Ikon aplikasi (sama dengan ikon launcher Android: kubus putih di latar biru)."""
+    from PySide6.QtGui import QPixmap
+
+    from ..paths import resource_dir
+
+    lb = QLabel()
+    pm = QPixmap(str(resource_dir() / "icon.png"))
+    if not pm.isNull():
+        dpr = 2
+        pm = pm.scaled(size * dpr, size * dpr, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation)
+        pm.setDevicePixelRatio(dpr)
+        lb.setPixmap(pm)
+    lb.setFixedSize(size, size)
+    return lb
 
 
 def search_field(placeholder: str) -> QLineEdit:

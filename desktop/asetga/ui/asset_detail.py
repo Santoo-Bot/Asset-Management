@@ -127,9 +127,10 @@ class AssetDetailPanel(QFrame):
 
     changed = Signal()
 
-    def __init__(self, ctx):
+    def __init__(self, ctx, wide: bool = False):
         super().__init__()
         self.ctx = ctx
+        self.wide = wide
         self.asset_id: str | None = None
         self.setObjectName("card")
         outer = QVBoxLayout(self)
@@ -176,38 +177,32 @@ class AssetDetailPanel(QFrame):
         role = self.ctx.session.role
         can_edit = bool(role and role.can_edit_data)
 
-        root = QVBoxLayout(self.content)
-        root.setContentsMargins(0, 0, 0, 0)
-        scroll = QScrollArea()
-        scroll.setWidgetResizable(True)
-        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-        inner = QWidget()
-        v = QVBoxLayout(inner)
-        v.setContentsMargins(0, 0, 0, 12)
-        v.setSpacing(12)
-
-        # Foto 1:1 di atas pita abu-abu.
+        # ---- kepala: foto 1:1, status, nama, aksi
+        head = QWidget()
+        hv = QVBoxLayout(head)
+        hv.setContentsMargins(0, 0, 0, 0)
+        hv.setSpacing(12)
         band = QFrame()
         band.setStyleSheet(f"QFrame {{ background: {k['photo']}; border-top-left-radius: 13px; border-top-right-radius: 13px; }}")
         bl = QHBoxLayout(band)
         bl.setContentsMargins(0, 14, 0, 14)
+        size = PHOTO + (60 if self.wide else 0)
         photo = QLabel()
-        photo.setFixedSize(PHOTO, PHOTO)
+        photo.setFixedSize(size, size)
         photo.setAlignment(Qt.AlignmentFlag.AlignCenter)
         f = self.ctx.photos.resolve(r["photoPath"])
         if f:
-            pm = QPixmap(str(f)).scaled(PHOTO, PHOTO, Qt.AspectRatioMode.KeepAspectRatioByExpanding, Qt.TransformationMode.SmoothTransformation)
-            photo.setPixmap(pm.copy((pm.width() - PHOTO) // 2, (pm.height() - PHOTO) // 2, PHOTO, PHOTO))
+            pm = QPixmap(str(f)).scaled(size, size, Qt.AspectRatioMode.KeepAspectRatioByExpanding, Qt.TransformationMode.SmoothTransformation)
+            photo.setPixmap(pm.copy((pm.width() - size) // 2, (pm.height() - size) // 2, size, size))
         else:
             photo.setPixmap(icons.icon("foto", k["muted"], 36, 1.4).pixmap(36, 36))
             photo.setStyleSheet(f"background: {k['surface']}; border-radius: 12px;")
         bl.addStretch(1)
         bl.addWidget(photo)
         bl.addStretch(1)
-        v.addWidget(band)
-
+        hv.addWidget(band)
         body = QVBoxLayout()
-        body.setContentsMargins(18, 2, 18, 0)
+        body.setContentsMargins(18, 2, 18, 14)
         body.setSpacing(10)
         chips = QHBoxLayout()
         chips.setSpacing(6)
@@ -219,7 +214,6 @@ class AssetDetailPanel(QFrame):
         name.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
         body.addWidget(name)
         body.addWidget(label(f"{r['code']}  ·  {r['categoryName']}", "muted"))
-
         acts = QGridLayout()
         acts.setSpacing(8)
         b_lbl = button("Label QR", icon_name="qr")
@@ -242,7 +236,11 @@ class AssetDetailPanel(QFrame):
         else:
             acts.addWidget(b_lbl, 0, 0)
         body.addLayout(acts)
+        if self.wide:
+            body.addWidget(self._value_boxes(d))
+        hv.addLayout(body)
 
+        # ---- tab
         tabs = QTabWidget()
         tabs.setDocumentMode(True)
         tabs.tabBar().setDrawBase(False)
@@ -275,21 +273,49 @@ class AssetDetailPanel(QFrame):
             for h in self.ctx.assets.history(self.asset_id)
         ])
         tabs.addTab(hist, "Riwayat")
-        tabs.setMinimumHeight(440)
-        body.addWidget(tabs, 1)
-        v.addLayout(body, 1)
-        scroll.setWidget(inner)
-        root.addWidget(scroll)
 
-    def _data_tab(self, d) -> QWidget:
-        r = d.row
+        root = QHBoxLayout(self.content) if self.wide else QVBoxLayout(self.content)
+        root.setContentsMargins(0, 0, 0, 0)
+        root.setSpacing(0)
+        if self.wide:
+            left = QScrollArea()
+            left.setWidgetResizable(True)
+            left.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+            left.setFixedWidth(380)
+            head.setObjectName("detailHead")
+            left.setWidget(head)
+            root.addWidget(left)
+            sep = QFrame()
+            sep.setFixedWidth(1)
+            sep.setStyleSheet(f"background: {k['border']};")
+            root.addWidget(sep)
+            right = QVBoxLayout()
+            right.setContentsMargins(20, 12, 20, 12)
+            right.addWidget(tabs)
+            root.addLayout(right, 1)
+        else:
+            scroll = QScrollArea()
+            scroll.setWidgetResizable(True)
+            scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+            inner = QWidget()
+            v = QVBoxLayout(inner)
+            v.setContentsMargins(0, 0, 0, 12)
+            v.setSpacing(0)
+            v.addWidget(head)
+            tabs.setMinimumHeight(440)
+            tw = QVBoxLayout()
+            tw.setContentsMargins(18, 0, 18, 0)
+            tw.addWidget(tabs, 1)
+            v.addLayout(tw, 1)
+            scroll.setWidget(inner)
+            root.addWidget(scroll)
+
+    def _value_boxes(self, d) -> QWidget:
         w = QWidget()
-        v = QVBoxLayout(w)
-        v.setContentsMargins(0, 10, 0, 0)
-        v.setSpacing(10)
-        boxes = QHBoxLayout()
+        boxes = QHBoxLayout(w)
+        boxes.setContentsMargins(0, 0, 0, 0)
         boxes.setSpacing(8)
-        for title, value in (("Nilai buku", fmt.rupiah(d.dep.book_value)), ("Harga perolehan", fmt.rupiah(r["acquisitionCost"]))):
+        for title, value in (("Nilai buku", fmt.rupiah(d.dep.book_value)), ("Harga perolehan", fmt.rupiah(d.row["acquisitionCost"]))):
             b = QFrame()
             b.setObjectName("soft")
             bv = QVBoxLayout(b)
@@ -300,7 +326,16 @@ class AssetDetailPanel(QFrame):
             val.setStyleSheet("font-weight: 700; font-size: 11pt;")
             bv.addWidget(val)
             boxes.addWidget(b)
-        v.addLayout(boxes)
+        return w
+
+    def _data_tab(self, d) -> QWidget:
+        r = d.row
+        w = QWidget()
+        v = QVBoxLayout(w)
+        v.setContentsMargins(0, 10, 0, 0)
+        v.setSpacing(10)
+        if not self.wide:
+            v.addWidget(self._value_boxes(d))
         y, m = d.age
         o = lambda x: x or "-"  # noqa: E731
         dd = lambda x: fmt.date(fmt.from_epoch_day(x)) if x is not None else "-"  # noqa: E731
@@ -328,9 +363,13 @@ class AssetDetailPanel(QFrame):
                            ("Tindak lanjut", o(r["followUp"])), ("BAST", o(r["handoverDoc"]))]),
             ("IDENTITAS", ident),
         ]
-        for title, pairs in sections:
-            v.addSpacing(4)
-            v.addWidget(label(title, "section", wrap=False))
+        cols = QGridLayout()
+        cols.setHorizontalSpacing(32)
+        cols.setVerticalSpacing(14)
+        for n, (title, pairs) in enumerate(sections):
+            sec = QVBoxLayout()
+            sec.setSpacing(6)
+            sec.addWidget(label(title, "section", wrap=False))
             g = QGridLayout()
             g.setHorizontalSpacing(12)
             g.setVerticalSpacing(6)
@@ -341,8 +380,22 @@ class AssetDetailPanel(QFrame):
                 vl = label(str(val))
                 vl.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
                 g.addWidget(vl, i, 1)
-            v.addLayout(g)
+            sec.addLayout(g)
+            sec.addStretch(1)
+            if self.wide:
+                cols.addLayout(sec, n // 2, n % 2)
+            else:
+                cols.addLayout(sec, n, 0)
+        if self.wide:
+            cols.setColumnStretch(0, 1)
+            cols.setColumnStretch(1, 1)
+        v.addLayout(cols)
         v.addStretch(1)
+        if self.wide:
+            sc = QScrollArea()
+            sc.setWidgetResizable(True)
+            sc.setWidget(w)
+            return sc
         return w
 
     # ------------------------------------------------------------------
@@ -415,3 +468,44 @@ class AssetDetailDialog(QDialog):
         r = self.ctx.assets.get_row(self.asset_id)
         if r:
             self.setWindowTitle(f"{r['code']} — {r['name']}")
+
+
+class AssetDetailPage(QWidget):
+    """Detail aset di halaman sendiri (layar penuh) dengan tombol kembali ke daftar."""
+
+    back = Signal()
+    changed = Signal()
+
+    def __init__(self, ctx):
+        super().__init__()
+        from PySide6.QtGui import QKeySequence, QShortcut
+
+        from .widgets import page_layout
+
+        self.ctx = ctx
+        v = page_layout(self)
+        top = QHBoxLayout()
+        top.setSpacing(10)
+        self.back_btn = button("Kembali ke daftar aset", icon_name="kembali")
+        self.back_btn.clicked.connect(self.back.emit)
+        top.addWidget(self.back_btn)
+        self.crumb = label("", "subtitle", wrap=False)
+        top.addWidget(self.crumb, 1)
+        v.addLayout(top)
+        self.panel = AssetDetailPanel(ctx, wide=True)
+        self.panel.changed.connect(self._changed)
+        v.addWidget(self.panel, 1)
+        QShortcut(QKeySequence(Qt.Key.Key_Escape), self, activated=self.back.emit)
+
+    @property
+    def asset_id(self):
+        return self.panel.asset_id
+
+    def show_asset(self, asset_id: str) -> None:
+        self.panel.show_asset(asset_id)
+        r = self.ctx.assets.get_row(asset_id) if asset_id else None
+        self.crumb.setText(f"Aset  /  {r['code']}  —  {r['name']}" if r else "")
+
+    def _changed(self) -> None:
+        self.show_asset(self.panel.asset_id)
+        self.changed.emit()

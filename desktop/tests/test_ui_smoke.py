@@ -41,7 +41,7 @@ def test_alur_lengkap_tahap_1(win, app):
     from asetga.ui import theme
     from asetga.ui.asset_detail import AssetDetailDialog, WriteOffDialog
     from asetga.ui.asset_form import AssetFormDialog
-    from asetga.ui.data_page import ImportPreviewDialog
+    from asetga.ui.import_dialogs import ImportPreviewDialog
     from asetga.ui.masters_page import MasterDialog
     from asetga.ui.users_page import ResetPasswordDialog, UserDialog
 
@@ -59,7 +59,8 @@ def test_alur_lengkap_tahap_1(win, app):
     # Semua menu bisa dibuka.
     for row in range(win.shell.nav.count()):
         win.shell.nav.setCurrentRow(row)
-    assert win.shell.nav.count() == 9
+    assert win.shell.nav.count() == 10
+    assert win.shell.stack.currentWidget() is win.shell.dashboard
 
     # Master data: setiap dialog bisa dibuat; simpan lokasi & divisi/departemen.
     for t in MasterType:
@@ -108,16 +109,40 @@ def test_alur_lengkap_tahap_1(win, app):
     det._render()
     det.close()
 
-    win.shell.nav.setCurrentRow(0)
-    assert win.shell.assets.table.model_.rowCount() == 1
-    # Panel detail di kanan mengikuti baris yang dipilih.
-    win.shell.assets.table.selectRow(0)
+    names = [win.shell.nav.item(i).toolTip() for i in range(win.shell.nav.count())]
+    win.shell.nav.setCurrentRow(names.index("Aset"))
+    t = win.shell.assets.table
+    assert t.proxy.rowCount() == 1
+    # Cari per kolom: kotak cari di bawah judul kolom "Nama aset".
+    name_col = [c.key for c in t.columns].index("name")
+    t.header_.editors[name_col].setText("tidak-ada")
+    assert t.proxy.rowCount() == 0
+    t.clear_filters()
+    assert t.proxy.rowCount() == 1
+    # Kolom bisa disembunyikan/ditampilkan dan urutannya digeser; disimpan per laptop.
+    vendor_col = [c.key for c in t.columns].index("vendor")
+    assert t.isColumnHidden(vendor_col)
+    t.set_column_visible(vendor_col, True)
+    t.header_.moveSection(t.header_.visualIndex(vendor_col), 1)
+    assert "vendor" in ctx.pref("assets/table/order").split(",")[:2]
+    assert "vendor" not in ctx.pref("assets/table/hidden")
+    t.column_menu(win).close()
+    # Tidak ada teks terpotong: lebar kolom >= lebar isi.
+    from PySide6.QtGui import QFontMetrics
+    fm = QFontMetrics(t.font())
+    name_text = t.proxy.index(0, name_col).data()
+    assert t.columnWidth(name_col) >= fm.horizontalAdvance(name_text)
+    # Klik dua kali baris → halaman detail sendiri, tombol kembali ke daftar.
+    win.shell.assets.open_detail(aid)
+    assert win.shell.assets.stack.currentWidget() is win.shell.assets.detail
     assert win.shell.assets.detail.asset_id == aid
-    assert win.shell.assets.k_total.value.text() == "0"  # aset Write Off tidak dihitung
-    win.grab()  # gambar seluruh jendela (delegate chip, panel, ikon)
-    win.shell.assets.search.setText("tidak-ada")
-    win.shell.assets.refresh()
-    assert win.shell.assets.table.model_.rowCount() == 0
+    win.grab()  # gambar seluruh jendela (delegate chip, tabel, ikon)
+    win.shell.assets.detail.back.emit()
+    assert win.shell.assets.stack.currentWidget() is win.shell.assets.list
+    # Dashboard
+    win.shell.nav.setCurrentRow(names.index("Dashboard"))
+    assert win.shell.dashboard.k_wo.value.text() == "1"
+    win.grab()
 
     # Pengguna.
     u = UserDialog(win, ctx)
@@ -161,7 +186,7 @@ def test_alur_lengkap_tahap_1(win, app):
     assert win.stack.currentWidget() is win.shell
     assert "Pengguna" not in [win.shell.nav.item(i).toolTip() for i in range(win.shell.nav.count())]
     win.shell.nav.setCurrentRow(0)
-    assert win.shell.assets.add_btn.isHidden()
+    assert win.shell.assets.list.add_btn.isHidden()
 
 
 def test_tahap_2_mutasi_servis_stok_label_scan(win, app, monkeypatch):
@@ -242,7 +267,9 @@ def test_tahap_2_mutasi_servis_stok_label_scan(win, app, monkeypatch):
     win.shell.scan._lookup()
     win.shell.scan.input.setText("tidak-ada")
     win.shell.scan._lookup()
-    assert opened[-2:] == ["AssetDetailDialog", "ItemDetailDialog"]
+    assert opened[-1:] == ["ItemDetailDialog"]
+    # Aset hasil scan dibuka di halaman detail modul Aset.
+    assert win.shell.assets.stack.currentWidget() is win.shell.assets.detail
     assert not win.shell.scan.banner.isHidden() and win.shell.scan.history.model_.rowCount() == 3
     win.shell.nav.setCurrentRow(names.index("Stok"))
     assert win.shell.stock.table.model_.rowCount() == 1 and "1 perlu reorder" in win.shell.stock.count.text()

@@ -34,6 +34,11 @@ PATHS = {
     "unduh": "M12 4v11M7 10l5 5 5-5M5 20h14",
     "unggah": "M12 20V9M7 14l5-5 5 5M5 4h14",
     "cetak": "M7 9V4h10v5M7 17H5v-6h14v6h-2M7 14h10v6H7z",
+    "dashboard": "M4 4h7v9H4zM13 4h7v5h-7zM13 11h7v9h-7zM4 15h7v5H4z",
+    "kembali": "M15 6l-6 6 6 6M9 12h11",
+    "kolom": "M4 5h16v14H4zM10 5v14M15 5v14",
+    "export": "M12 15V4M7 9l5-5 5 5M5 20h14",
+    "panah_bawah": "M6 9l6 6 6-6",
     "backup": "M12 3l8 4v5c0 5-3.5 8-8 9-4.5-1-8-4-8-9V7zM9 12l2 2 4-4",
 }
 

@@ -36,13 +36,21 @@ Penting:
 - Menu **Stok**: barang habis pakai, barang masuk/keluar (stok tidak bisa minus), status Reorder, import barang dari Excel, scan barcode di kolom cari.
 - **Label QR 50 × 20 mm**: dari detail aset atau beberapa aset terpilih di daftar (tombol Label QR). Bisa disimpan sebagai PDF (1 label per halaman), PNG, atau langsung dicetak ke printer.
 - Menu **Scan**: pakai scanner barcode/QR USB (bekerja seperti keyboard) atau ketik kode. Cocok dengan kode aset, kode QR, atau kode/barcode barang.
-- Export riwayat servis dan stok & transaksi (Excel/CSV) di menu Import / Export & Backup.
+- Export riwayat servis dan stok & transaksi (Excel) di menu Servis dan Stok.
 
 **Tampilan (desktop-8)**
 - Gaya modern lembut: kartu putih bersudut di atas latar abu-abu muda, aksen biru BCA Life, tema terang/gelap.
 - Menu samping berikon, otomatis hanya ikon di layar sempit (< 1280 px).
 - Halaman Aset: kartu ringkasan, status berwarna, dan panel detail di kanan. Pintasan Ctrl+F (cari) dan Ctrl+N (tambah aset).
 - Pesan sukses muncul sebagai notifikasi kecil di pojok kanan bawah.
+
+**Pembaruan (permintaan 28/11/2026)**
+- Ikon aplikasi sama dengan Android (kubus putih di latar biru).
+- **Dashboard** analisis sebagai halaman pertama: nilai perolehan, nilai buku & penyusutan, sebaran per status/kategori/lokasi/divisi/kondisi/umur/tahun, serta daftar garansi segera habis, servis jatuh tempo, aset rusak, dan stok reorder. Bisa disaring per lokasi & divisi.
+- **Tabel aset**: kotak cari di bawah setiap judul kolom, urutkan dengan klik judul, geser judul untuk mengatur urutan, tombol **Kolom** untuk memilih kolom (semua field aset tersedia). Lebar kolom mengikuti isi sehingga tidak ada teks terpotong. Susunan disimpan di laptop.
+- **Detail aset di halaman sendiri** (klik dua kali baris; Esc / tombol Kembali ke daftar).
+- **Tambah aset ▾**: Tambah manual, Import dari Excel, Unduh template. **Export** (Excel .xlsx) terpisah, berisi aset yang sedang tampil.
+- Import/export stok ada di menu Stok, export servis di menu Servis. **Backup & restore** menjadi menu sendiri (khusus Admin GA).
 
 Menyusul di tahap 3: stock opname, asuransi, dashboard, pengingat, dan pengaturan.
 

@@ -7,7 +7,7 @@ from pathlib import Path
 
 from PySide6.QtCore import Qt, QTimer
 from PySide6.QtWidgets import (
-    QApplication, QCheckBox, QDialog, QDialogButtonBox, QFileDialog, QGridLayout, QGroupBox, QHBoxLayout, QLineEdit, QVBoxLayout,
+    QApplication, QCheckBox, QMenu, QDialog, QDialogButtonBox, QFileDialog, QGridLayout, QGroupBox, QHBoxLayout, QLineEdit, QVBoxLayout,
     QWidget,
 )
 
@@ -194,23 +194,25 @@ class StockPage(QWidget):
         self.search = search_field("Cari kode, nama, atau scan barcode lalu Enter")
         self.search.setMinimumWidth(340)
         self.search.returnPressed.connect(self._enter)
-        self.add_btn = primary("Tambah barang", "tambah")
-        self.add_btn.clicked.connect(lambda: self._add())
-        v.addLayout(page_header("Stok", self.count, self.search, self.add_btn))
+        self.add_btn = primary("Tambah barang  ▾", "tambah")
+        add_menu = QMenu(self.add_btn)
+        add_menu.addAction("Tambah manual…", lambda: self._add())
+        add_menu.addAction("Import dari Excel…", self._import)
+        add_menu.addSeparator()
+        add_menu.addAction("Unduh template import", self._template)
+        self.add_btn.setMenu(add_menu)
+        self.export_btn = button("Export", icon_name="export")
+        self.export_btn.setToolTip("Export stok & transaksi ke Excel (.xlsx)")
+        self.export_btn.clicked.connect(self._export)
+        v.addLayout(page_header("Stok", self.count, self.search, self.export_btn, self.add_btn))
         box = card("v")
         bar = QHBoxLayout()
         bar.setContentsMargins(16, 12, 16, 10)
         bar.setSpacing(8)
         self.reorder = QCheckBox("Hanya yang perlu reorder")
         self.reorder.toggled.connect(lambda _: self.refresh())
-        self.template_btn = button("Template import barang", icon_name="unduh")
-        self.template_btn.clicked.connect(self._template)
-        self.import_btn = button("Import barang…", icon_name="unggah")
-        self.import_btn.clicked.connect(self._import)
         bar.addWidget(self.reorder)
         bar.addStretch(1)
-        bar.addWidget(self.template_btn)
-        bar.addWidget(self.import_btn)
         box.layout().addLayout(bar)
         self.table = Table(["Kode", "Nama barang", "Stok akhir", "Minimum", "Satuan", "Lokasi simpan", "Barcode", "Status"], chips={7},
                            empty_text="Belum ada barang. Tambah barang atau import dari Excel.")
@@ -224,8 +226,7 @@ class StockPage(QWidget):
     def on_show(self) -> None:
         role = self.ctx.session.role
         can = bool(role and role.can_edit_data)
-        for b in (self.add_btn, self.import_btn):
-            b.setVisible(can)
+        self.add_btn.setVisible(can)
         self.refresh()
         self.search.setFocus()
 
@@ -271,6 +272,22 @@ class StockPage(QWidget):
         dlg.exec()
         if dlg.changed:
             self.refresh()
+
+    def _export(self) -> None:
+        import datetime as _dt
+
+        stamp = _dt.date.today().strftime("%Y%m%d")
+        path, _ = QFileDialog.getSaveFileName(self, "Export stok ke Excel", str(Path(self.ctx.last_dir()) / f"stok-{stamp}.xlsx"),
+                                              "Excel (*.xlsx)")
+        if not path:
+            return
+        self.ctx.remember_dir(path)
+        try:
+            n = excel.export_stock(self.ctx.stock, path, "xlsx", self.ctx.audit)
+        except OSError as e:
+            error(self, f"Gagal menyimpan file: {e}. Tutup file di Excel bila sedang terbuka.")
+            return
+        notify(self, f"{n} barang & riwayat transaksi diexport ke Excel")
 
     def _template(self) -> None:
         path, _ = QFileDialog.getSaveFileName(self, "Simpan template", str(Path(self.ctx.last_dir()) / "template-import-barang.xlsx"),
