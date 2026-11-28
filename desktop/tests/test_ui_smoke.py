@@ -185,7 +185,9 @@ def test_alur_lengkap_tahap_1(win, app):
     win.login._login()
     assert win.stack.currentWidget() is win.shell
     assert "Pengguna" not in [win.shell.nav.item(i).toolTip() for i in range(win.shell.nav.count())]
-    win.shell.nav.setCurrentRow(0)
+    viewer_names = [win.shell.nav.item(i).toolTip() for i in range(win.shell.nav.count())]
+    assert "Backup & restore" not in viewer_names
+    win.shell.nav.setCurrentRow(viewer_names.index("Aset"))
     assert win.shell.assets.list.add_btn.isHidden()
 
 
